@@ -94,6 +94,9 @@ use codex_protocol::models::MessagePhase;
 use codex_protocol::models::ResponseItem;
 use codex_protocol::models::local_image_label_text;
 use codex_protocol::parse_command::ParsedCommand;
+use codex_protocol::protocol::AGENT_INBOX_KIND;
+use codex_protocol::protocol::AGENT_INBOX_MESSAGE_PREFIX;
+use codex_protocol::protocol::AgentInboxPayload;
 use codex_protocol::protocol::AgentMessageDeltaEvent;
 use codex_protocol::protocol::AgentMessageEvent;
 use codex_protocol::protocol::AgentReasoningDeltaEvent;
@@ -102,10 +105,7 @@ use codex_protocol::protocol::AgentReasoningRawContentDeltaEvent;
 use codex_protocol::protocol::AgentReasoningRawContentEvent;
 use codex_protocol::protocol::ApplyPatchApprovalRequestEvent;
 use codex_protocol::protocol::BackgroundEventEvent;
-use codex_protocol::protocol::COLLAB_INBOX_KIND;
-use codex_protocol::protocol::COLLAB_INBOX_MESSAGE_PREFIX;
 use codex_protocol::protocol::CodexErrorInfo;
-use codex_protocol::protocol::CollabInboxPayload;
 use codex_protocol::protocol::CreditsSnapshot;
 use codex_protocol::protocol::DeprecationNoticeEvent;
 use codex_protocol::protocol::ErrorEvent;
@@ -371,12 +371,12 @@ fn is_unified_exec_source(source: ExecCommandSource) -> bool {
     )
 }
 
-fn collab_inbox_message_from_item(item: &ResponseItem) -> Option<(Option<String>, String)> {
+fn agent_inbox_message_from_item(item: &ResponseItem) -> Option<(Option<String>, String)> {
     match item {
         ResponseItem::FunctionCallOutput { output, .. } => {
             let text = output.body.to_text()?;
-            let payload: CollabInboxPayload = serde_json::from_str(&text).ok()?;
-            if !payload.injected || payload.kind != COLLAB_INBOX_KIND {
+            let payload: AgentInboxPayload = serde_json::from_str(&text).ok()?;
+            if !payload.injected || payload.kind != AGENT_INBOX_KIND {
                 return None;
             }
             Some((Some(payload.sender_thread_id.to_string()), payload.message))
@@ -388,7 +388,7 @@ fn collab_inbox_message_from_item(item: &ResponseItem) -> Option<(Option<String>
                 }
                 _ => None,
             })?;
-            let rest = text.strip_prefix(COLLAB_INBOX_MESSAGE_PREFIX)?;
+            let rest = text.strip_prefix(AGENT_INBOX_MESSAGE_PREFIX)?;
             let (sender, message) = rest.split_once(']')?;
             let message = message.trim_start().to_string();
             let sender = sender.trim().to_string();
@@ -737,7 +737,7 @@ pub(crate) struct ChatWidget {
     status_line_branch_lookup_complete: bool,
     external_editor_state: ExternalEditorState,
     realtime_conversation: RealtimeConversationUiState,
-    last_replayed_collab_inbox_message: Option<(Option<String>, String)>,
+    last_replayed_agent_inbox_message: Option<(Option<String>, String)>,
     last_rendered_user_message_event: Option<RenderedUserMessageEvent>,
 }
 
@@ -2501,21 +2501,21 @@ impl ChatWidget {
     }
 
     fn on_raw_response_item(&mut self, event: RawResponseItemEvent, from_replay: bool) {
-        let Some((sender, message)) = collab_inbox_message_from_item(&event.item) else {
+        let Some((sender, message)) = agent_inbox_message_from_item(&event.item) else {
             if from_replay {
-                self.last_replayed_collab_inbox_message = None;
+                self.last_replayed_agent_inbox_message = None;
             }
             return;
         };
 
         let replay_key = (sender.clone(), message.clone());
         if from_replay {
-            if self.last_replayed_collab_inbox_message.as_ref() == Some(&replay_key) {
+            if self.last_replayed_agent_inbox_message.as_ref() == Some(&replay_key) {
                 return;
             }
-            self.last_replayed_collab_inbox_message = Some(replay_key);
+            self.last_replayed_agent_inbox_message = Some(replay_key);
         } else {
-            self.last_replayed_collab_inbox_message = None;
+            self.last_replayed_agent_inbox_message = None;
         }
 
         let hint = sender.map(|sender| format!("from {sender}"));
@@ -3235,7 +3235,7 @@ impl ChatWidget {
             status_line_branch_lookup_complete: false,
             external_editor_state: ExternalEditorState::Closed,
             realtime_conversation: RealtimeConversationUiState::default(),
-            last_replayed_collab_inbox_message: None,
+            last_replayed_agent_inbox_message: None,
             last_rendered_user_message_event: None,
         };
 
@@ -3418,7 +3418,7 @@ impl ChatWidget {
             status_line_branch_lookup_complete: false,
             external_editor_state: ExternalEditorState::Closed,
             realtime_conversation: RealtimeConversationUiState::default(),
-            last_replayed_collab_inbox_message: None,
+            last_replayed_agent_inbox_message: None,
             last_rendered_user_message_event: None,
         };
 
@@ -3593,7 +3593,7 @@ impl ChatWidget {
             status_line_branch_lookup_complete: false,
             external_editor_state: ExternalEditorState::Closed,
             realtime_conversation: RealtimeConversationUiState::default(),
-            last_replayed_collab_inbox_message: None,
+            last_replayed_agent_inbox_message: None,
             last_rendered_user_message_event: None,
         };
 
@@ -4764,7 +4764,7 @@ impl ChatWidget {
             self.restore_retry_status_header_if_present();
         }
         if !from_replay || !matches!(&msg, EventMsg::RawResponseItem(_)) {
-            self.last_replayed_collab_inbox_message = None;
+            self.last_replayed_agent_inbox_message = None;
         }
 
         match msg {
