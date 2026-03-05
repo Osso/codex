@@ -164,7 +164,7 @@ use crate::error::Result as CodexResult;
 #[cfg(test)]
 use crate::exec::StreamOutput;
 use crate::model_visible_context::ModelVisibleContextFragment;
-use crate::model_visible_context::TurnBackedContextFragment;
+use crate::model_visible_context::TurnContextDiffFragment;
 use codex_config::CONFIG_TOML_FILE;
 
 mod rollout_reconstruction;
@@ -3247,7 +3247,7 @@ impl Session {
             developer_envelope.push(commit_message_instruction);
         }
         if let Some(user_instructions) =
-            <UserInstructions as TurnBackedContextFragment>::from_turn_context(
+            <UserInstructions as TurnContextDiffFragment>::from_turn_context(
                 turn_context,
                 shell.as_ref(),
             )
@@ -3269,7 +3269,7 @@ impl Session {
             .format_environment_context_subagents(self.conversation_id)
             .await;
         if let Some(environment_context) =
-            <EnvironmentContext as TurnBackedContextFragment>::from_turn_context(
+            <EnvironmentContext as TurnContextDiffFragment>::from_turn_context(
                 turn_context,
                 shell.as_ref(),
             )
