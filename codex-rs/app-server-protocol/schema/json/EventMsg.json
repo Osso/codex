@@ -326,6 +326,14 @@
       ],
       "type": "object"
     },
+    "CollabAgentSpawnMode": {
+      "enum": [
+        "spawn",
+        "fork",
+        "watchdog"
+      ],
+      "type": "string"
+    },
     "CollabAgentStatusEntry": {
       "properties": {
         "agent_nickname": {
@@ -2988,6 +2996,15 @@
                 }
               ],
               "description": "Thread ID of the sender."
+            },
+            "spawn_mode": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/CollabAgentSpawnMode"
+                }
+              ],
+              "default": "spawn",
+              "description": "Spawn mode used for this agent."
             },
             "status": {
               "allOf": [
@@ -8800,6 +8817,15 @@
             }
           ],
           "description": "Thread ID of the sender."
+        },
+        "spawn_mode": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/CollabAgentSpawnMode"
+            }
+          ],
+          "default": "spawn",
+          "description": "Spawn mode used for this agent."
         },
         "status": {
           "allOf": [
