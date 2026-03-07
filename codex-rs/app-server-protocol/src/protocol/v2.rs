@@ -3606,6 +3606,7 @@ pub enum ThreadItem {
     },
     #[serde(rename_all = "camelCase")]
     #[ts(rename_all = "camelCase")]
+    #[experimental("thread/item.guardianAssessment")]
     GuardianAssessment {
         id: String,
         status: GuardianAssessmentStatus,
