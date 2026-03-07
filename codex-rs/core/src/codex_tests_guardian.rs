@@ -16,6 +16,8 @@ use codex_execpolicy::RuleMatch;
 use codex_protocol::models::FunctionCallOutputBody;
 use codex_protocol::models::NetworkPermissions;
 use codex_protocol::models::PermissionProfile;
+use codex_protocol::permissions::FileSystemSandboxPolicy;
+use codex_protocol::permissions::NetworkSandboxPolicy;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use core_test_support::codex_linux_sandbox_exe_or_skip;
 use pretty_assertions::assert_eq;
@@ -45,6 +47,10 @@ async fn guardian_allows_shell_additional_permissions_requests_past_policy_valid
         .sandbox_policy
         .set(SandboxPolicy::DangerFullAccess)
         .expect("test setup should allow updating sandbox policy");
+    turn_context_raw.file_system_sandbox_policy =
+        FileSystemSandboxPolicy::from(turn_context_raw.sandbox_policy.get());
+    turn_context_raw.network_sandbox_policy =
+        NetworkSandboxPolicy::from(turn_context_raw.sandbox_policy.get());
     let session = Arc::new(session);
     let turn_context = Arc::new(turn_context_raw);
 
