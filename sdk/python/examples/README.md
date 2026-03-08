@@ -49,3 +49,5 @@ python examples/01_quickstart_constructor/async.py
   - interactive chat loop
 - `12_turn_params_kitchen_sink/`
   - one turn using most optional `turn(...)` params (sync + async)
+- `13_model_select_and_turn_params/`
+  - list models, pick highest model + highest supported reasoning effort, run turns, print message and usage

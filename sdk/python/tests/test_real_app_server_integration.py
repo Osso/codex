@@ -45,6 +45,8 @@ EXAMPLE_CASES: list[tuple[str, str]] = [
     ("11_cli_mini_app", "async.py"),
     ("12_turn_params_kitchen_sink", "sync.py"),
     ("12_turn_params_kitchen_sink", "async.py"),
+    ("13_model_select_and_turn_params", "sync.py"),
+    ("13_model_select_and_turn_params", "async.py"),
 ]
 
 
@@ -157,3 +159,5 @@ def test_real_examples_run_and_assert(folder: str, script: str):
         assert "Thread:" in out
     elif folder == "12_turn_params_kitchen_sink":
         assert "Status:" in out and "Usage:" in out
+    elif folder == "13_model_select_and_turn_params":
+        assert "selected.model:" in out and "agent.message.params:" in out and "usage.params:" in out
