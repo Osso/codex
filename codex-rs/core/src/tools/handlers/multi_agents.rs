@@ -28,6 +28,7 @@ use async_trait::async_trait;
 use codex_protocol::ThreadId;
 use codex_protocol::models::BaseInstructions;
 use codex_protocol::models::FunctionCallOutputBody;
+use codex_protocol::protocol::AgentSpawnMode;
 use codex_protocol::protocol::CollabAgentInteractionBeginEvent;
 use codex_protocol::protocol::CollabAgentInteractionEndEvent;
 use codex_protocol::protocol::CollabAgentRef;
@@ -125,6 +126,16 @@ mod spawn {
         Spawn,
         Fork,
         Watchdog,
+    }
+
+    impl From<SpawnMode> for AgentSpawnMode {
+        fn from(value: SpawnMode) -> Self {
+            match value {
+                SpawnMode::Spawn => Self::Spawn,
+                SpawnMode::Fork => Self::Fork,
+                SpawnMode::Watchdog => Self::Watchdog,
+            }
+        }
     }
 
     #[derive(Debug, Deserialize)]
@@ -291,6 +302,11 @@ mod spawn {
                     new_agent_nickname,
                     new_agent_role,
                     prompt,
+                    // Preserve the exact spawn mode. The TUI relies on this to render
+                    // watchdog rows distinctly, mark them idle between check-ins, and
+                    // prune superseded watchdog registrations. Defaulting this to
+                    // `spawn` is a behavioral bug, not a cosmetic one.
+                    spawn_mode: spawn_mode.into(),
                     status,
                 }
                 .into(),
@@ -1448,6 +1464,7 @@ mod tests {
     use crate::ThreadManager;
     use crate::built_in_model_providers;
     use crate::codex::make_session_and_context;
+    use crate::codex::make_session_and_context_with_rx;
     use crate::config::DEFAULT_AGENT_MAX_DEPTH;
     use crate::config::types::ShellEnvironmentPolicy;
     use crate::function_tool::FunctionCallError;
@@ -1460,6 +1477,8 @@ mod tests {
     use codex_protocol::ThreadId;
     use codex_protocol::models::ContentItem;
     use codex_protocol::models::ResponseItem;
+    use codex_protocol::protocol::AgentSpawnMode;
+    use codex_protocol::protocol::EventMsg;
     use codex_protocol::protocol::InitialHistory;
     use codex_protocol::protocol::RolloutItem;
     use pretty_assertions::assert_eq;
@@ -1861,6 +1880,46 @@ mod tests {
             err,
             FunctionCallError::RespondToModel("watchdogs are disabled".to_string())
         );
+    }
+
+    #[tokio::test]
+    async fn spawn_agent_emits_watchdog_spawn_mode_in_spawn_end_event() {
+        let (mut session, mut turn, rx) = make_session_and_context_with_rx().await;
+        let manager = thread_manager();
+        Arc::get_mut(&mut session)
+            .expect("session should not be shared")
+            .services
+            .agent_control = manager.agent_control();
+        let mut config = turn.config.as_ref().clone();
+        let _ = config.features.enable(Feature::Collab);
+        let _ = config.features.enable(Feature::AgentWatchdog);
+        Arc::get_mut(&mut turn)
+            .expect("turn should not be shared")
+            .config = Arc::new(config);
+        let invocation = invocation(
+            session.clone(),
+            turn.clone(),
+            "spawn_agent",
+            function_payload(json!({"message": "hello", "spawn_mode": "watchdog"})),
+        );
+        MultiAgentHandler
+            .handle(invocation)
+            .await
+            .expect("watchdog spawn should succeed");
+
+        loop {
+            let event = tokio::time::timeout(Duration::from_secs(15), rx.recv())
+                .await
+                .expect("timeout waiting for collab spawn end")
+                .expect("event should be delivered");
+            match event.msg {
+                EventMsg::CollabAgentSpawnEnd(ev) => {
+                    assert_eq!(ev.spawn_mode, AgentSpawnMode::Watchdog);
+                    break;
+                }
+                _ => continue,
+            }
+        }
     }
 
     #[tokio::test]
