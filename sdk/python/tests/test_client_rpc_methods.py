@@ -74,6 +74,22 @@ def test_codex_event_notifications_are_typed() -> None:
     assert event.payload.msg.type == "turn_aborted"
 
 
+def test_codex_event_blank_ids_are_normalized_to_none() -> None:
+    client = AppServerClient()
+    event = client._coerce_notification(
+        "codex/event/mcp_startup_complete",
+        {
+            "id": "",
+            "conversationId": "",
+            "msg": {"type": "mcp_startup_complete"},
+        },
+    )
+
+    assert isinstance(event.payload, CodexEventNotification)
+    assert event.payload.id is None
+    assert event.payload.conversationId is None
+
+
 def test_invalid_notification_payload_falls_back_to_unknown() -> None:
     client = AppServerClient()
     event = client._coerce_notification("thread/tokenUsage/updated", {"threadId": "missing"})

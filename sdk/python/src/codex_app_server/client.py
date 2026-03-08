@@ -492,8 +492,13 @@ class AppServerClient:
         params_dict = params if isinstance(params, dict) else {}
 
         if method.startswith("codex/event/"):
+            event_params = dict(params_dict)
+            for key in ("id", "conversationId"):
+                value = event_params.get(key)
+                if isinstance(value, str) and value.strip() == "":
+                    event_params[key] = None
             try:
-                payload = CodexEventNotification.model_validate(params_dict)
+                payload = CodexEventNotification.model_validate(event_params)
             except Exception:  # noqa: BLE001
                 return Notification(method=method, payload=UnknownNotification(params=params_dict))
             return Notification(method=method, payload=payload)
