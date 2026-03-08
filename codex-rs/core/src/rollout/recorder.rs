@@ -595,6 +595,10 @@ impl RolloutRecorder {
         Ok((items, thread_id, parse_errors))
     }
 
+    /// Load a rollout for resume semantics.
+    ///
+    /// This preserves the rollout's existing conversation id and rollout path, so callers must
+    /// not use it for true forking semantics.
     pub async fn get_rollout_history(path: &Path) -> std::io::Result<InitialHistory> {
         let (items, thread_id, _parse_errors) = Self::load_rollout_items(path).await?;
         let conversation_id = thread_id
@@ -610,6 +614,21 @@ impl RolloutRecorder {
             history: items,
             rollout_path: path.to_path_buf(),
         }))
+    }
+
+    /// Load a rollout for true fork semantics.
+    ///
+    /// Unlike `get_rollout_history`, this intentionally discards the source rollout's
+    /// conversation id so the child thread gets a fresh id and preserves `forked_from_id`.
+    pub async fn get_fork_history(path: &Path) -> std::io::Result<InitialHistory> {
+        let (items, _thread_id, _parse_errors) = Self::load_rollout_items(path).await?;
+
+        if items.is_empty() {
+            return Ok(InitialHistory::New);
+        }
+
+        info!("Loaded rollout fork history from {path:?}");
+        Ok(InitialHistory::Forked(items))
     }
 
     pub async fn shutdown(&self) -> std::io::Result<()> {

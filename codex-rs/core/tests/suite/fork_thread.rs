@@ -171,3 +171,54 @@ async fn fork_thread_twice_drops_to_first_message() {
         serde_json::to_value(&expected_after_second).unwrap()
     );
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn fork_thread_session_configured_preserves_parent_and_history() {
+    skip_if_no_network!();
+
+    let server = MockServer::start().await;
+    let sse = sse(vec![ev_response_created("resp"), ev_completed("resp")]);
+    let response = ResponseTemplate::new(200)
+        .insert_header("content-type", "text/event-stream")
+        .set_body_raw(sse, "text/event-stream");
+
+    Mock::given(method("POST"))
+        .and(path("/v1/responses"))
+        .respond_with(response)
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let mut builder = test_codex();
+    let test = builder.build(&server).await.expect("create conversation");
+    let codex = test.codex.clone();
+    let thread_manager = test.thread_manager.clone();
+    let config_for_fork = test.config.clone();
+    let parent_thread_id = test.session_configured.session_id;
+
+    codex
+        .submit(Op::UserInput {
+            items: vec![UserInput::Text {
+                text: "seed".to_string(),
+                text_elements: Vec::new(),
+            }],
+            final_output_json_schema: None,
+        })
+        .await
+        .unwrap();
+    let _ = wait_for_event(&codex, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
+
+    let base_path = codex.rollout_path().expect("rollout path");
+
+    let NewThread {
+        thread_id: child_thread_id,
+        session_configured,
+        ..
+    } = thread_manager
+        .fork_thread(usize::MAX, config_for_fork, base_path, false)
+        .await
+        .expect("fork thread");
+
+    pretty_assertions::assert_eq!(session_configured.forked_from_id, Some(parent_thread_id));
+    assert_ne!(child_thread_id, parent_thread_id);
+}

@@ -410,7 +410,10 @@ impl ThreadManager {
         path: PathBuf,
         persist_extended_history: bool,
     ) -> CodexResult<NewThread> {
-        let history = RolloutRecorder::get_rollout_history(&path).await?;
+        // True forks must discard the source rollout's conversation id so the child gets a
+        // distinct thread id and preserves `forked_from_id` in its SessionMeta. Using the
+        // resume loader here silently turns a fork into an in-place resume.
+        let history = RolloutRecorder::get_fork_history(&path).await?;
         let mut history = truncate_before_nth_user_message(
             config.codex_home.as_path(),
             history,
