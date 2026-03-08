@@ -4,14 +4,12 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from pydantic import BaseModel, Field
 
 
 class ConfigReadParams(BaseModel):
-    cwd: Optional[str] = Field(
+    cwd: str | None = Field(
         None,
         description="Optional working directory to resolve project config layers. If specified, return the effective config as seen from that directory (i.e., including any project layers between `cwd` and the project/repo root).",
     )
-    includeLayers: Optional[bool] = False
+    includeLayers: bool | None = False

@@ -4,12 +4,10 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from pydantic import BaseModel
 
 
 class McpServerOauthLoginCompletedNotification(BaseModel):
-    error: Optional[str] = None
+    error: str | None = None
     name: str
     success: bool

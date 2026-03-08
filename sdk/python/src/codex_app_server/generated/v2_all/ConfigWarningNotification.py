@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from pydantic import BaseModel, Field, conint
 
 
@@ -22,13 +20,13 @@ class TextRange(BaseModel):
 
 
 class ConfigWarningNotification(BaseModel):
-    details: Optional[str] = Field(
+    details: str | None = Field(
         None, description="Optional extra guidance or error details."
     )
-    path: Optional[str] = Field(
+    path: str | None = Field(
         None, description="Optional path to the config file that triggered the warning."
     )
-    range: Optional[TextRange] = Field(
+    range: TextRange | None = Field(
         None,
         description="Optional range for the error location inside the config file.",
     )

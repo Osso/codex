@@ -4,29 +4,27 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
-
 from pydantic import BaseModel, Field
 
 
 class AppInfo(BaseModel):
-    description: Optional[str] = None
-    distributionChannel: Optional[str] = None
+    description: str | None = None
+    distributionChannel: str | None = None
     id: str
-    installUrl: Optional[str] = None
-    isAccessible: Optional[bool] = False
-    isEnabled: Optional[bool] = Field(
+    installUrl: str | None = None
+    isAccessible: bool | None = False
+    isEnabled: bool | None = Field(
         True,
         description="Whether this app is enabled in config.toml. Example: ```toml [apps.bad_app] enabled = false ```",
     )
-    logoUrl: Optional[str] = None
-    logoUrlDark: Optional[str] = None
+    logoUrl: str | None = None
+    logoUrlDark: str | None = None
     name: str
 
 
 class AppsListResponse(BaseModel):
-    data: List[AppInfo]
-    nextCursor: Optional[str] = Field(
+    data: list[AppInfo]
+    nextCursor: str | None = Field(
         None,
         description="Opaque cursor to pass to the next call to continue after the last item. If None, there are no more items to return.",
     )

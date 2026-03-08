@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -16,8 +16,8 @@ class MergeStrategy(Enum):
 
 
 class ConfigValueWriteParams(BaseModel):
-    expectedVersion: Optional[str] = None
-    filePath: Optional[str] = Field(
+    expectedVersion: str | None = None
+    filePath: str | None = Field(
         None,
         description="Path to the config file to write; defaults to the user's `config.toml` when omitted.",
     )

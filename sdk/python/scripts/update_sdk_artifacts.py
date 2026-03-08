@@ -65,10 +65,6 @@ def run(cmd: list[str], cwd: Path) -> None:
     subprocess.run(cmd, cwd=str(cwd), check=True)
 
 
-def run_python_module(module: str, args: list[str], cwd: Path) -> None:
-    run([sys.executable, "-m", module, *args], cwd)
-
-
 def platform_tokens() -> tuple[list[str], list[str]]:
     sys_name = platform.system().lower()
     machine = platform.machine().lower()
@@ -206,9 +202,9 @@ def generate_v2_all() -> None:
     if out_dir.exists():
         shutil.rmtree(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    run_python_module(
-        "datamodel_code_generator",
+    run(
         [
+            "datamodel-codegen",
             "--input",
             str(schema_dir()),
             "--input-file-type",
@@ -985,8 +981,6 @@ def generate_public_api_flat_methods() -> None:
 def generate_types() -> None:
     # v2_all is the authoritative generated surface.
     generate_v2_all()
-    generate_protocol_types()
-    generate_schema_types()
     generate_notification_registry()
     generate_codex_event_types()
     generate_public_api_flat_methods()

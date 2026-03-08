@@ -5,13 +5,13 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
 
 class CreditsSnapshot(BaseModel):
-    balance: Optional[str] = None
+    balance: str | None = None
     hasCredits: bool
     unlimited: bool
 
@@ -29,18 +29,18 @@ class PlanType(Enum):
 
 
 class RateLimitWindow(BaseModel):
-    resetsAt: Optional[int] = None
+    resetsAt: int | None = None
     usedPercent: int
-    windowDurationMins: Optional[int] = None
+    windowDurationMins: int | None = None
 
 
 class RateLimitSnapshot(BaseModel):
-    credits: Optional[CreditsSnapshot] = None
-    limitId: Optional[str] = None
-    limitName: Optional[str] = None
-    planType: Optional[PlanType] = None
-    primary: Optional[RateLimitWindow] = None
-    secondary: Optional[RateLimitWindow] = None
+    credits: CreditsSnapshot | None = None
+    limitId: str | None = None
+    limitName: str | None = None
+    planType: PlanType | None = None
+    primary: RateLimitWindow | None = None
+    secondary: RateLimitWindow | None = None
 
 
 class GetAccountRateLimitsResponse(BaseModel):
@@ -48,7 +48,7 @@ class GetAccountRateLimitsResponse(BaseModel):
         ...,
         description="Backward-compatible single-bucket view; mirrors the historical payload.",
     )
-    rateLimitsByLimitId: Optional[Dict[str, Any]] = Field(
+    rateLimitsByLimitId: dict[str, Any] | None = Field(
         None,
         description="Multi-bucket view keyed by metered `limit_id` (for example, `codex`).",
     )

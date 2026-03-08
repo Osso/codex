@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel, conint
 
@@ -23,7 +22,7 @@ class CodexErrorInfo1(Enum):
 
 
 class HttpConnectionFailed(BaseModel):
-    httpStatusCode: Optional[conint(ge=0)] = None
+    httpStatusCode: conint(ge=0) | None = None
 
 
 class CodexErrorInfo2(BaseModel):
@@ -34,7 +33,7 @@ class CodexErrorInfo2(BaseModel):
 
 
 class ResponseStreamConnectionFailed(BaseModel):
-    httpStatusCode: Optional[conint(ge=0)] = None
+    httpStatusCode: conint(ge=0) | None = None
 
 
 class CodexErrorInfo3(BaseModel):
@@ -45,7 +44,7 @@ class CodexErrorInfo3(BaseModel):
 
 
 class ResponseStreamDisconnected(BaseModel):
-    httpStatusCode: Optional[conint(ge=0)] = None
+    httpStatusCode: conint(ge=0) | None = None
 
 
 class CodexErrorInfo4(BaseModel):
@@ -56,7 +55,7 @@ class CodexErrorInfo4(BaseModel):
 
 
 class ResponseTooManyFailedAttempts(BaseModel):
-    httpStatusCode: Optional[conint(ge=0)] = None
+    httpStatusCode: conint(ge=0) | None = None
 
 
 class CodexErrorInfo5(BaseModel):
@@ -68,30 +67,28 @@ class CodexErrorInfo5(BaseModel):
 
 class CodexErrorInfo(
     RootModel[
-        Union[
-            CodexErrorInfo1,
-            CodexErrorInfo2,
-            CodexErrorInfo3,
-            CodexErrorInfo4,
-            CodexErrorInfo5,
-        ]
+        CodexErrorInfo1
+        | CodexErrorInfo2
+        | CodexErrorInfo3
+        | CodexErrorInfo4
+        | CodexErrorInfo5
     ]
 ):
-    root: Union[
-        CodexErrorInfo1,
-        CodexErrorInfo2,
-        CodexErrorInfo3,
-        CodexErrorInfo4,
-        CodexErrorInfo5,
-    ] = Field(
+    root: (
+        CodexErrorInfo1
+        | CodexErrorInfo2
+        | CodexErrorInfo3
+        | CodexErrorInfo4
+        | CodexErrorInfo5
+    ) = Field(
         ...,
         description="This translation layer make sure that we expose codex error code in camel case.\n\nWhen an upstream HTTP status is available (for example, from the Responses API or a provider), it is forwarded in `httpStatusCode` on the relevant `codexErrorInfo` variant.",
     )
 
 
 class TurnError(BaseModel):
-    additionalDetails: Optional[str] = None
-    codexErrorInfo: Optional[CodexErrorInfo] = None
+    additionalDetails: str | None = None
+    codexErrorInfo: CodexErrorInfo | None = None
     message: str
 
 

@@ -4,13 +4,11 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from pydantic import BaseModel, Field
 
 
 class ThreadReadParams(BaseModel):
-    includeTurns: Optional[bool] = Field(
+    includeTurns: bool | None = Field(
         False,
         description="When true, include turns and their items from rollout history.",
     )

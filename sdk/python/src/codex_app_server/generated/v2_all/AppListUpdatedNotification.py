@@ -4,25 +4,23 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
-
 from pydantic import BaseModel, Field
 
 
 class AppInfo(BaseModel):
-    description: Optional[str] = None
-    distributionChannel: Optional[str] = None
+    description: str | None = None
+    distributionChannel: str | None = None
     id: str
-    installUrl: Optional[str] = None
-    isAccessible: Optional[bool] = False
-    isEnabled: Optional[bool] = Field(
+    installUrl: str | None = None
+    isAccessible: bool | None = False
+    isEnabled: bool | None = Field(
         True,
         description="Whether this app is enabled in config.toml. Example: ```toml [apps.bad_app] enabled = false ```",
     )
-    logoUrl: Optional[str] = None
-    logoUrlDark: Optional[str] = None
+    logoUrl: str | None = None
+    logoUrlDark: str | None = None
     name: str
 
 
 class AppListUpdatedNotification(BaseModel):
-    data: List[AppInfo]
+    data: list[AppInfo]

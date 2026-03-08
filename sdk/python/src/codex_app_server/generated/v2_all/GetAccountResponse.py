@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional, Union
 
 from pydantic import BaseModel, Field, RootModel
 
@@ -40,10 +39,10 @@ class Account2(BaseModel):
     type: Type21 = Field(..., title="ChatgptAccountType")
 
 
-class Account(RootModel[Union[Account1, Account2]]):
-    root: Union[Account1, Account2]
+class Account(RootModel[Account1 | Account2]):
+    root: Account1 | Account2
 
 
 class GetAccountResponse(BaseModel):
-    account: Optional[Account] = None
+    account: Account | None = None
     requiresOpenaiAuth: bool

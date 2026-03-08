@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel
 
@@ -21,7 +21,7 @@ class AnalyticsConfig(BaseModel):
     model_config = ConfigDict(
         extra="allow",
     )
-    enabled: Optional[bool] = None
+    enabled: bool | None = None
 
 
 class AppDisabledReason(Enum):
@@ -114,26 +114,24 @@ class ConfigLayerSource7(BaseModel):
 
 class ConfigLayerSource(
     RootModel[
-        Union[
-            ConfigLayerSource1,
-            ConfigLayerSource2,
-            ConfigLayerSource3,
-            ConfigLayerSource4,
-            ConfigLayerSource5,
-            ConfigLayerSource6,
-            ConfigLayerSource7,
-        ]
+        ConfigLayerSource1
+        | ConfigLayerSource2
+        | ConfigLayerSource3
+        | ConfigLayerSource4
+        | ConfigLayerSource5
+        | ConfigLayerSource6
+        | ConfigLayerSource7
     ]
 ):
-    root: Union[
-        ConfigLayerSource1,
-        ConfigLayerSource2,
-        ConfigLayerSource3,
-        ConfigLayerSource4,
-        ConfigLayerSource5,
-        ConfigLayerSource6,
-        ConfigLayerSource7,
-    ]
+    root: (
+        ConfigLayerSource1
+        | ConfigLayerSource2
+        | ConfigLayerSource3
+        | ConfigLayerSource4
+        | ConfigLayerSource5
+        | ConfigLayerSource6
+        | ConfigLayerSource7
+    )
 
 
 class ForcedLoginMethod(Enum):
@@ -160,8 +158,8 @@ class ReasoningSummary2(Enum):
     none = "none"
 
 
-class ReasoningSummary(RootModel[Union[ReasoningSummary1, ReasoningSummary2]]):
-    root: Union[ReasoningSummary1, ReasoningSummary2] = Field(
+class ReasoningSummary(RootModel[ReasoningSummary1 | ReasoningSummary2]):
+    root: ReasoningSummary1 | ReasoningSummary2 = Field(
         ...,
         description="A summary of the reasoning performed by the model. This can be useful for debugging and understanding the model's reasoning process. See https://platform.openai.com/docs/guides/reasoning?api-mode=responses#reasoning-summaries",
     )
@@ -174,15 +172,15 @@ class SandboxMode(Enum):
 
 
 class SandboxWorkspaceWrite(BaseModel):
-    exclude_slash_tmp: Optional[bool] = False
-    exclude_tmpdir_env_var: Optional[bool] = False
-    network_access: Optional[bool] = False
-    writable_roots: Optional[List[str]] = []
+    exclude_slash_tmp: bool | None = False
+    exclude_tmpdir_env_var: bool | None = False
+    network_access: bool | None = False
+    writable_roots: list[str] | None = []
 
 
 class ToolsV2(BaseModel):
-    view_image: Optional[bool] = None
-    web_search: Optional[bool] = None
+    view_image: bool | None = None
+    web_search: bool | None = None
 
 
 class Verbosity(Enum):
@@ -198,13 +196,13 @@ class WebSearchMode(Enum):
 
 
 class AppConfig(BaseModel):
-    disabled_reason: Optional[AppDisabledReason] = None
-    enabled: Optional[bool] = True
+    disabled_reason: AppDisabledReason | None = None
+    enabled: bool | None = True
 
 
 class ConfigLayer(BaseModel):
     config: Any
-    disabledReason: Optional[str] = None
+    disabledReason: str | None = None
     name: ConfigLayerSource
     version: str
 
@@ -218,44 +216,46 @@ class ProfileV2(BaseModel):
     model_config = ConfigDict(
         extra="allow",
     )
-    approval_policy: Optional[AskForApproval] = None
-    chatgpt_base_url: Optional[str] = None
-    model: Optional[str] = None
-    model_provider: Optional[str] = None
-    model_reasoning_effort: Optional[ReasoningEffort] = None
-    model_reasoning_summary: Optional[ReasoningSummary] = None
-    model_verbosity: Optional[Verbosity] = None
-    web_search: Optional[WebSearchMode] = None
+    approval_policy: AskForApproval | None = None
+    chatgpt_base_url: str | None = None
+    model: str | None = None
+    model_provider: str | None = None
+    model_reasoning_effort: ReasoningEffort | None = None
+    model_reasoning_summary: ReasoningSummary | None = None
+    model_verbosity: Verbosity | None = None
+    web_search: WebSearchMode | None = None
 
 
 class Config(BaseModel):
     model_config = ConfigDict(
         extra="allow",
     )
-    analytics: Optional[AnalyticsConfig] = None
-    approval_policy: Optional[AskForApproval] = None
-    compact_prompt: Optional[str] = None
-    developer_instructions: Optional[str] = None
-    forced_chatgpt_workspace_id: Optional[str] = None
-    forced_login_method: Optional[ForcedLoginMethod] = None
-    instructions: Optional[str] = None
-    model: Optional[str] = None
-    model_auto_compact_token_limit: Optional[int] = None
-    model_context_window: Optional[int] = None
-    model_provider: Optional[str] = None
-    model_reasoning_effort: Optional[ReasoningEffort] = None
-    model_reasoning_summary: Optional[ReasoningSummary] = None
-    model_verbosity: Optional[Verbosity] = None
-    profile: Optional[str] = None
-    profiles: Optional[Dict[str, ProfileV2]] = {}
-    review_model: Optional[str] = None
-    sandbox_mode: Optional[SandboxMode] = None
-    sandbox_workspace_write: Optional[SandboxWorkspaceWrite] = None
-    tools: Optional[ToolsV2] = None
-    web_search: Optional[WebSearchMode] = None
+    analytics: AnalyticsConfig | None = None
+    approval_policy: AskForApproval | None = None
+    compact_prompt: str | None = None
+    developer_instructions: str | None = None
+    forced_chatgpt_workspace_id: str | None = None
+    forced_login_method: ForcedLoginMethod | None = None
+    instructions: str | None = None
+    model: str | None = None
+    model_auto_compact_token_limit: int | None = None
+    model_context_window: int | None = None
+    model_provider: str | None = None
+    model_reasoning_effort: ReasoningEffort | None = None
+    model_reasoning_summary: ReasoningSummary | None = None
+    model_verbosity: Verbosity | None = None
+    profile: str | None = None
+    profiles: dict[str, ProfileV2] | None = Field(
+        default_factory=lambda: ProfileV2.model_validate({})
+    )
+    review_model: str | None = None
+    sandbox_mode: SandboxMode | None = None
+    sandbox_workspace_write: SandboxWorkspaceWrite | None = None
+    tools: ToolsV2 | None = None
+    web_search: WebSearchMode | None = None
 
 
 class ConfigReadResponse(BaseModel):
     config: Config
-    layers: Optional[List[ConfigLayer]] = None
-    origins: Dict[str, ConfigLayerMetadata]
+    layers: list[ConfigLayer] | None = None
+    origins: dict[str, ConfigLayerMetadata]

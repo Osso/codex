@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-from typing import List
-
 from pydantic import BaseModel
 
 
@@ -16,4 +14,4 @@ class RemoteSkillSummary(BaseModel):
 
 
 class SkillsRemoteReadResponse(BaseModel):
-    data: List[RemoteSkillSummary]
+    data: list[RemoteSkillSummary]

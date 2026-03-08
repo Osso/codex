@@ -4,12 +4,10 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from pydantic import BaseModel
 
 
 class AccountLoginCompletedNotification(BaseModel):
-    error: Optional[str] = None
-    loginId: Optional[str] = None
+    error: str | None = None
+    loginId: str | None = None
     success: bool

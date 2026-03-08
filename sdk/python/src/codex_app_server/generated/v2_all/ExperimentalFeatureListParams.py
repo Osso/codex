@@ -4,16 +4,14 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from pydantic import BaseModel, Field, conint
 
 
 class ExperimentalFeatureListParams(BaseModel):
-    cursor: Optional[str] = Field(
+    cursor: str | None = Field(
         None, description="Opaque pagination cursor returned by a previous call."
     )
-    limit: Optional[conint(ge=0)] = Field(
+    limit: conint(ge=0) | None = Field(
         None,
         description="Optional page size; defaults to a reasonable server-side value.",
     )

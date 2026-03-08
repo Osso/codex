@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -22,7 +21,7 @@ class TurnPlanStep(BaseModel):
 
 
 class TurnPlanUpdatedNotification(BaseModel):
-    explanation: Optional[str] = None
-    plan: List[TurnPlanStep]
+    explanation: str | None = None
+    plan: list[TurnPlanStep]
     threadId: str
     turnId: str

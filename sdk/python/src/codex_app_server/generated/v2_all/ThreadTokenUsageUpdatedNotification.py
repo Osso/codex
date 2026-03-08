@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from pydantic import BaseModel
 
 
@@ -19,7 +17,7 @@ class TokenUsageBreakdown(BaseModel):
 
 class ThreadTokenUsage(BaseModel):
     last: TokenUsageBreakdown
-    modelContextWindow: Optional[int] = None
+    modelContextWindow: int | None = None
     total: TokenUsageBreakdown
 
 

@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, List, Optional, Union
+from typing import Any
 
 from pydantic import BaseModel, Field, RootModel, conint
 
@@ -50,8 +50,8 @@ class Type(Enum):
 
 
 class ReadOnlyAccess(BaseModel):
-    includePlatformDefaults: Optional[bool] = True
-    readableRoots: Optional[List[AbsolutePathBuf]] = []
+    includePlatformDefaults: bool | None = True
+    readableRoots: list[AbsolutePathBuf] | None = Field(default_factory=list)
     type: Type = Field(..., title="RestrictedReadOnlyAccessType")
 
 
@@ -63,8 +63,8 @@ class ReadOnlyAccess14(BaseModel):
     type: Type447 = Field(..., title="FullAccessReadOnlyAccessType")
 
 
-class ReadOnlyAccess12(RootModel[Union[ReadOnlyAccess, ReadOnlyAccess14]]):
-    root: Union[ReadOnlyAccess, ReadOnlyAccess14]
+class ReadOnlyAccess12(RootModel[ReadOnlyAccess | ReadOnlyAccess14]):
+    root: ReadOnlyAccess | ReadOnlyAccess14
 
 
 class ReasoningEffort(Enum):
@@ -86,8 +86,8 @@ class ReasoningSummary4(Enum):
     none = "none"
 
 
-class ReasoningSummary(RootModel[Union[ReasoningSummary3, ReasoningSummary4]]):
-    root: Union[ReasoningSummary3, ReasoningSummary4] = Field(
+class ReasoningSummary(RootModel[ReasoningSummary3 | ReasoningSummary4]):
+    root: ReasoningSummary3 | ReasoningSummary4 = Field(
         ...,
         description="A summary of the reasoning performed by the model. This can be useful for debugging and understanding the model's reasoning process. See https://platform.openai.com/docs/guides/reasoning?api-mode=responses#reasoning-summaries",
     )
@@ -106,8 +106,8 @@ class Type449(Enum):
 
 
 class SandboxPolicy18(BaseModel):
-    access: Optional[ReadOnlyAccess12] = Field(
-        default_factory=lambda: ReadOnlyAccess12.model_validate({"type": "fullAccess"})
+    access: ReadOnlyAccess12 | None = Field(
+        default_factory=lambda: ReadOnlyAccess12({"type": "fullAccess"})
     )
     type: Type449 = Field(..., title="ReadOnlySandboxPolicyType")
 
@@ -117,7 +117,7 @@ class Type450(Enum):
 
 
 class SandboxPolicy19(BaseModel):
-    networkAccess: Optional[NetworkAccess] = "restricted"
+    networkAccess: NetworkAccess | None = "restricted"
     type: Type450 = Field(..., title="ExternalSandboxSandboxPolicyType")
 
 
@@ -126,26 +126,26 @@ class Type451(Enum):
 
 
 class SandboxPolicy20(BaseModel):
-    excludeSlashTmp: Optional[bool] = False
-    excludeTmpdirEnvVar: Optional[bool] = False
-    networkAccess: Optional[bool] = False
-    readOnlyAccess: Optional[ReadOnlyAccess12] = Field(
-        default_factory=lambda: ReadOnlyAccess12.model_validate({"type": "fullAccess"})
+    excludeSlashTmp: bool | None = False
+    excludeTmpdirEnvVar: bool | None = False
+    networkAccess: bool | None = False
+    readOnlyAccess: ReadOnlyAccess12 | None = Field(
+        default_factory=lambda: ReadOnlyAccess12({"type": "fullAccess"})
     )
     type: Type451 = Field(..., title="WorkspaceWriteSandboxPolicyType")
-    writableRoots: Optional[List[AbsolutePathBuf]] = []
+    writableRoots: list[AbsolutePathBuf] | None = Field(default_factory=list)
 
 
 class SandboxPolicy(
-    RootModel[Union[SandboxPolicy17, SandboxPolicy18, SandboxPolicy19, SandboxPolicy20]]
+    RootModel[SandboxPolicy17 | SandboxPolicy18 | SandboxPolicy19 | SandboxPolicy20]
 ):
-    root: Union[SandboxPolicy17, SandboxPolicy18, SandboxPolicy19, SandboxPolicy20]
+    root: SandboxPolicy17 | SandboxPolicy18 | SandboxPolicy19 | SandboxPolicy20
 
 
 class Settings(BaseModel):
-    developer_instructions: Optional[str] = None
+    developer_instructions: str | None = None
     model: str
-    reasoning_effort: Optional[ReasoningEffort] = None
+    reasoning_effort: ReasoningEffort | None = None
 
 
 class TextElement(BaseModel):
@@ -153,7 +153,7 @@ class TextElement(BaseModel):
         ...,
         description="Byte range in the parent `text` buffer that this element occupies.",
     )
-    placeholder: Optional[str] = Field(
+    placeholder: str | None = Field(
         None,
         description="Optional human-readable placeholder for the element, displayed in the UI.",
     )
@@ -165,8 +165,8 @@ class Type452(Enum):
 
 class UserInput61(BaseModel):
     text: str
-    text_elements: Optional[List[TextElement]] = Field(
-        [],
+    text_elements: list[TextElement] | None = Field(
+        default_factory=list,
         description="UI-defined spans within `text` used to render or persist special elements.",
     )
     type: Type452 = Field(..., title="TextUserInputType")
@@ -211,40 +211,40 @@ class UserInput65(BaseModel):
 
 
 class UserInput(
-    RootModel[Union[UserInput61, UserInput62, UserInput63, UserInput64, UserInput65]]
+    RootModel[UserInput61 | UserInput62 | UserInput63 | UserInput64 | UserInput65]
 ):
-    root: Union[UserInput61, UserInput62, UserInput63, UserInput64, UserInput65]
+    root: UserInput61 | UserInput62 | UserInput63 | UserInput64 | UserInput65
 
 
 class TurnStartParams(BaseModel):
-    approvalPolicy: Optional[AskForApproval] = Field(
+    approvalPolicy: AskForApproval | None = Field(
         None,
         description="Override the approval policy for this turn and subsequent turns.",
     )
-    cwd: Optional[str] = Field(
+    cwd: str | None = Field(
         None,
         description="Override the working directory for this turn and subsequent turns.",
     )
-    effort: Optional[ReasoningEffort] = Field(
+    effort: ReasoningEffort | None = Field(
         None,
         description="Override the reasoning effort for this turn and subsequent turns.",
     )
-    input: List[UserInput]
-    model: Optional[str] = Field(
+    input: list[UserInput]
+    model: str | None = Field(
         None, description="Override the model for this turn and subsequent turns."
     )
-    outputSchema: Optional[Any] = Field(
+    outputSchema: Any | None = Field(
         None,
         description="Optional JSON Schema used to constrain the final assistant message for this turn.",
     )
-    personality: Optional[Personality] = Field(
+    personality: Personality | None = Field(
         None, description="Override the personality for this turn and subsequent turns."
     )
-    sandboxPolicy: Optional[SandboxPolicy] = Field(
+    sandboxPolicy: SandboxPolicy | None = Field(
         None,
         description="Override the sandbox policy for this turn and subsequent turns.",
     )
-    summary: Optional[ReasoningSummary] = Field(
+    summary: ReasoningSummary | None = Field(
         None,
         description="Override the reasoning summary for this turn and subsequent turns.",
     )

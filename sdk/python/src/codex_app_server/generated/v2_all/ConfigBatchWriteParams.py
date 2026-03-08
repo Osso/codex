@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -22,9 +22,9 @@ class ConfigEdit(BaseModel):
 
 
 class ConfigBatchWriteParams(BaseModel):
-    edits: List[ConfigEdit]
-    expectedVersion: Optional[str] = None
-    filePath: Optional[str] = Field(
+    edits: list[ConfigEdit]
+    expectedVersion: str | None = None
+    filePath: str | None = Field(
         None,
         description="Path to the config file to write; defaults to the user's `config.toml` when omitted.",
     )

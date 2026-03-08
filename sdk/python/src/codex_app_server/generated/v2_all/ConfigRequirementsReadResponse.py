@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import List, Optional
 
 from pydantic import BaseModel, Field, conint
 
@@ -18,16 +17,16 @@ class AskForApproval(Enum):
 
 
 class NetworkRequirements(BaseModel):
-    allowLocalBinding: Optional[bool] = None
-    allowUnixSockets: Optional[List[str]] = None
-    allowUpstreamProxy: Optional[bool] = None
-    allowedDomains: Optional[List[str]] = None
-    dangerouslyAllowNonLoopbackAdmin: Optional[bool] = None
-    dangerouslyAllowNonLoopbackProxy: Optional[bool] = None
-    deniedDomains: Optional[List[str]] = None
-    enabled: Optional[bool] = None
-    httpPort: Optional[conint(ge=0)] = None
-    socksPort: Optional[conint(ge=0)] = None
+    allowLocalBinding: bool | None = None
+    allowUnixSockets: list[str] | None = None
+    allowUpstreamProxy: bool | None = None
+    allowedDomains: list[str] | None = None
+    dangerouslyAllowNonLoopbackAdmin: bool | None = None
+    dangerouslyAllowNonLoopbackProxy: bool | None = None
+    deniedDomains: list[str] | None = None
+    enabled: bool | None = None
+    httpPort: conint(ge=0) | None = None
+    socksPort: conint(ge=0) | None = None
 
 
 class ResidencyRequirement(Enum):
@@ -47,14 +46,14 @@ class WebSearchMode(Enum):
 
 
 class ConfigRequirements(BaseModel):
-    allowedApprovalPolicies: Optional[List[AskForApproval]] = None
-    allowedSandboxModes: Optional[List[SandboxMode]] = None
-    allowedWebSearchModes: Optional[List[WebSearchMode]] = None
-    enforceResidency: Optional[ResidencyRequirement] = None
+    allowedApprovalPolicies: list[AskForApproval] | None = None
+    allowedSandboxModes: list[SandboxMode] | None = None
+    allowedWebSearchModes: list[WebSearchMode] | None = None
+    enforceResidency: ResidencyRequirement | None = None
 
 
 class ConfigRequirementsReadResponse(BaseModel):
-    requirements: Optional[ConfigRequirements] = Field(
+    requirements: ConfigRequirements | None = Field(
         None,
         description="Null if no requirements are configured (e.g. no requirements.toml/MDM entries).",
     )

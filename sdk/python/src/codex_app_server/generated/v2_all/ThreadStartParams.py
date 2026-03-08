@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -36,13 +36,13 @@ class SandboxMode(Enum):
 
 
 class ThreadStartParams(BaseModel):
-    approvalPolicy: Optional[AskForApproval] = None
-    baseInstructions: Optional[str] = None
-    config: Optional[Dict[str, Any]] = None
-    cwd: Optional[str] = None
-    developerInstructions: Optional[str] = None
-    ephemeral: Optional[bool] = None
-    model: Optional[str] = None
-    modelProvider: Optional[str] = None
-    personality: Optional[Personality] = None
-    sandbox: Optional[SandboxMode] = None
+    approvalPolicy: AskForApproval | None = None
+    baseInstructions: str | None = None
+    config: dict[str, Any] | None = None
+    cwd: str | None = None
+    developerInstructions: str | None = None
+    ephemeral: bool | None = None
+    model: str | None = None
+    modelProvider: str | None = None
+    personality: Personality | None = None
+    sandbox: SandboxMode | None = None

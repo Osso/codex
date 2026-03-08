@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional, Union
 
 from pydantic import BaseModel, Field, RootModel
 
@@ -22,11 +21,11 @@ class AuthMode3(Enum):
     chatgptAuthTokens = "chatgptAuthTokens"
 
 
-class AuthMode(RootModel[Union[AuthMode1, AuthMode2, AuthMode3]]):
-    root: Union[AuthMode1, AuthMode2, AuthMode3] = Field(
+class AuthMode(RootModel[AuthMode1 | AuthMode2 | AuthMode3]):
+    root: AuthMode1 | AuthMode2 | AuthMode3 = Field(
         ..., description="Authentication mode for OpenAI-backed providers."
     )
 
 
 class AccountUpdatedNotification(BaseModel):
-    authMode: Optional[AuthMode] = None
+    authMode: AuthMode | None = None

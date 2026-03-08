@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from pydantic import BaseModel, Field, RootModel, conint
 
@@ -55,7 +55,7 @@ class Type52(Enum):
 
 class CommandAction7(BaseModel):
     command: str
-    path: Optional[str] = None
+    path: str | None = None
     type: Type52 = Field(..., title="ListFilesCommandActionType")
 
 
@@ -65,8 +65,8 @@ class Type53(Enum):
 
 class CommandAction8(BaseModel):
     command: str
-    path: Optional[str] = None
-    query: Optional[str] = None
+    path: str | None = None
+    query: str | None = None
     type: Type53 = Field(..., title="SearchCommandActionType")
 
 
@@ -80,9 +80,9 @@ class CommandAction9(BaseModel):
 
 
 class CommandAction5(
-    RootModel[Union[CommandAction, CommandAction7, CommandAction8, CommandAction9]]
+    RootModel[CommandAction | CommandAction7 | CommandAction8 | CommandAction9]
 ):
-    root: Union[CommandAction, CommandAction7, CommandAction8, CommandAction9]
+    root: CommandAction | CommandAction7 | CommandAction8 | CommandAction9
 
 
 class CommandExecutionStatus(Enum):
@@ -97,8 +97,8 @@ class McpToolCallError(BaseModel):
 
 
 class McpToolCallResult(BaseModel):
-    content: List
-    structuredContent: Optional[Any] = None
+    content: list[Any]
+    structuredContent: Any | None = None
 
 
 class McpToolCallStatus(Enum):
@@ -135,14 +135,14 @@ class Type57(Enum):
 
 
 class PatchChangeKind6(BaseModel):
-    move_path: Optional[str] = None
+    move_path: str | None = None
     type: Type57 = Field(..., title="UpdatePatchChangeKindType")
 
 
 class PatchChangeKind(
-    RootModel[Union[PatchChangeKind4, PatchChangeKind5, PatchChangeKind6]]
+    RootModel[PatchChangeKind4 | PatchChangeKind5 | PatchChangeKind6]
 ):
-    root: Union[PatchChangeKind4, PatchChangeKind5, PatchChangeKind6]
+    root: PatchChangeKind4 | PatchChangeKind5 | PatchChangeKind6
 
 
 class TextElement(BaseModel):
@@ -150,7 +150,7 @@ class TextElement(BaseModel):
         ...,
         description="Byte range in the parent `text` buffer that this element occupies.",
     )
-    placeholder: Optional[str] = Field(
+    placeholder: str | None = Field(
         None,
         description="Optional human-readable placeholder for the element, displayed in the UI.",
     )
@@ -185,9 +185,9 @@ class Type61(Enum):
 
 
 class ThreadItem17(BaseModel):
-    content: Optional[List[str]] = []
+    content: list[str] | None = []
     id: str
-    summary: Optional[List[str]] = []
+    summary: list[str] | None = []
     type: Type61 = Field(..., title="ReasoningThreadItemType")
 
 
@@ -196,21 +196,21 @@ class Type62(Enum):
 
 
 class ThreadItem18(BaseModel):
-    aggregatedOutput: Optional[str] = Field(
+    aggregatedOutput: str | None = Field(
         None, description="The command's output, aggregated from stdout and stderr."
     )
     command: str = Field(..., description="The command to be executed.")
-    commandActions: List[CommandAction5] = Field(
+    commandActions: list[CommandAction5] = Field(
         ...,
         description="A best-effort parsing of the command to understand the action(s) it will perform. This returns a list of CommandAction objects because a single shell command may be composed of many commands piped together.",
     )
     cwd: str = Field(..., description="The command's working directory.")
-    durationMs: Optional[int] = Field(
+    durationMs: int | None = Field(
         None, description="The duration of the command execution in milliseconds."
     )
-    exitCode: Optional[int] = Field(None, description="The command's exit code.")
+    exitCode: int | None = Field(None, description="The command's exit code.")
     id: str
-    processId: Optional[str] = Field(
+    processId: str | None = Field(
         None, description="Identifier for the underlying PTY process (when available)."
     )
     status: CommandExecutionStatus
@@ -227,12 +227,12 @@ class Type64(Enum):
 
 class ThreadItem20(BaseModel):
     arguments: Any
-    durationMs: Optional[int] = Field(
+    durationMs: int | None = Field(
         None, description="The duration of the MCP tool call in milliseconds."
     )
-    error: Optional[McpToolCallError] = None
+    error: McpToolCallError | None = None
     id: str
-    result: Optional[McpToolCallResult] = None
+    result: McpToolCallResult | None = None
     server: str
     status: McpToolCallStatus
     tool: str
@@ -292,8 +292,8 @@ class Type71(Enum):
 
 class UserInput6(BaseModel):
     text: str
-    text_elements: Optional[List[TextElement]] = Field(
-        [],
+    text_elements: list[TextElement] | None = Field(
+        default_factory=list,
         description="UI-defined spans within `text` used to render or persist special elements.",
     )
     type: Type71 = Field(..., title="TextUserInputType")
@@ -338,9 +338,9 @@ class UserInput10(BaseModel):
 
 
 class UserInput(
-    RootModel[Union[UserInput6, UserInput7, UserInput8, UserInput9, UserInput10]]
+    RootModel[UserInput6 | UserInput7 | UserInput8 | UserInput9 | UserInput10]
 ):
-    root: Union[UserInput6, UserInput7, UserInput8, UserInput9, UserInput10]
+    root: UserInput6 | UserInput7 | UserInput8 | UserInput9 | UserInput10
 
 
 class Type76(Enum):
@@ -348,8 +348,8 @@ class Type76(Enum):
 
 
 class WebSearchAction5(BaseModel):
-    queries: Optional[List[str]] = None
-    query: Optional[str] = None
+    queries: list[str] | None = None
+    query: str | None = None
     type: Type76 = Field(..., title="SearchWebSearchActionType")
 
 
@@ -359,7 +359,7 @@ class Type77(Enum):
 
 class WebSearchAction6(BaseModel):
     type: Type77 = Field(..., title="OpenPageWebSearchActionType")
-    url: Optional[str] = None
+    url: str | None = None
 
 
 class Type78(Enum):
@@ -367,9 +367,9 @@ class Type78(Enum):
 
 
 class WebSearchAction7(BaseModel):
-    pattern: Optional[str] = None
+    pattern: str | None = None
     type: Type78 = Field(..., title="FindInPageWebSearchActionType")
-    url: Optional[str] = None
+    url: str | None = None
 
 
 class Type79(Enum):
@@ -381,15 +381,13 @@ class WebSearchAction8(BaseModel):
 
 
 class WebSearchAction(
-    RootModel[
-        Union[WebSearchAction5, WebSearchAction6, WebSearchAction7, WebSearchAction8]
-    ]
+    RootModel[WebSearchAction5 | WebSearchAction6 | WebSearchAction7 | WebSearchAction8]
 ):
-    root: Union[WebSearchAction5, WebSearchAction6, WebSearchAction7, WebSearchAction8]
+    root: WebSearchAction5 | WebSearchAction6 | WebSearchAction7 | WebSearchAction8
 
 
 class CollabAgentState(BaseModel):
-    message: Optional[str] = None
+    message: str | None = None
     status: CollabAgentStatus
 
 
@@ -400,28 +398,28 @@ class FileUpdateChange(BaseModel):
 
 
 class ThreadItem14(BaseModel):
-    content: List[UserInput]
+    content: list[UserInput]
     id: str
     type: Type58 = Field(..., title="UserMessageThreadItemType")
 
 
 class ThreadItem19(BaseModel):
-    changes: List[FileUpdateChange]
+    changes: list[FileUpdateChange]
     id: str
     status: PatchApplyStatus
     type: Type63 = Field(..., title="FileChangeThreadItemType")
 
 
 class ThreadItem21(BaseModel):
-    agentsStates: Dict[str, CollabAgentState] = Field(
+    agentsStates: dict[str, CollabAgentState] = Field(
         ..., description="Last known status of the target agents, when available."
     )
     id: str = Field(..., description="Unique identifier for this collab tool call.")
-    prompt: Optional[str] = Field(
+    prompt: str | None = Field(
         None,
         description="Prompt text sent as part of the collab tool call, when available.",
     )
-    receiverThreadIds: List[str] = Field(
+    receiverThreadIds: list[str] = Field(
         ...,
         description="Thread ID of the receiving agent, when applicable. In case of spawn operation, this corresponds to the newly spawned agent.",
     )
@@ -438,7 +436,7 @@ class ThreadItem21(BaseModel):
 
 
 class ThreadItem22(BaseModel):
-    action: Optional[WebSearchAction] = None
+    action: WebSearchAction | None = None
     id: str
     query: str
     type: Type66 = Field(..., title="WebSearchThreadItemType")
@@ -446,38 +444,36 @@ class ThreadItem22(BaseModel):
 
 class ThreadItem(
     RootModel[
-        Union[
-            ThreadItem14,
-            ThreadItem15,
-            ThreadItem16,
-            ThreadItem17,
-            ThreadItem18,
-            ThreadItem19,
-            ThreadItem20,
-            ThreadItem21,
-            ThreadItem22,
-            ThreadItem23,
-            ThreadItem24,
-            ThreadItem25,
-            ThreadItem26,
-        ]
+        ThreadItem14
+        | ThreadItem15
+        | ThreadItem16
+        | ThreadItem17
+        | ThreadItem18
+        | ThreadItem19
+        | ThreadItem20
+        | ThreadItem21
+        | ThreadItem22
+        | ThreadItem23
+        | ThreadItem24
+        | ThreadItem25
+        | ThreadItem26
     ]
 ):
-    root: Union[
-        ThreadItem14,
-        ThreadItem15,
-        ThreadItem16,
-        ThreadItem17,
-        ThreadItem18,
-        ThreadItem19,
-        ThreadItem20,
-        ThreadItem21,
-        ThreadItem22,
-        ThreadItem23,
-        ThreadItem24,
-        ThreadItem25,
-        ThreadItem26,
-    ]
+    root: (
+        ThreadItem14
+        | ThreadItem15
+        | ThreadItem16
+        | ThreadItem17
+        | ThreadItem18
+        | ThreadItem19
+        | ThreadItem20
+        | ThreadItem21
+        | ThreadItem22
+        | ThreadItem23
+        | ThreadItem24
+        | ThreadItem25
+        | ThreadItem26
+    )
 
 
 class ItemStartedNotification(BaseModel):

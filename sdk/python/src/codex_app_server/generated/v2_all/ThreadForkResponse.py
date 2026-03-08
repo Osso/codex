@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel, conint
 
@@ -42,7 +42,7 @@ class CodexErrorInfo(Enum):
 
 
 class HttpConnectionFailed(BaseModel):
-    httpStatusCode: Optional[conint(ge=0)] = None
+    httpStatusCode: conint(ge=0) | None = None
 
 
 class CodexErrorInfo14(BaseModel):
@@ -53,7 +53,7 @@ class CodexErrorInfo14(BaseModel):
 
 
 class ResponseStreamConnectionFailed(BaseModel):
-    httpStatusCode: Optional[conint(ge=0)] = None
+    httpStatusCode: conint(ge=0) | None = None
 
 
 class CodexErrorInfo15(BaseModel):
@@ -64,7 +64,7 @@ class CodexErrorInfo15(BaseModel):
 
 
 class ResponseStreamDisconnected(BaseModel):
-    httpStatusCode: Optional[conint(ge=0)] = None
+    httpStatusCode: conint(ge=0) | None = None
 
 
 class CodexErrorInfo16(BaseModel):
@@ -75,7 +75,7 @@ class CodexErrorInfo16(BaseModel):
 
 
 class ResponseTooManyFailedAttempts(BaseModel):
-    httpStatusCode: Optional[conint(ge=0)] = None
+    httpStatusCode: conint(ge=0) | None = None
 
 
 class CodexErrorInfo17(BaseModel):
@@ -87,22 +87,20 @@ class CodexErrorInfo17(BaseModel):
 
 class CodexErrorInfo12(
     RootModel[
-        Union[
-            CodexErrorInfo,
-            CodexErrorInfo14,
-            CodexErrorInfo15,
-            CodexErrorInfo16,
-            CodexErrorInfo17,
-        ]
+        CodexErrorInfo
+        | CodexErrorInfo14
+        | CodexErrorInfo15
+        | CodexErrorInfo16
+        | CodexErrorInfo17
     ]
 ):
-    root: Union[
-        CodexErrorInfo,
-        CodexErrorInfo14,
-        CodexErrorInfo15,
-        CodexErrorInfo16,
-        CodexErrorInfo17,
-    ] = Field(
+    root: (
+        CodexErrorInfo
+        | CodexErrorInfo14
+        | CodexErrorInfo15
+        | CodexErrorInfo16
+        | CodexErrorInfo17
+    ) = Field(
         ...,
         description="This translation layer make sure that we expose codex error code in camel case.\n\nWhen an upstream HTTP status is available (for example, from the Responses API or a provider), it is forwarded in `httpStatusCode` on the relevant `codexErrorInfo` variant.",
     )
@@ -148,7 +146,7 @@ class Type144(Enum):
 
 class CommandAction17(BaseModel):
     command: str
-    path: Optional[str] = None
+    path: str | None = None
     type: Type144 = Field(..., title="ListFilesCommandActionType")
 
 
@@ -158,8 +156,8 @@ class Type145(Enum):
 
 class CommandAction18(BaseModel):
     command: str
-    path: Optional[str] = None
-    query: Optional[str] = None
+    path: str | None = None
+    query: str | None = None
     type: Type145 = Field(..., title="SearchCommandActionType")
 
 
@@ -173,9 +171,9 @@ class CommandAction19(BaseModel):
 
 
 class CommandAction15(
-    RootModel[Union[CommandAction, CommandAction17, CommandAction18, CommandAction19]]
+    RootModel[CommandAction | CommandAction17 | CommandAction18 | CommandAction19]
 ):
-    root: Union[CommandAction, CommandAction17, CommandAction18, CommandAction19]
+    root: CommandAction | CommandAction17 | CommandAction18 | CommandAction19
 
 
 class CommandExecutionStatus(Enum):
@@ -186,9 +184,9 @@ class CommandExecutionStatus(Enum):
 
 
 class GitInfo(BaseModel):
-    branch: Optional[str] = None
-    originUrl: Optional[str] = None
-    sha: Optional[str] = None
+    branch: str | None = None
+    originUrl: str | None = None
+    sha: str | None = None
 
 
 class McpToolCallError(BaseModel):
@@ -196,8 +194,8 @@ class McpToolCallError(BaseModel):
 
 
 class McpToolCallResult(BaseModel):
-    content: List
-    structuredContent: Optional[Any] = None
+    content: list[Any]
+    structuredContent: Any | None = None
 
 
 class McpToolCallStatus(Enum):
@@ -239,14 +237,14 @@ class Type149(Enum):
 
 
 class PatchChangeKind12(BaseModel):
-    move_path: Optional[str] = None
+    move_path: str | None = None
     type: Type149 = Field(..., title="UpdatePatchChangeKindType")
 
 
 class PatchChangeKind(
-    RootModel[Union[PatchChangeKind10, PatchChangeKind11, PatchChangeKind12]]
+    RootModel[PatchChangeKind10 | PatchChangeKind11 | PatchChangeKind12]
 ):
-    root: Union[PatchChangeKind10, PatchChangeKind11, PatchChangeKind12]
+    root: PatchChangeKind10 | PatchChangeKind11 | PatchChangeKind12
 
 
 class Type150(Enum):
@@ -254,8 +252,8 @@ class Type150(Enum):
 
 
 class ReadOnlyAccess(BaseModel):
-    includePlatformDefaults: Optional[bool] = True
-    readableRoots: Optional[List[AbsolutePathBuf]] = []
+    includePlatformDefaults: bool | None = True
+    readableRoots: list[AbsolutePathBuf] | None = Field(default_factory=list)
     type: Type150 = Field(..., title="RestrictedReadOnlyAccessType")
 
 
@@ -267,8 +265,8 @@ class ReadOnlyAccess5(BaseModel):
     type: Type151 = Field(..., title="FullAccessReadOnlyAccessType")
 
 
-class ReadOnlyAccess3(RootModel[Union[ReadOnlyAccess, ReadOnlyAccess5]]):
-    root: Union[ReadOnlyAccess, ReadOnlyAccess5]
+class ReadOnlyAccess3(RootModel[ReadOnlyAccess | ReadOnlyAccess5]):
+    root: ReadOnlyAccess | ReadOnlyAccess5
 
 
 class ReasoningEffort(Enum):
@@ -293,8 +291,8 @@ class Type153(Enum):
 
 
 class SandboxPolicy6(BaseModel):
-    access: Optional[ReadOnlyAccess3] = Field(
-        default_factory=lambda: ReadOnlyAccess3.model_validate({"type": "fullAccess"})
+    access: ReadOnlyAccess3 | None = Field(
+        default_factory=lambda: ReadOnlyAccess3({"type": "fullAccess"})
     )
     type: Type153 = Field(..., title="ReadOnlySandboxPolicyType")
 
@@ -304,7 +302,7 @@ class Type154(Enum):
 
 
 class SandboxPolicy7(BaseModel):
-    networkAccess: Optional[NetworkAccess] = "restricted"
+    networkAccess: NetworkAccess | None = "restricted"
     type: Type154 = Field(..., title="ExternalSandboxSandboxPolicyType")
 
 
@@ -313,20 +311,20 @@ class Type155(Enum):
 
 
 class SandboxPolicy8(BaseModel):
-    excludeSlashTmp: Optional[bool] = False
-    excludeTmpdirEnvVar: Optional[bool] = False
-    networkAccess: Optional[bool] = False
-    readOnlyAccess: Optional[ReadOnlyAccess3] = Field(
-        default_factory=lambda: ReadOnlyAccess3.model_validate({"type": "fullAccess"})
+    excludeSlashTmp: bool | None = False
+    excludeTmpdirEnvVar: bool | None = False
+    networkAccess: bool | None = False
+    readOnlyAccess: ReadOnlyAccess3 | None = Field(
+        default_factory=lambda: ReadOnlyAccess3({"type": "fullAccess"})
     )
     type: Type155 = Field(..., title="WorkspaceWriteSandboxPolicyType")
-    writableRoots: Optional[List[AbsolutePathBuf]] = []
+    writableRoots: list[AbsolutePathBuf] | None = Field(default_factory=list)
 
 
 class SandboxPolicy(
-    RootModel[Union[SandboxPolicy5, SandboxPolicy6, SandboxPolicy7, SandboxPolicy8]]
+    RootModel[SandboxPolicy5 | SandboxPolicy6 | SandboxPolicy7 | SandboxPolicy8]
 ):
-    root: Union[SandboxPolicy5, SandboxPolicy6, SandboxPolicy7, SandboxPolicy8]
+    root: SandboxPolicy5 | SandboxPolicy6 | SandboxPolicy7 | SandboxPolicy8
 
 
 class SessionSource1(Enum):
@@ -355,7 +353,7 @@ class TextElement(BaseModel):
         ...,
         description="Byte range in the parent `text` buffer that this element occupies.",
     )
-    placeholder: Optional[str] = Field(
+    placeholder: str | None = Field(
         None,
         description="Optional human-readable placeholder for the element, displayed in the UI.",
     )
@@ -394,9 +392,9 @@ class Type159(Enum):
 
 
 class ThreadItem45(BaseModel):
-    content: Optional[List[str]] = []
+    content: list[str] | None = []
     id: str
-    summary: Optional[List[str]] = []
+    summary: list[str] | None = []
     type: Type159 = Field(..., title="ReasoningThreadItemType")
 
 
@@ -405,21 +403,21 @@ class Type160(Enum):
 
 
 class ThreadItem46(BaseModel):
-    aggregatedOutput: Optional[str] = Field(
+    aggregatedOutput: str | None = Field(
         None, description="The command's output, aggregated from stdout and stderr."
     )
     command: str = Field(..., description="The command to be executed.")
-    commandActions: List[CommandAction15] = Field(
+    commandActions: list[CommandAction15] = Field(
         ...,
         description="A best-effort parsing of the command to understand the action(s) it will perform. This returns a list of CommandAction objects because a single shell command may be composed of many commands piped together.",
     )
     cwd: str = Field(..., description="The command's working directory.")
-    durationMs: Optional[int] = Field(
+    durationMs: int | None = Field(
         None, description="The duration of the command execution in milliseconds."
     )
-    exitCode: Optional[int] = Field(None, description="The command's exit code.")
+    exitCode: int | None = Field(None, description="The command's exit code.")
     id: str
-    processId: Optional[str] = Field(
+    processId: str | None = Field(
         None, description="Identifier for the underlying PTY process (when available)."
     )
     status: CommandExecutionStatus
@@ -436,12 +434,12 @@ class Type162(Enum):
 
 class ThreadItem48(BaseModel):
     arguments: Any
-    durationMs: Optional[int] = Field(
+    durationMs: int | None = Field(
         None, description="The duration of the MCP tool call in milliseconds."
     )
-    error: Optional[McpToolCallError] = None
+    error: McpToolCallError | None = None
     id: str
-    result: Optional[McpToolCallResult] = None
+    result: McpToolCallResult | None = None
     server: str
     status: McpToolCallStatus
     tool: str
@@ -496,8 +494,8 @@ class ThreadItem54(BaseModel):
 
 
 class TurnError(BaseModel):
-    additionalDetails: Optional[str] = None
-    codexErrorInfo: Optional[CodexErrorInfo12] = None
+    additionalDetails: str | None = None
+    codexErrorInfo: CodexErrorInfo12 | None = None
     message: str
 
 
@@ -514,8 +512,8 @@ class Type169(Enum):
 
 class UserInput16(BaseModel):
     text: str
-    text_elements: Optional[List[TextElement]] = Field(
-        [],
+    text_elements: list[TextElement] | None = Field(
+        default_factory=list,
         description="UI-defined spans within `text` used to render or persist special elements.",
     )
     type: Type169 = Field(..., title="TextUserInputType")
@@ -560,9 +558,9 @@ class UserInput20(BaseModel):
 
 
 class UserInput(
-    RootModel[Union[UserInput16, UserInput17, UserInput18, UserInput19, UserInput20]]
+    RootModel[UserInput16 | UserInput17 | UserInput18 | UserInput19 | UserInput20]
 ):
-    root: Union[UserInput16, UserInput17, UserInput18, UserInput19, UserInput20]
+    root: UserInput16 | UserInput17 | UserInput18 | UserInput19 | UserInput20
 
 
 class Type174(Enum):
@@ -570,8 +568,8 @@ class Type174(Enum):
 
 
 class WebSearchAction17(BaseModel):
-    queries: Optional[List[str]] = None
-    query: Optional[str] = None
+    queries: list[str] | None = None
+    query: str | None = None
     type: Type174 = Field(..., title="SearchWebSearchActionType")
 
 
@@ -581,7 +579,7 @@ class Type175(Enum):
 
 class WebSearchAction18(BaseModel):
     type: Type175 = Field(..., title="OpenPageWebSearchActionType")
-    url: Optional[str] = None
+    url: str | None = None
 
 
 class Type176(Enum):
@@ -589,9 +587,9 @@ class Type176(Enum):
 
 
 class WebSearchAction19(BaseModel):
-    pattern: Optional[str] = None
+    pattern: str | None = None
     type: Type176 = Field(..., title="FindInPageWebSearchActionType")
-    url: Optional[str] = None
+    url: str | None = None
 
 
 class Type177(Enum):
@@ -604,18 +602,14 @@ class WebSearchAction20(BaseModel):
 
 class WebSearchAction(
     RootModel[
-        Union[
-            WebSearchAction17, WebSearchAction18, WebSearchAction19, WebSearchAction20
-        ]
+        WebSearchAction17 | WebSearchAction18 | WebSearchAction19 | WebSearchAction20
     ]
 ):
-    root: Union[
-        WebSearchAction17, WebSearchAction18, WebSearchAction19, WebSearchAction20
-    ]
+    root: WebSearchAction17 | WebSearchAction18 | WebSearchAction19 | WebSearchAction20
 
 
 class CollabAgentState(BaseModel):
-    message: Optional[str] = None
+    message: str | None = None
     status: CollabAgentStatus
 
 
@@ -637,35 +631,33 @@ class SubAgentSource2(BaseModel):
     thread_spawn: ThreadSpawn
 
 
-class SubAgentSource(
-    RootModel[Union[SubAgentSource1, SubAgentSource2, SubAgentSource3]]
-):
-    root: Union[SubAgentSource1, SubAgentSource2, SubAgentSource3]
+class SubAgentSource(RootModel[SubAgentSource1 | SubAgentSource2 | SubAgentSource3]):
+    root: SubAgentSource1 | SubAgentSource2 | SubAgentSource3
 
 
 class ThreadItem42(BaseModel):
-    content: List[UserInput]
+    content: list[UserInput]
     id: str
     type: Type156 = Field(..., title="UserMessageThreadItemType")
 
 
 class ThreadItem47(BaseModel):
-    changes: List[FileUpdateChange]
+    changes: list[FileUpdateChange]
     id: str
     status: PatchApplyStatus
     type: Type161 = Field(..., title="FileChangeThreadItemType")
 
 
 class ThreadItem49(BaseModel):
-    agentsStates: Dict[str, CollabAgentState] = Field(
+    agentsStates: dict[str, CollabAgentState] = Field(
         ..., description="Last known status of the target agents, when available."
     )
     id: str = Field(..., description="Unique identifier for this collab tool call.")
-    prompt: Optional[str] = Field(
+    prompt: str | None = Field(
         None,
         description="Prompt text sent as part of the collab tool call, when available.",
     )
-    receiverThreadIds: List[str] = Field(
+    receiverThreadIds: list[str] = Field(
         ...,
         description="Thread ID of the receiving agent, when applicable. In case of spawn operation, this corresponds to the newly spawned agent.",
     )
@@ -682,7 +674,7 @@ class ThreadItem49(BaseModel):
 
 
 class ThreadItem50(BaseModel):
-    action: Optional[WebSearchAction] = None
+    action: WebSearchAction | None = None
     id: str
     query: str
     type: Type164 = Field(..., title="WebSearchThreadItemType")
@@ -690,46 +682,44 @@ class ThreadItem50(BaseModel):
 
 class ThreadItem41(
     RootModel[
-        Union[
-            ThreadItem42,
-            ThreadItem,
-            ThreadItem44,
-            ThreadItem45,
-            ThreadItem46,
-            ThreadItem47,
-            ThreadItem48,
-            ThreadItem49,
-            ThreadItem50,
-            ThreadItem51,
-            ThreadItem52,
-            ThreadItem53,
-            ThreadItem54,
-        ]
+        ThreadItem42
+        | ThreadItem
+        | ThreadItem44
+        | ThreadItem45
+        | ThreadItem46
+        | ThreadItem47
+        | ThreadItem48
+        | ThreadItem49
+        | ThreadItem50
+        | ThreadItem51
+        | ThreadItem52
+        | ThreadItem53
+        | ThreadItem54
     ]
 ):
-    root: Union[
-        ThreadItem42,
-        ThreadItem,
-        ThreadItem44,
-        ThreadItem45,
-        ThreadItem46,
-        ThreadItem47,
-        ThreadItem48,
-        ThreadItem49,
-        ThreadItem50,
-        ThreadItem51,
-        ThreadItem52,
-        ThreadItem53,
-        ThreadItem54,
-    ]
+    root: (
+        ThreadItem42
+        | ThreadItem
+        | ThreadItem44
+        | ThreadItem45
+        | ThreadItem46
+        | ThreadItem47
+        | ThreadItem48
+        | ThreadItem49
+        | ThreadItem50
+        | ThreadItem51
+        | ThreadItem52
+        | ThreadItem53
+        | ThreadItem54
+    )
 
 
 class Turn(BaseModel):
-    error: Optional[TurnError] = Field(
+    error: TurnError | None = Field(
         None, description="Only populated when the Turn's status is failed."
     )
     id: str
-    items: List[ThreadItem41] = Field(
+    items: list[ThreadItem41] = Field(
         ...,
         description="Only populated on a `thread/resume` or `thread/fork` response. For all other responses and notifications returning a Turn, the items field will be an empty list.",
     )
@@ -743,8 +733,8 @@ class SessionSource2(BaseModel):
     subAgent: SubAgentSource
 
 
-class SessionSource(RootModel[Union[SessionSource1, SessionSource2]]):
-    root: Union[SessionSource1, SessionSource2]
+class SessionSource(RootModel[SessionSource1 | SessionSource2]):
+    root: SessionSource1 | SessionSource2
 
 
 class Thread(BaseModel):
@@ -755,16 +745,14 @@ class Thread(BaseModel):
         ..., description="Unix timestamp (in seconds) when the thread was created."
     )
     cwd: str = Field(..., description="Working directory captured for the thread.")
-    gitInfo: Optional[GitInfo] = Field(
+    gitInfo: GitInfo | None = Field(
         None, description="Optional Git metadata captured when the thread was created."
     )
     id: str
     modelProvider: str = Field(
         ..., description="Model provider used for this thread (for example, 'openai')."
     )
-    path: Optional[str] = Field(
-        None, description="[UNSTABLE] Path to the thread on disk."
-    )
+    path: str | None = Field(None, description="[UNSTABLE] Path to the thread on disk.")
     preview: str = Field(
         ..., description="Usually the first user message in the thread, if available."
     )
@@ -772,7 +760,7 @@ class Thread(BaseModel):
         ...,
         description="Origin of the thread (CLI, VSCode, codex exec, codex app-server, etc.).",
     )
-    turns: List[Turn] = Field(
+    turns: list[Turn] = Field(
         ...,
         description="Only populated on `thread/resume`, `thread/rollback`, `thread/fork`, and `thread/read` (when `includeTurns` is true) responses. For all other responses and notifications returning a Thread, the turns field will be an empty list.",
     )
@@ -786,6 +774,6 @@ class ThreadForkResponse(BaseModel):
     cwd: str
     model: str
     modelProvider: str
-    reasoningEffort: Optional[ReasoningEffort] = None
+    reasoningEffort: ReasoningEffort | None = None
     sandbox: SandboxPolicy
     thread: Thread

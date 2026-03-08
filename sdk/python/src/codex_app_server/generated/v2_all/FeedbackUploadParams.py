@@ -4,13 +4,11 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from pydantic import BaseModel
 
 
 class FeedbackUploadParams(BaseModel):
     classification: str
     includeLogs: bool
-    reason: Optional[str] = None
-    threadId: Optional[str] = None
+    reason: str | None = None
+    threadId: str | None = None

@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -24,14 +24,14 @@ class SandboxMode(Enum):
 
 
 class ThreadForkParams(BaseModel):
-    approvalPolicy: Optional[AskForApproval] = None
-    baseInstructions: Optional[str] = None
-    config: Optional[Dict[str, Any]] = None
-    cwd: Optional[str] = None
-    developerInstructions: Optional[str] = None
-    model: Optional[str] = Field(
+    approvalPolicy: AskForApproval | None = None
+    baseInstructions: str | None = None
+    config: dict[str, Any] | None = None
+    cwd: str | None = None
+    developerInstructions: str | None = None
+    model: str | None = Field(
         None, description="Configuration overrides for the forked thread, if any."
     )
-    modelProvider: Optional[str] = None
-    sandbox: Optional[SandboxMode] = None
+    modelProvider: str | None = None
+    sandbox: SandboxMode | None = None
     threadId: str

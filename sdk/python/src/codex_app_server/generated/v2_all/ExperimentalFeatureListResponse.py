@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field, RootModel
 
@@ -32,37 +31,35 @@ class ExperimentalFeatureStage5(Enum):
 
 class ExperimentalFeatureStage(
     RootModel[
-        Union[
-            ExperimentalFeatureStage1,
-            ExperimentalFeatureStage2,
-            ExperimentalFeatureStage3,
-            ExperimentalFeatureStage4,
-            ExperimentalFeatureStage5,
-        ]
+        ExperimentalFeatureStage1
+        | ExperimentalFeatureStage2
+        | ExperimentalFeatureStage3
+        | ExperimentalFeatureStage4
+        | ExperimentalFeatureStage5
     ]
 ):
-    root: Union[
-        ExperimentalFeatureStage1,
-        ExperimentalFeatureStage2,
-        ExperimentalFeatureStage3,
-        ExperimentalFeatureStage4,
-        ExperimentalFeatureStage5,
-    ]
+    root: (
+        ExperimentalFeatureStage1
+        | ExperimentalFeatureStage2
+        | ExperimentalFeatureStage3
+        | ExperimentalFeatureStage4
+        | ExperimentalFeatureStage5
+    )
 
 
 class ExperimentalFeature(BaseModel):
-    announcement: Optional[str] = Field(
+    announcement: str | None = Field(
         None,
         description="Announcement copy shown to users when the feature is introduced. Null when this feature is not in beta.",
     )
     defaultEnabled: bool = Field(
         ..., description="Whether this feature is enabled by default."
     )
-    description: Optional[str] = Field(
+    description: str | None = Field(
         None,
         description="Short summary describing what the feature does. Null when this feature is not in beta.",
     )
-    displayName: Optional[str] = Field(
+    displayName: str | None = Field(
         None,
         description="User-facing display name shown in the experimental features UI. Null when this feature is not in beta.",
     )
@@ -79,8 +76,8 @@ class ExperimentalFeature(BaseModel):
 
 
 class ExperimentalFeatureListResponse(BaseModel):
-    data: List[ExperimentalFeature]
-    nextCursor: Optional[str] = Field(
+    data: list[ExperimentalFeature]
+    nextCursor: str | None = Field(
         None,
         description="Opaque cursor to pass to the next call to continue after the last item. If None, there are no more items to return.",
     )

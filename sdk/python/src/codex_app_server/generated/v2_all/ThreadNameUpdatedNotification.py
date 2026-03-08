@@ -4,11 +4,9 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from pydantic import BaseModel
 
 
 class ThreadNameUpdatedNotification(BaseModel):
     threadId: str
-    threadName: Optional[str] = None
+    threadName: str | None = None

@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional, Union
 
 from pydantic import BaseModel, Field, RootModel
 
@@ -39,7 +38,7 @@ class LoginAccountParams3(BaseModel):
     chatgptAccountId: str = Field(
         ..., description="Workspace/account identifier supplied by the client."
     )
-    chatgptPlanType: Optional[str] = Field(
+    chatgptPlanType: str | None = Field(
         None,
         description="Optional plan type supplied by the client.\n\nWhen `null`, Codex attempts to derive the plan type from access-token claims. If unavailable, the plan defaults to `unknown`.",
     )
@@ -47,8 +46,8 @@ class LoginAccountParams3(BaseModel):
 
 
 class LoginAccountParams(
-    RootModel[Union[LoginAccountParams1, LoginAccountParams2, LoginAccountParams3]]
+    RootModel[LoginAccountParams1 | LoginAccountParams2 | LoginAccountParams3]
 ):
-    root: Union[LoginAccountParams1, LoginAccountParams2, LoginAccountParams3] = Field(
+    root: LoginAccountParams1 | LoginAccountParams2 | LoginAccountParams3 = Field(
         ..., title="LoginAccountParams"
     )

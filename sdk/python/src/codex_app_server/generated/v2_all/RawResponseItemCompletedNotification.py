@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from pydantic import BaseModel, Field, RootModel, conint
 
@@ -37,8 +37,8 @@ class ContentItem3(BaseModel):
     type: Type88 = Field(..., title="OutputTextContentItemType")
 
 
-class ContentItem(RootModel[Union[ContentItem1, ContentItem2, ContentItem3]]):
-    root: Union[ContentItem1, ContentItem2, ContentItem3]
+class ContentItem(RootModel[ContentItem1 | ContentItem2 | ContentItem3]):
+    root: ContentItem1 | ContentItem2 | ContentItem3
 
 
 class Type89(Enum):
@@ -60,9 +60,9 @@ class FunctionCallOutputContentItem2(BaseModel):
 
 
 class FunctionCallOutputContentItem(
-    RootModel[Union[FunctionCallOutputContentItem1, FunctionCallOutputContentItem2]]
+    RootModel[FunctionCallOutputContentItem1 | FunctionCallOutputContentItem2]
 ):
-    root: Union[FunctionCallOutputContentItem1, FunctionCallOutputContentItem2] = Field(
+    root: FunctionCallOutputContentItem1 | FunctionCallOutputContentItem2 = Field(
         ...,
         description="Responses API compatible content items that can be returned by a tool call. This is a subset of ContentItem with the types we support as function call outputs.",
     )
@@ -70,9 +70,9 @@ class FunctionCallOutputContentItem(
 
 class GhostCommit(BaseModel):
     id: str
-    parent: Optional[str] = None
-    preexisting_untracked_dirs: List[str]
-    preexisting_untracked_files: List[str]
+    parent: str | None = None
+    preexisting_untracked_dirs: list[str]
+    preexisting_untracked_files: list[str]
 
 
 class Type91(Enum):
@@ -80,12 +80,12 @@ class Type91(Enum):
 
 
 class LocalShellAction1(BaseModel):
-    command: List[str]
-    env: Optional[Dict[str, Any]] = None
-    timeout_ms: Optional[conint(ge=0)] = None
+    command: list[str]
+    env: dict[str, Any] | None = None
+    timeout_ms: conint(ge=0) | None = None
     type: Type91 = Field(..., title="ExecLocalShellActionType")
-    user: Optional[str] = None
-    working_directory: Optional[str] = None
+    user: str | None = None
+    working_directory: str | None = None
 
 
 class LocalShellAction(RootModel[LocalShellAction1]):
@@ -106,8 +106,8 @@ class MessagePhase2(Enum):
     final_answer = "final_answer"
 
 
-class MessagePhase(RootModel[Union[MessagePhase1, MessagePhase2]]):
-    root: Union[MessagePhase1, MessagePhase2] = Field(
+class MessagePhase(RootModel[MessagePhase1 | MessagePhase2]):
+    root: MessagePhase1 | MessagePhase2 = Field(
         ...,
         description='Classifies an assistant message as interim commentary or final answer text.\n\nProviders do not emit this consistently, so callers must treat `None` as "phase unknown" and keep compatibility behavior for legacy models.',
     )
@@ -131,10 +131,8 @@ class ReasoningItemContent2(BaseModel):
     type: Type93 = Field(..., title="TextReasoningItemContentType")
 
 
-class ReasoningItemContent(
-    RootModel[Union[ReasoningItemContent1, ReasoningItemContent2]]
-):
-    root: Union[ReasoningItemContent1, ReasoningItemContent2]
+class ReasoningItemContent(RootModel[ReasoningItemContent1 | ReasoningItemContent2]):
+    root: ReasoningItemContent1 | ReasoningItemContent2
 
 
 class Type94(Enum):
@@ -155,10 +153,10 @@ class Type95(Enum):
 
 
 class ResponseItem1(BaseModel):
-    content: List[ContentItem]
-    end_turn: Optional[bool] = None
-    id: Optional[str] = None
-    phase: Optional[MessagePhase] = None
+    content: list[ContentItem]
+    end_turn: bool | None = None
+    id: str | None = None
+    phase: MessagePhase | None = None
     role: str
     type: Type95 = Field(..., title="MessageResponseItemType")
 
@@ -168,10 +166,10 @@ class Type96(Enum):
 
 
 class ResponseItem2(BaseModel):
-    content: Optional[List[ReasoningItemContent]] = None
-    encrypted_content: Optional[str] = None
+    content: list[ReasoningItemContent] | None = None
+    encrypted_content: str | None = None
     id: str
-    summary: List[ReasoningItemReasoningSummary]
+    summary: list[ReasoningItemReasoningSummary]
     type: Type96 = Field(..., title="ReasoningResponseItemType")
 
 
@@ -181,10 +179,8 @@ class Type97(Enum):
 
 class ResponseItem3(BaseModel):
     action: LocalShellAction
-    call_id: Optional[str] = Field(
-        None, description="Set when using the Responses API."
-    )
-    id: Optional[str] = Field(
+    call_id: str | None = Field(None, description="Set when using the Responses API.")
+    id: str | None = Field(
         None,
         description="Legacy id field retained for compatibility with older payloads.",
     )
@@ -199,7 +195,7 @@ class Type98(Enum):
 class ResponseItem4(BaseModel):
     arguments: str
     call_id: str
-    id: Optional[str] = None
+    id: str | None = None
     name: str
     type: Type98 = Field(..., title="FunctionCallResponseItemType")
 
@@ -214,10 +210,10 @@ class Type100(Enum):
 
 class ResponseItem6(BaseModel):
     call_id: str
-    id: Optional[str] = None
+    id: str | None = None
     input: str
     name: str
-    status: Optional[str] = None
+    status: str | None = None
     type: Type100 = Field(..., title="CustomToolCallResponseItemType")
 
 
@@ -266,8 +262,8 @@ class Type106(Enum):
 
 
 class WebSearchAction9(BaseModel):
-    queries: Optional[List[str]] = None
-    query: Optional[str] = None
+    queries: list[str] | None = None
+    query: str | None = None
     type: Type106 = Field(..., title="SearchWebSearchActionType")
 
 
@@ -277,7 +273,7 @@ class Type107(Enum):
 
 class WebSearchAction10(BaseModel):
     type: Type107 = Field(..., title="OpenPageWebSearchActionType")
-    url: Optional[str] = None
+    url: str | None = None
 
 
 class Type108(Enum):
@@ -285,9 +281,9 @@ class Type108(Enum):
 
 
 class WebSearchAction11(BaseModel):
-    pattern: Optional[str] = None
+    pattern: str | None = None
     type: Type108 = Field(..., title="FindInPageWebSearchActionType")
-    url: Optional[str] = None
+    url: str | None = None
 
 
 class Type109(Enum):
@@ -300,23 +296,19 @@ class WebSearchAction12(BaseModel):
 
 class WebSearchAction(
     RootModel[
-        Union[WebSearchAction9, WebSearchAction10, WebSearchAction11, WebSearchAction12]
+        WebSearchAction9 | WebSearchAction10 | WebSearchAction11 | WebSearchAction12
     ]
 ):
-    root: Union[
-        WebSearchAction9, WebSearchAction10, WebSearchAction11, WebSearchAction12
-    ]
+    root: WebSearchAction9 | WebSearchAction10 | WebSearchAction11 | WebSearchAction12
 
 
-class FunctionCallOutputBody(
-    RootModel[Union[str, List[FunctionCallOutputContentItem]]]
-):
-    root: Union[str, List[FunctionCallOutputContentItem]]
+class FunctionCallOutputBody(RootModel[str | list[FunctionCallOutputContentItem]]):
+    root: str | list[FunctionCallOutputContentItem]
 
 
 class FunctionCallOutputPayload(BaseModel):
     body: FunctionCallOutputBody
-    success: Optional[bool] = None
+    success: bool | None = None
 
 
 class ResponseItem5(BaseModel):
@@ -326,42 +318,40 @@ class ResponseItem5(BaseModel):
 
 
 class ResponseItem8(BaseModel):
-    action: Optional[WebSearchAction] = None
-    id: Optional[str] = None
-    status: Optional[str] = None
+    action: WebSearchAction | None = None
+    id: str | None = None
+    status: str | None = None
     type: Type102 = Field(..., title="WebSearchCallResponseItemType")
 
 
 class ResponseItem(
     RootModel[
-        Union[
-            ResponseItem1,
-            ResponseItem2,
-            ResponseItem3,
-            ResponseItem4,
-            ResponseItem5,
-            ResponseItem6,
-            ResponseItem7,
-            ResponseItem8,
-            ResponseItem9,
-            ResponseItem10,
-            ResponseItem11,
-        ]
+        ResponseItem1
+        | ResponseItem2
+        | ResponseItem3
+        | ResponseItem4
+        | ResponseItem5
+        | ResponseItem6
+        | ResponseItem7
+        | ResponseItem8
+        | ResponseItem9
+        | ResponseItem10
+        | ResponseItem11
     ]
 ):
-    root: Union[
-        ResponseItem1,
-        ResponseItem2,
-        ResponseItem3,
-        ResponseItem4,
-        ResponseItem5,
-        ResponseItem6,
-        ResponseItem7,
-        ResponseItem8,
-        ResponseItem9,
-        ResponseItem10,
-        ResponseItem11,
-    ]
+    root: (
+        ResponseItem1
+        | ResponseItem2
+        | ResponseItem3
+        | ResponseItem4
+        | ResponseItem5
+        | ResponseItem6
+        | ResponseItem7
+        | ResponseItem8
+        | ResponseItem9
+        | ResponseItem10
+        | ResponseItem11
+    )
 
 
 class RawResponseItemCompletedNotification(BaseModel):
