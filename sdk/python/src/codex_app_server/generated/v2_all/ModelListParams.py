@@ -4,18 +4,20 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from pydantic import BaseModel, Field, conint
 
 
 class ModelListParams(BaseModel):
-    cursor: str | None = Field(
+    cursor: Optional[str] = Field(
         None, description="Opaque pagination cursor returned by a previous call."
     )
-    includeHidden: bool | None = Field(
+    includeHidden: Optional[bool] = Field(
         None,
         description="When true, include models that are hidden from the default picker list.",
     )
-    limit: conint(ge=0) | None = Field(
+    limit: Optional[conint(ge=0)] = Field(
         None,
         description="Optional page size; defaults to a reasonable server-side value.",
     )

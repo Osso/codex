@@ -19,6 +19,7 @@ from codex_app_server import (
     JsonRpcError,
     ServerBusyError,
     TextInput,
+    TurnStatus,
     is_retryable_error,
 )
 
@@ -72,7 +73,7 @@ async def main() -> None:
             print("Text:")
             return
 
-        if result.status == "failed":
+        if result.status == TurnStatus.failed:
             print("Turn failed:", result.error)
 
         print("Text:", result.text)

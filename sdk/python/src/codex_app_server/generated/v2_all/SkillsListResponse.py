@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -15,12 +16,12 @@ class SkillErrorInfo(BaseModel):
 
 
 class SkillInterface(BaseModel):
-    brandColor: str | None = None
-    defaultPrompt: str | None = None
-    displayName: str | None = None
-    iconLarge: str | None = None
-    iconSmall: str | None = None
-    shortDescription: str | None = None
+    brandColor: Optional[str] = None
+    defaultPrompt: Optional[str] = None
+    displayName: Optional[str] = None
+    iconLarge: Optional[str] = None
+    iconSmall: Optional[str] = None
+    shortDescription: Optional[str] = None
 
 
 class SkillScope(Enum):
@@ -31,27 +32,27 @@ class SkillScope(Enum):
 
 
 class SkillToolDependency(BaseModel):
-    command: str | None = None
-    description: str | None = None
-    transport: str | None = None
+    command: Optional[str] = None
+    description: Optional[str] = None
+    transport: Optional[str] = None
     type: str
-    url: str | None = None
+    url: Optional[str] = None
     value: str
 
 
 class SkillDependencies(BaseModel):
-    tools: list[SkillToolDependency]
+    tools: List[SkillToolDependency]
 
 
 class SkillMetadata(BaseModel):
-    dependencies: SkillDependencies | None = None
+    dependencies: Optional[SkillDependencies] = None
     description: str
     enabled: bool
-    interface: SkillInterface | None = None
+    interface: Optional[SkillInterface] = None
     name: str
     path: str
     scope: SkillScope
-    shortDescription: str | None = Field(
+    shortDescription: Optional[str] = Field(
         None,
         description="Legacy short_description from SKILL.md. Prefer SKILL.json interface.short_description.",
     )
@@ -59,9 +60,9 @@ class SkillMetadata(BaseModel):
 
 class SkillsListEntry(BaseModel):
     cwd: str
-    errors: list[SkillErrorInfo]
-    skills: list[SkillMetadata]
+    errors: List[SkillErrorInfo]
+    skills: List[SkillMetadata]
 
 
 class SkillsListResponse(BaseModel):
-    data: list[SkillsListEntry]
+    data: List[SkillsListEntry]

@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field, RootModel, conint
 
@@ -44,8 +44,8 @@ class ContentItem7(BaseModel):
     type: Type238 = Field(..., title="OutputTextContentItemType")
 
 
-class ContentItem4(RootModel[ContentItem | ContentItem6 | ContentItem7]):
-    root: ContentItem | ContentItem6 | ContentItem7
+class ContentItem4(RootModel[Union[ContentItem, ContentItem6, ContentItem7]]):
+    root: Union[ContentItem, ContentItem6, ContentItem7]
 
 
 class Type239(Enum):
@@ -67,9 +67,9 @@ class FunctionCallOutputContentItem4(BaseModel):
 
 
 class FunctionCallOutputContentItem(
-    RootModel[FunctionCallOutputContentItem3 | FunctionCallOutputContentItem4]
+    RootModel[Union[FunctionCallOutputContentItem3, FunctionCallOutputContentItem4]]
 ):
-    root: FunctionCallOutputContentItem3 | FunctionCallOutputContentItem4 = Field(
+    root: Union[FunctionCallOutputContentItem3, FunctionCallOutputContentItem4] = Field(
         ...,
         description="Responses API compatible content items that can be returned by a tool call. This is a subset of ContentItem with the types we support as function call outputs.",
     )
@@ -77,9 +77,9 @@ class FunctionCallOutputContentItem(
 
 class GhostCommit(BaseModel):
     id: str
-    parent: str | None = None
-    preexisting_untracked_dirs: list[str]
-    preexisting_untracked_files: list[str]
+    parent: Optional[str] = None
+    preexisting_untracked_dirs: List[str]
+    preexisting_untracked_files: List[str]
 
 
 class Type241(Enum):
@@ -87,12 +87,12 @@ class Type241(Enum):
 
 
 class LocalShellAction(BaseModel):
-    command: list[str]
-    env: dict[str, Any] | None = None
-    timeout_ms: conint(ge=0) | None = None
+    command: List[str]
+    env: Optional[Dict[str, Any]] = None
+    timeout_ms: Optional[conint(ge=0)] = None
     type: Type241 = Field(..., title="ExecLocalShellActionType")
-    user: str | None = None
-    working_directory: str | None = None
+    user: Optional[str] = None
+    working_directory: Optional[str] = None
 
 
 class LocalShellAction2(RootModel[LocalShellAction]):
@@ -113,8 +113,8 @@ class MessagePhase5(Enum):
     final_answer = "final_answer"
 
 
-class MessagePhase3(RootModel[MessagePhase | MessagePhase5]):
-    root: MessagePhase | MessagePhase5 = Field(
+class MessagePhase3(RootModel[Union[MessagePhase, MessagePhase5]]):
+    root: Union[MessagePhase, MessagePhase5] = Field(
         ...,
         description='Classifies an assistant message as interim commentary or final answer text.\n\nProviders do not emit this consistently, so callers must treat `None` as "phase unknown" and keep compatibility behavior for legacy models.',
     )
@@ -144,8 +144,10 @@ class ReasoningItemContent5(BaseModel):
     type: Type243 = Field(..., title="TextReasoningItemContentType")
 
 
-class ReasoningItemContent3(RootModel[ReasoningItemContent | ReasoningItemContent5]):
-    root: ReasoningItemContent | ReasoningItemContent5
+class ReasoningItemContent3(
+    RootModel[Union[ReasoningItemContent, ReasoningItemContent5]]
+):
+    root: Union[ReasoningItemContent, ReasoningItemContent5]
 
 
 class Type244(Enum):
@@ -166,10 +168,10 @@ class Type245(Enum):
 
 
 class ResponseItem(BaseModel):
-    content: list[ContentItem4]
-    end_turn: bool | None = None
-    id: str | None = None
-    phase: MessagePhase3 | None = None
+    content: List[ContentItem4]
+    end_turn: Optional[bool] = None
+    id: Optional[str] = None
+    phase: Optional[MessagePhase3] = None
     role: str
     type: Type245 = Field(..., title="MessageResponseItemType")
 
@@ -179,10 +181,10 @@ class Type246(Enum):
 
 
 class ResponseItem14(BaseModel):
-    content: list[ReasoningItemContent3] | None = None
-    encrypted_content: str | None = None
+    content: Optional[List[ReasoningItemContent3]] = None
+    encrypted_content: Optional[str] = None
     id: str
-    summary: list[ReasoningItemReasoningSummary2]
+    summary: List[ReasoningItemReasoningSummary2]
     type: Type246 = Field(..., title="ReasoningResponseItemType")
 
 
@@ -192,8 +194,10 @@ class Type247(Enum):
 
 class ResponseItem15(BaseModel):
     action: LocalShellAction2
-    call_id: str | None = Field(None, description="Set when using the Responses API.")
-    id: str | None = Field(
+    call_id: Optional[str] = Field(
+        None, description="Set when using the Responses API."
+    )
+    id: Optional[str] = Field(
         None,
         description="Legacy id field retained for compatibility with older payloads.",
     )
@@ -208,7 +212,7 @@ class Type248(Enum):
 class ResponseItem16(BaseModel):
     arguments: str
     call_id: str
-    id: str | None = None
+    id: Optional[str] = None
     name: str
     type: Type248 = Field(..., title="FunctionCallResponseItemType")
 
@@ -223,10 +227,10 @@ class Type250(Enum):
 
 class ResponseItem18(BaseModel):
     call_id: str
-    id: str | None = None
+    id: Optional[str] = None
     input: str
     name: str
-    status: str | None = None
+    status: Optional[str] = None
     type: Type250 = Field(..., title="CustomToolCallResponseItemType")
 
 
@@ -281,8 +285,8 @@ class Type256(Enum):
 
 
 class WebSearchAction29(BaseModel):
-    queries: list[str] | None = None
-    query: str | None = None
+    queries: Optional[List[str]] = None
+    query: Optional[str] = None
     type: Type256 = Field(..., title="SearchWebSearchActionType")
 
 
@@ -292,7 +296,7 @@ class Type257(Enum):
 
 class WebSearchAction30(BaseModel):
     type: Type257 = Field(..., title="OpenPageWebSearchActionType")
-    url: str | None = None
+    url: Optional[str] = None
 
 
 class Type258(Enum):
@@ -300,9 +304,9 @@ class Type258(Enum):
 
 
 class WebSearchAction31(BaseModel):
-    pattern: str | None = None
+    pattern: Optional[str] = None
     type: Type258 = Field(..., title="FindInPageWebSearchActionType")
-    url: str | None = None
+    url: Optional[str] = None
 
 
 class Type259(Enum):
@@ -315,34 +319,40 @@ class WebSearchAction32(BaseModel):
 
 class WebSearchAction(
     RootModel[
-        WebSearchAction29 | WebSearchAction30 | WebSearchAction31 | WebSearchAction32
+        Union[
+            WebSearchAction29, WebSearchAction30, WebSearchAction31, WebSearchAction32
+        ]
     ]
 ):
-    root: WebSearchAction29 | WebSearchAction30 | WebSearchAction31 | WebSearchAction32
+    root: Union[
+        WebSearchAction29, WebSearchAction30, WebSearchAction31, WebSearchAction32
+    ]
 
 
 class ThreadResumeParams(BaseModel):
-    approvalPolicy: AskForApproval | None = None
-    baseInstructions: str | None = None
-    config: dict[str, Any] | None = None
-    cwd: str | None = None
-    developerInstructions: str | None = None
-    model: str | None = Field(
+    approvalPolicy: Optional[AskForApproval] = None
+    baseInstructions: Optional[str] = None
+    config: Optional[Dict[str, Any]] = None
+    cwd: Optional[str] = None
+    developerInstructions: Optional[str] = None
+    model: Optional[str] = Field(
         None, description="Configuration overrides for the resumed thread, if any."
     )
-    modelProvider: str | None = None
-    personality: Personality | None = None
-    sandbox: SandboxMode | None = None
+    modelProvider: Optional[str] = None
+    personality: Optional[Personality] = None
+    sandbox: Optional[SandboxMode] = None
     threadId: str
 
 
-class FunctionCallOutputBody(RootModel[str | list[FunctionCallOutputContentItem]]):
-    root: str | list[FunctionCallOutputContentItem]
+class FunctionCallOutputBody(
+    RootModel[Union[str, List[FunctionCallOutputContentItem]]]
+):
+    root: Union[str, List[FunctionCallOutputContentItem]]
 
 
 class FunctionCallOutputPayload(BaseModel):
     body: FunctionCallOutputBody
-    success: bool | None = None
+    success: Optional[bool] = None
 
 
 class ResponseItem17(BaseModel):
@@ -352,37 +362,39 @@ class ResponseItem17(BaseModel):
 
 
 class ResponseItem20(BaseModel):
-    action: WebSearchAction | None = None
-    id: str | None = None
-    status: str | None = None
+    action: Optional[WebSearchAction] = None
+    id: Optional[str] = None
+    status: Optional[str] = None
     type: Type252 = Field(..., title="WebSearchCallResponseItemType")
 
 
 class ResponseItem12(
     RootModel[
-        ResponseItem
-        | ResponseItem14
-        | ResponseItem15
-        | ResponseItem16
-        | ResponseItem17
-        | ResponseItem18
-        | ResponseItem19
-        | ResponseItem20
-        | ResponseItem21
-        | ResponseItem22
-        | ResponseItem23
+        Union[
+            ResponseItem,
+            ResponseItem14,
+            ResponseItem15,
+            ResponseItem16,
+            ResponseItem17,
+            ResponseItem18,
+            ResponseItem19,
+            ResponseItem20,
+            ResponseItem21,
+            ResponseItem22,
+            ResponseItem23,
+        ]
     ]
 ):
-    root: (
-        ResponseItem
-        | ResponseItem14
-        | ResponseItem15
-        | ResponseItem16
-        | ResponseItem17
-        | ResponseItem18
-        | ResponseItem19
-        | ResponseItem20
-        | ResponseItem21
-        | ResponseItem22
-        | ResponseItem23
-    )
+    root: Union[
+        ResponseItem,
+        ResponseItem14,
+        ResponseItem15,
+        ResponseItem16,
+        ResponseItem17,
+        ResponseItem18,
+        ResponseItem19,
+        ResponseItem20,
+        ResponseItem21,
+        ResponseItem22,
+        ResponseItem23,
+    ]

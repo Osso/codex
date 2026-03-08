@@ -111,6 +111,8 @@ class AppServerClient:
         self._approval_handler = approval_handler or self._default_approval_handler
         self._proc: subprocess.Popen[str] | None = None
         self._lock = threading.Lock()
+        self._turn_consumer_lock = threading.Lock()
+        self._active_turn_consumer: str | None = None
         self._pending_notifications: deque[Notification] = deque()
         self._stderr_lines: deque[str] = deque(maxlen=400)
         self._stderr_thread: threading.Thread | None = None
@@ -161,6 +163,7 @@ class AppServerClient:
             return
         proc = self._proc
         self._proc = None
+        self._active_turn_consumer = None
 
         if proc.stdin:
             proc.stdin.close()
@@ -249,6 +252,21 @@ class AppServerClient:
                 continue
             if "method" in msg and "id" not in msg:
                 return self._coerce_notification(msg["method"], msg.get("params"))
+
+    def acquire_turn_consumer(self, turn_id: str) -> None:
+        with self._turn_consumer_lock:
+            if self._active_turn_consumer is not None:
+                raise RuntimeError(
+                    "Concurrent turn consumers are not yet supported in the experimental SDK. "
+                    f"Client is already streaming turn {self._active_turn_consumer!r}; "
+                    f"cannot start turn {turn_id!r} until the active consumer finishes."
+                )
+            self._active_turn_consumer = turn_id
+
+    def release_turn_consumer(self, turn_id: str) -> None:
+        with self._turn_consumer_lock:
+            if self._active_turn_consumer == turn_id:
+                self._active_turn_consumer = None
 
     def thread_start(self, params: V2ThreadStartParams | JsonObject | None = None) -> ThreadStartResponse:
         return self.request("thread/start", _params_dict(params), response_model=ThreadStartResponse)

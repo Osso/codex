@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field, RootModel, conint
 
@@ -19,7 +20,7 @@ class TextElement(BaseModel):
         ...,
         description="Byte range in the parent `text` buffer that this element occupies.",
     )
-    placeholder: str | None = Field(
+    placeholder: Optional[str] = Field(
         None,
         description="Optional human-readable placeholder for the element, displayed in the UI.",
     )
@@ -31,8 +32,8 @@ class Type(Enum):
 
 class UserInput76(BaseModel):
     text: str
-    text_elements: list[TextElement] | None = Field(
-        default_factory=list,
+    text_elements: Optional[List[TextElement]] = Field(
+        [],
         description="UI-defined spans within `text` used to render or persist special elements.",
     )
     type: Type = Field(..., title="TextUserInputType")
@@ -77,9 +78,9 @@ class UserInput80(BaseModel):
 
 
 class UserInput(
-    RootModel[UserInput76 | UserInput77 | UserInput78 | UserInput79 | UserInput80]
+    RootModel[Union[UserInput76, UserInput77, UserInput78, UserInput79, UserInput80]]
 ):
-    root: UserInput76 | UserInput77 | UserInput78 | UserInput79 | UserInput80
+    root: Union[UserInput76, UserInput77, UserInput78, UserInput79, UserInput80]
 
 
 class TurnSteerParams(BaseModel):
@@ -87,5 +88,5 @@ class TurnSteerParams(BaseModel):
         ...,
         description="Required active turn id precondition. The request fails when it does not match the currently active turn.",
     )
-    input: list[UserInput]
+    input: List[UserInput]
     threadId: str

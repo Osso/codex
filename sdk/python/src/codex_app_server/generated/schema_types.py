@@ -6,87 +6,54 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, TypedDict
 
-
 class ThreadDict(TypedDict, total=False):
     cliVersion: str
     createdAt: int
     cwd: str
-    gitInfo: Any | None
+    gitInfo: Any
     id: str
     modelProvider: str
-    path: str | None
+    path: Any
     preview: str
     source: Any
     turns: list[Turn]
     updatedAt: int
-
 
 @dataclass(slots=True, kw_only=True)
 class Thread:
     cliVersion: str
     createdAt: int
     cwd: str
-    gitInfo: Any | None = None
+    gitInfo: Any = None
     id: str
     modelProvider: str
-    path: str | None = None
+    path: Any = None
     preview: str
     source: Any
-    turns: list[Turn] = None
+    turns: list[Turn]
     updatedAt: int
 
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "Thread":
-        payload = payload or {}
-        return cls(
-            cliVersion=str(payload.get("cliVersion", None) or ""),
-            createdAt=int(payload.get("createdAt", None) or 0),
-            cwd=str(payload.get("cwd", None) or ""),
-            gitInfo=payload.get("gitInfo"),
-            id=str(payload.get("id", None) or ""),
-            modelProvider=str(payload.get("modelProvider", None) or ""),
-            path=None if payload.get("path") is None else str(payload.get("path")),
-            preview=str(payload.get("preview", None) or ""),
-            source=payload.get("source", None),
-            turns=list(payload.get("turns", []) or []),
-            updatedAt=int(payload.get("updatedAt", None) or 0),
-        )
-
-
 class TurnDict(TypedDict, total=False):
-    error: Any | None
+    error: Any
     id: str
     items: list[Any]
     status: str
 
-
 @dataclass(slots=True, kw_only=True)
 class Turn:
-    error: Any | None = None
+    error: Any = None
     id: str
-    items: list[Any] = None
+    items: list[Any]
     status: str
-
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "Turn":
-        payload = payload or {}
-        return cls(
-            error=payload.get("error"),
-            id=str(payload.get("id", None) or ""),
-            items=list(payload.get("items", []) or []),
-            status=str(payload.get("status", None) or ""),
-        )
-
 
 class ThreadStartResponseDict(TypedDict, total=False):
     approvalPolicy: str
     cwd: str
     model: str
     modelProvider: str
-    reasoningEffort: str | None
+    reasoningEffort: Any
     sandbox: Any
     thread: Thread
-
 
 @dataclass(slots=True, kw_only=True)
 class ThreadStartResponse:
@@ -94,37 +61,18 @@ class ThreadStartResponse:
     cwd: str
     model: str
     modelProvider: str
-    reasoningEffort: str | None = None
+    reasoningEffort: Any = None
     sandbox: Any
     thread: Thread
-
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "ThreadStartResponse":
-        payload = payload or {}
-        return cls(
-            approvalPolicy=str(payload.get("approvalPolicy", None) or ""),
-            cwd=str(payload.get("cwd", None) or ""),
-            model=str(payload.get("model", None) or ""),
-            modelProvider=str(payload.get("modelProvider", None) or ""),
-            reasoningEffort=(
-                None
-                if payload.get("reasoningEffort") is None
-                else str(payload.get("reasoningEffort"))
-            ),
-            sandbox=payload.get("sandbox", None),
-            thread=Thread.from_dict(payload.get("thread") or {}),
-        )
-
 
 class ThreadResumeResponseDict(TypedDict, total=False):
     approvalPolicy: str
     cwd: str
     model: str
     modelProvider: str
-    reasoningEffort: str | None
+    reasoningEffort: Any
     sandbox: Any
     thread: Thread
-
 
 @dataclass(slots=True, kw_only=True)
 class ThreadResumeResponse:
@@ -132,76 +80,34 @@ class ThreadResumeResponse:
     cwd: str
     model: str
     modelProvider: str
-    reasoningEffort: str | None = None
+    reasoningEffort: Any = None
     sandbox: Any
     thread: Thread
 
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "ThreadResumeResponse":
-        payload = payload or {}
-        return cls(
-            approvalPolicy=str(payload.get("approvalPolicy", None) or ""),
-            cwd=str(payload.get("cwd", None) or ""),
-            model=str(payload.get("model", None) or ""),
-            modelProvider=str(payload.get("modelProvider", None) or ""),
-            reasoningEffort=(
-                None
-                if payload.get("reasoningEffort") is None
-                else str(payload.get("reasoningEffort"))
-            ),
-            sandbox=payload.get("sandbox", None),
-            thread=Thread.from_dict(payload.get("thread") or {}),
-        )
-
-
 class ThreadReadResponseDict(TypedDict, total=False):
     thread: Thread
-
 
 @dataclass(slots=True, kw_only=True)
 class ThreadReadResponse:
     thread: Thread
 
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "ThreadReadResponse":
-        payload = payload or {}
-        return cls(
-            thread=Thread.from_dict(payload.get("thread") or {}),
-        )
-
-
 class ThreadListResponseDict(TypedDict, total=False):
     data: list[Thread]
-    nextCursor: str | None
-
+    nextCursor: Any
 
 @dataclass(slots=True, kw_only=True)
 class ThreadListResponse:
-    data: list[Thread] = None
-    nextCursor: str | None = None
-
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "ThreadListResponse":
-        payload = payload or {}
-        return cls(
-            data=[Thread.from_dict(item or {}) for item in (payload.get("data") or [])],
-            nextCursor=(
-                None
-                if payload.get("nextCursor") is None
-                else str(payload.get("nextCursor"))
-            ),
-        )
-
+    data: list[Thread]
+    nextCursor: Any = None
 
 class ThreadForkResponseDict(TypedDict, total=False):
     approvalPolicy: str
     cwd: str
     model: str
     modelProvider: str
-    reasoningEffort: str | None
+    reasoningEffort: Any
     sandbox: Any
     thread: Thread
-
 
 @dataclass(slots=True, kw_only=True)
 class ThreadForkResponse:
@@ -209,385 +115,58 @@ class ThreadForkResponse:
     cwd: str
     model: str
     modelProvider: str
-    reasoningEffort: str | None = None
+    reasoningEffort: Any = None
     sandbox: Any
     thread: Thread
 
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "ThreadForkResponse":
-        payload = payload or {}
-        return cls(
-            approvalPolicy=str(payload.get("approvalPolicy", None) or ""),
-            cwd=str(payload.get("cwd", None) or ""),
-            model=str(payload.get("model", None) or ""),
-            modelProvider=str(payload.get("modelProvider", None) or ""),
-            reasoningEffort=(
-                None
-                if payload.get("reasoningEffort") is None
-                else str(payload.get("reasoningEffort"))
-            ),
-            sandbox=payload.get("sandbox", None),
-            thread=Thread.from_dict(payload.get("thread") or {}),
-        )
-
-
 class ThreadArchiveResponseDict(TypedDict, total=False):
     pass
-
 
 @dataclass(slots=True, kw_only=True)
 class ThreadArchiveResponse:
     pass
 
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "ThreadArchiveResponse":
-        payload = payload or {}
-        return cls()
-
-
 class ThreadUnarchiveResponseDict(TypedDict, total=False):
     thread: Thread
-
 
 @dataclass(slots=True, kw_only=True)
 class ThreadUnarchiveResponse:
     thread: Thread
 
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "ThreadUnarchiveResponse":
-        payload = payload or {}
-        return cls(
-            thread=Thread.from_dict(payload.get("thread") or {}),
-        )
-
-
 class ThreadSetNameResponseDict(TypedDict, total=False):
     pass
-
 
 @dataclass(slots=True, kw_only=True)
 class ThreadSetNameResponse:
     pass
 
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "ThreadSetNameResponse":
-        payload = payload or {}
-        return cls()
-
-
 class ThreadCompactStartResponseDict(TypedDict, total=False):
     pass
-
 
 @dataclass(slots=True, kw_only=True)
 class ThreadCompactStartResponse:
     pass
 
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "ThreadCompactStartResponse":
-        payload = payload or {}
-        return cls()
-
-
 class TurnStartResponseDict(TypedDict, total=False):
     turn: Turn
-
 
 @dataclass(slots=True, kw_only=True)
 class TurnStartResponse:
     turn: Turn
 
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "TurnStartResponse":
-        payload = payload or {}
-        return cls(
-            turn=Turn.from_dict(payload.get("turn") or {}),
-        )
-
-
 class TurnSteerResponseDict(TypedDict, total=False):
     turnId: str
-
 
 @dataclass(slots=True, kw_only=True)
 class TurnSteerResponse:
     turnId: str
 
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "TurnSteerResponse":
-        payload = payload or {}
-        return cls(
-            turnId=str(payload.get("turnId", None) or ""),
-        )
-
-
 class ModelListResponseDict(TypedDict, total=False):
     data: list[Any]
-    nextCursor: str | None
-
+    nextCursor: Any
 
 @dataclass(slots=True, kw_only=True)
 class ModelListResponse:
-    data: list[Any] = None
-    nextCursor: str | None = None
+    data: list[Any]
+    nextCursor: Any = None
 
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "ModelListResponse":
-        payload = payload or {}
-        return cls(
-            data=list(payload.get("data", []) or []),
-            nextCursor=(
-                None
-                if payload.get("nextCursor") is None
-                else str(payload.get("nextCursor"))
-            ),
-        )
-
-
-class ThreadStartedNotificationPayloadDict(TypedDict, total=False):
-    thread: Thread
-
-
-@dataclass(slots=True, kw_only=True)
-class ThreadStartedNotificationPayload:
-    thread: Thread
-
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "ThreadStartedNotificationPayload":
-        payload = payload or {}
-        return cls(
-            thread=Thread.from_dict(payload.get("thread") or {}),
-        )
-
-
-class TurnStartedNotificationPayloadDict(TypedDict, total=False):
-    threadId: str
-    turn: Turn
-
-
-@dataclass(slots=True, kw_only=True)
-class TurnStartedNotificationPayload:
-    threadId: str
-    turn: Turn
-
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "TurnStartedNotificationPayload":
-        payload = payload or {}
-        return cls(
-            threadId=str(payload.get("threadId", None) or ""),
-            turn=Turn.from_dict(payload.get("turn") or {}),
-        )
-
-
-class TurnCompletedNotificationPayloadDict(TypedDict, total=False):
-    threadId: str
-    turn: Turn
-
-
-@dataclass(slots=True, kw_only=True)
-class TurnCompletedNotificationPayload:
-    threadId: str
-    turn: Turn
-
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "TurnCompletedNotificationPayload":
-        payload = payload or {}
-        return cls(
-            threadId=str(payload.get("threadId", None) or ""),
-            turn=Turn.from_dict(payload.get("turn") or {}),
-        )
-
-
-class AgentMessageDeltaNotificationPayloadDict(TypedDict, total=False):
-    delta: str
-    itemId: str
-    threadId: str
-    turnId: str
-
-
-@dataclass(slots=True, kw_only=True)
-class AgentMessageDeltaNotificationPayload:
-    delta: str
-    itemId: str
-    threadId: str
-    turnId: str
-
-    @classmethod
-    def from_dict(
-        cls, payload: dict[str, Any]
-    ) -> "AgentMessageDeltaNotificationPayload":
-        payload = payload or {}
-        return cls(
-            delta=str(payload.get("delta", None) or ""),
-            itemId=str(payload.get("itemId", None) or ""),
-            threadId=str(payload.get("threadId", None) or ""),
-            turnId=str(payload.get("turnId", None) or ""),
-        )
-
-
-class ErrorNotificationPayloadDict(TypedDict, total=False):
-    error: Any
-    threadId: str
-    turnId: str
-    willRetry: bool
-
-
-@dataclass(slots=True, kw_only=True)
-class ErrorNotificationPayload:
-    error: Any
-    threadId: str
-    turnId: str
-    willRetry: bool
-
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "ErrorNotificationPayload":
-        payload = payload or {}
-        return cls(
-            error=payload.get("error", None),
-            threadId=str(payload.get("threadId", None) or ""),
-            turnId=str(payload.get("turnId", None) or ""),
-            willRetry=bool(payload.get("willRetry", None)),
-        )
-
-
-class ItemStartedNotificationPayloadDict(TypedDict, total=False):
-    item: Any
-    threadId: str
-    turnId: str
-
-
-@dataclass(slots=True, kw_only=True)
-class ItemStartedNotificationPayload:
-    item: Any
-    threadId: str
-    turnId: str
-
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "ItemStartedNotificationPayload":
-        payload = payload or {}
-        return cls(
-            item=payload.get("item", None),
-            threadId=str(payload.get("threadId", None) or ""),
-            turnId=str(payload.get("turnId", None) or ""),
-        )
-
-
-class ItemCompletedNotificationPayloadDict(TypedDict, total=False):
-    item: Any
-    threadId: str
-    turnId: str
-
-
-@dataclass(slots=True, kw_only=True)
-class ItemCompletedNotificationPayload:
-    item: Any
-    threadId: str
-    turnId: str
-
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "ItemCompletedNotificationPayload":
-        payload = payload or {}
-        return cls(
-            item=payload.get("item", None),
-            threadId=str(payload.get("threadId", None) or ""),
-            turnId=str(payload.get("turnId", None) or ""),
-        )
-
-
-class ThreadNameUpdatedNotificationPayloadDict(TypedDict, total=False):
-    threadId: str
-    threadName: str | None
-
-
-@dataclass(slots=True, kw_only=True)
-class ThreadNameUpdatedNotificationPayload:
-    threadId: str
-    threadName: str | None = None
-
-    @classmethod
-    def from_dict(
-        cls, payload: dict[str, Any]
-    ) -> "ThreadNameUpdatedNotificationPayload":
-        payload = payload or {}
-        return cls(
-            threadId=str(payload.get("threadId", None) or ""),
-            threadName=(
-                None
-                if payload.get("threadName") is None
-                else str(payload.get("threadName"))
-            ),
-        )
-
-
-class ThreadTokenUsageUpdatedNotificationPayloadDict(TypedDict, total=False):
-    threadId: str
-    tokenUsage: Any
-    turnId: str
-
-
-@dataclass(slots=True, kw_only=True)
-class ThreadTokenUsageUpdatedNotificationPayload:
-    threadId: str
-    tokenUsage: Any
-    turnId: str
-
-    @classmethod
-    def from_dict(
-        cls, payload: dict[str, Any]
-    ) -> "ThreadTokenUsageUpdatedNotificationPayload":
-        payload = payload or {}
-        return cls(
-            threadId=str(payload.get("threadId", None) or ""),
-            tokenUsage=payload.get("tokenUsage", None),
-            turnId=str(payload.get("turnId", None) or ""),
-        )
-
-
-__all__ = [
-    "Thread",
-    "Turn",
-    "ThreadStartResponse",
-    "ThreadResumeResponse",
-    "ThreadReadResponse",
-    "ThreadListResponse",
-    "ThreadForkResponse",
-    "ThreadArchiveResponse",
-    "ThreadUnarchiveResponse",
-    "ThreadSetNameResponse",
-    "ThreadCompactStartResponse",
-    "TurnStartResponse",
-    "TurnSteerResponse",
-    "ModelListResponse",
-    "ThreadStartedNotificationPayload",
-    "TurnStartedNotificationPayload",
-    "TurnCompletedNotificationPayload",
-    "AgentMessageDeltaNotificationPayload",
-    "ErrorNotificationPayload",
-    "ItemStartedNotificationPayload",
-    "ItemCompletedNotificationPayload",
-    "ThreadNameUpdatedNotificationPayload",
-    "ThreadTokenUsageUpdatedNotificationPayload",
-    "ThreadDict",
-    "TurnDict",
-    "ThreadStartResponseDict",
-    "ThreadResumeResponseDict",
-    "ThreadReadResponseDict",
-    "ThreadListResponseDict",
-    "ThreadForkResponseDict",
-    "ThreadArchiveResponseDict",
-    "ThreadUnarchiveResponseDict",
-    "ThreadSetNameResponseDict",
-    "ThreadCompactStartResponseDict",
-    "TurnStartResponseDict",
-    "TurnSteerResponseDict",
-    "ModelListResponseDict",
-    "ThreadStartedNotificationPayloadDict",
-    "TurnStartedNotificationPayloadDict",
-    "TurnCompletedNotificationPayloadDict",
-    "AgentMessageDeltaNotificationPayloadDict",
-    "ErrorNotificationPayloadDict",
-    "ItemStartedNotificationPayloadDict",
-    "ItemCompletedNotificationPayloadDict",
-    "ThreadNameUpdatedNotificationPayloadDict",
-    "ThreadTokenUsageUpdatedNotificationPayloadDict",
-]

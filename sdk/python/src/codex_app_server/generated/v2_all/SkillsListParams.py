@@ -4,23 +4,25 @@
 
 from __future__ import annotations
 
+from typing import List, Optional
+
 from pydantic import BaseModel, Field
 
 
 class SkillsListExtraRootsForCwd(BaseModel):
     cwd: str
-    extraUserRoots: list[str]
+    extraUserRoots: List[str]
 
 
 class SkillsListParams(BaseModel):
-    cwds: list[str] | None = Field(
+    cwds: Optional[List[str]] = Field(
         None,
         description="When empty, defaults to the current session working directory.",
     )
-    forceReload: bool | None = Field(
+    forceReload: Optional[bool] = Field(
         None,
         description="When true, bypass the skills cache and re-scan skills from disk.",
     )
-    perCwdExtraUserRoots: list[SkillsListExtraRootsForCwd] | None = Field(
+    perCwdExtraUserRoots: Optional[List[SkillsListExtraRootsForCwd]] = Field(
         None, description="Optional per-cwd extra roots to scan as user-scoped skills."
     )

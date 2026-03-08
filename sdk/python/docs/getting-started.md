@@ -2,6 +2,8 @@
 
 This is the fastest path from install to a multi-turn thread using the public SDK surface.
 
+The SDK is experimental. Treat the API, bundled runtime strategy, and packaging details as unstable until the first public release.
+
 ## 1) Install
 
 From repo root:
@@ -39,6 +41,7 @@ What happened:
 - `Codex()` started and initialized `codex app-server`.
 - `thread_start(...)` created a thread.
 - `turn(...).run()` consumed events until `turn/completed` and returned a `TurnResult`.
+- one client can have only one active `Turn.stream()` / `Turn.run()` consumer at a time in the current experimental build
 
 ## 3) Continue the same thread (multi-turn)
 

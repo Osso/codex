@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field, RootModel
 
@@ -26,8 +27,8 @@ class Type(Enum):
 
 
 class ReadOnlyAccess1(BaseModel):
-    includePlatformDefaults: bool | None = True
-    readableRoots: list[AbsolutePathBuf] | None = Field(default_factory=list)
+    includePlatformDefaults: Optional[bool] = True
+    readableRoots: Optional[List[AbsolutePathBuf]] = []
     type: Type = Field(..., title="RestrictedReadOnlyAccessType")
 
 
@@ -39,8 +40,8 @@ class ReadOnlyAccess2(BaseModel):
     type: Type1 = Field(..., title="FullAccessReadOnlyAccessType")
 
 
-class ReadOnlyAccess(RootModel[ReadOnlyAccess1 | ReadOnlyAccess2]):
-    root: ReadOnlyAccess1 | ReadOnlyAccess2
+class ReadOnlyAccess(RootModel[Union[ReadOnlyAccess1, ReadOnlyAccess2]]):
+    root: Union[ReadOnlyAccess1, ReadOnlyAccess2]
 
 
 class Type2(Enum):
@@ -56,8 +57,8 @@ class Type3(Enum):
 
 
 class SandboxPolicy2(BaseModel):
-    access: ReadOnlyAccess | None = Field(
-        default_factory=lambda: ReadOnlyAccess({"type": "fullAccess"})
+    access: Optional[ReadOnlyAccess] = Field(
+        default_factory=lambda: ReadOnlyAccess.model_validate({"type": "fullAccess"})
     )
     type: Type3 = Field(..., title="ReadOnlySandboxPolicyType")
 
@@ -67,7 +68,7 @@ class Type4(Enum):
 
 
 class SandboxPolicy3(BaseModel):
-    networkAccess: NetworkAccess | None = "restricted"
+    networkAccess: Optional[NetworkAccess] = "restricted"
     type: Type4 = Field(..., title="ExternalSandboxSandboxPolicyType")
 
 
@@ -76,24 +77,24 @@ class Type5(Enum):
 
 
 class SandboxPolicy4(BaseModel):
-    excludeSlashTmp: bool | None = False
-    excludeTmpdirEnvVar: bool | None = False
-    networkAccess: bool | None = False
-    readOnlyAccess: ReadOnlyAccess | None = Field(
-        default_factory=lambda: ReadOnlyAccess({"type": "fullAccess"})
+    excludeSlashTmp: Optional[bool] = False
+    excludeTmpdirEnvVar: Optional[bool] = False
+    networkAccess: Optional[bool] = False
+    readOnlyAccess: Optional[ReadOnlyAccess] = Field(
+        default_factory=lambda: ReadOnlyAccess.model_validate({"type": "fullAccess"})
     )
     type: Type5 = Field(..., title="WorkspaceWriteSandboxPolicyType")
-    writableRoots: list[AbsolutePathBuf] | None = Field(default_factory=list)
+    writableRoots: Optional[List[AbsolutePathBuf]] = []
 
 
 class SandboxPolicy(
-    RootModel[SandboxPolicy1 | SandboxPolicy2 | SandboxPolicy3 | SandboxPolicy4]
+    RootModel[Union[SandboxPolicy1, SandboxPolicy2, SandboxPolicy3, SandboxPolicy4]]
 ):
-    root: SandboxPolicy1 | SandboxPolicy2 | SandboxPolicy3 | SandboxPolicy4
+    root: Union[SandboxPolicy1, SandboxPolicy2, SandboxPolicy3, SandboxPolicy4]
 
 
 class CommandExecParams(BaseModel):
-    command: list[str]
-    cwd: str | None = None
-    sandboxPolicy: SandboxPolicy | None = None
-    timeoutMs: int | None = None
+    command: List[str]
+    cwd: Optional[str] = None
+    sandboxPolicy: Optional[SandboxPolicy] = None
+    timeoutMs: Optional[int] = None

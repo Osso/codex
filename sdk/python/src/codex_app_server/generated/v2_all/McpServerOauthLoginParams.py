@@ -4,10 +4,12 @@
 
 from __future__ import annotations
 
+from typing import List, Optional
+
 from pydantic import BaseModel
 
 
 class McpServerOauthLoginParams(BaseModel):
     name: str
-    scopes: list[str] | None = None
-    timeoutSecs: int | None = None
+    scopes: Optional[List[str]] = None
+    timeoutSecs: Optional[int] = None

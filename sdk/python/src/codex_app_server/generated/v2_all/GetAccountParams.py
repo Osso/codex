@@ -4,11 +4,13 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
 class GetAccountParams(BaseModel):
-    refreshToken: bool | None = Field(
+    refreshToken: Optional[bool] = Field(
         False,
         description="When `true`, requests a proactive token refresh before returning.\n\nIn managed auth mode this triggers the normal refresh-token flow. In external auth mode this flag is ignored. Clients should refresh tokens themselves and call `account/login/start` with `chatgptAuthTokens`.",
     )

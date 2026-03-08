@@ -4,22 +4,24 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from pydantic import BaseModel, Field, conint
 
 
 class AppsListParams(BaseModel):
-    cursor: str | None = Field(
+    cursor: Optional[str] = Field(
         None, description="Opaque pagination cursor returned by a previous call."
     )
-    forceRefetch: bool | None = Field(
+    forceRefetch: Optional[bool] = Field(
         None,
         description="When true, bypass app caches and fetch the latest data from sources.",
     )
-    limit: conint(ge=0) | None = Field(
+    limit: Optional[conint(ge=0)] = Field(
         None,
         description="Optional page size; defaults to a reasonable server-side value.",
     )
-    threadId: str | None = Field(
+    threadId: Optional[str] = Field(
         None,
         description="Optional thread id used to evaluate app feature gating from that thread's config.",
     )

@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -18,48 +18,48 @@ class McpAuthStatus(Enum):
 
 
 class Resource(BaseModel):
-    field_meta: Any | None = Field(None, alias="_meta")
-    annotations: Any | None = None
-    description: str | None = None
-    icons: list[Any] | None = None
-    mimeType: str | None = None
+    field_meta: Optional[Any] = Field(None, alias="_meta")
+    annotations: Optional[Any] = None
+    description: Optional[str] = None
+    icons: Optional[List] = None
+    mimeType: Optional[str] = None
     name: str
-    size: int | None = None
-    title: str | None = None
+    size: Optional[int] = None
+    title: Optional[str] = None
     uri: str
 
 
 class ResourceTemplate(BaseModel):
-    annotations: Any | None = None
-    description: str | None = None
-    mimeType: str | None = None
+    annotations: Optional[Any] = None
+    description: Optional[str] = None
+    mimeType: Optional[str] = None
     name: str
-    title: str | None = None
+    title: Optional[str] = None
     uriTemplate: str
 
 
 class Tool(BaseModel):
-    field_meta: Any | None = Field(None, alias="_meta")
-    annotations: Any | None = None
-    description: str | None = None
-    icons: list[Any] | None = None
+    field_meta: Optional[Any] = Field(None, alias="_meta")
+    annotations: Optional[Any] = None
+    description: Optional[str] = None
+    icons: Optional[List] = None
     inputSchema: Any
     name: str
-    outputSchema: Any | None = None
-    title: str | None = None
+    outputSchema: Optional[Any] = None
+    title: Optional[str] = None
 
 
 class McpServerStatus(BaseModel):
     authStatus: McpAuthStatus
     name: str
-    resourceTemplates: list[ResourceTemplate]
-    resources: list[Resource]
-    tools: dict[str, Tool]
+    resourceTemplates: List[ResourceTemplate]
+    resources: List[Resource]
+    tools: Dict[str, Tool]
 
 
 class ListMcpServerStatusResponse(BaseModel):
-    data: list[McpServerStatus]
-    nextCursor: str | None = Field(
+    data: List[McpServerStatus]
+    nextCursor: Optional[str] = Field(
         None,
         description="Opaque cursor to pass to the next call to continue after the last item. If None, there are no more items to return.",
     )

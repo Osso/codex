@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field, RootModel
 
@@ -17,8 +18,8 @@ class InputModality2(Enum):
     image = "image"
 
 
-class InputModality(RootModel[InputModality1 | InputModality2]):
-    root: InputModality1 | InputModality2 = Field(
+class InputModality(RootModel[Union[InputModality1, InputModality2]]):
+    root: Union[InputModality1, InputModality2] = Field(
         ..., description="Canonical user-input modality tags advertised by a model."
     )
 
@@ -43,21 +44,21 @@ class Model(BaseModel):
     displayName: str
     hidden: bool
     id: str
-    inputModalities: list[InputModality] | None = Field(
+    inputModalities: Optional[List[InputModality]] = Field(
         default_factory=lambda: [
             InputModality.model_validate(v) for v in ["text", "image"]
         ]
     )
     isDefault: bool
     model: str
-    supportedReasoningEfforts: list[ReasoningEffortOption]
-    supportsPersonality: bool | None = False
-    upgrade: str | None = None
+    supportedReasoningEfforts: List[ReasoningEffortOption]
+    supportsPersonality: Optional[bool] = False
+    upgrade: Optional[str] = None
 
 
 class ModelListResponse(BaseModel):
-    data: list[Model]
-    nextCursor: str | None = Field(
+    data: List[Model]
+    nextCursor: Optional[str] = Field(
         None,
         description="Opaque cursor to pass to the next call to continue after the last item. If None, there are no more items to return.",
     )

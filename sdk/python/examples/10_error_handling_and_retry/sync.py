@@ -14,6 +14,7 @@ from codex_app_server import (
     JsonRpcError,
     ServerBusyError,
     TextInput,
+    TurnStatus,
     retry_on_overload,
 )
 
@@ -34,6 +35,6 @@ with Codex() as codex:
         print(f"JSON-RPC error {exc.code}: {exc.message}")
         print("Text:")
     else:
-        if result.status == "failed":
+        if result.status == TurnStatus.failed:
             print("Turn failed:", result.error)
         print("Text:", result.text)

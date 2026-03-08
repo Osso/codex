@@ -77,6 +77,12 @@ class AsyncAppServerClient:
     async def initialize(self) -> InitializeResponse:
         return await self._call_sync(self._sync.initialize)
 
+    def acquire_turn_consumer(self, turn_id: str) -> None:
+        self._sync.acquire_turn_consumer(turn_id)
+
+    def release_turn_consumer(self, turn_id: str) -> None:
+        self._sync.release_turn_consumer(turn_id)
+
     async def request(
         self,
         method: str,

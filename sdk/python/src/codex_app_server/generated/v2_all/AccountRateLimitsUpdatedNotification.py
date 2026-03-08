@@ -5,12 +5,13 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Optional
 
 from pydantic import BaseModel
 
 
 class CreditsSnapshot(BaseModel):
-    balance: str | None = None
+    balance: Optional[str] = None
     hasCredits: bool
     unlimited: bool
 
@@ -28,18 +29,18 @@ class PlanType(Enum):
 
 
 class RateLimitWindow(BaseModel):
-    resetsAt: int | None = None
+    resetsAt: Optional[int] = None
     usedPercent: int
-    windowDurationMins: int | None = None
+    windowDurationMins: Optional[int] = None
 
 
 class RateLimitSnapshot(BaseModel):
-    credits: CreditsSnapshot | None = None
-    limitId: str | None = None
-    limitName: str | None = None
-    planType: PlanType | None = None
-    primary: RateLimitWindow | None = None
-    secondary: RateLimitWindow | None = None
+    credits: Optional[CreditsSnapshot] = None
+    limitId: Optional[str] = None
+    limitName: Optional[str] = None
+    planType: Optional[PlanType] = None
+    primary: Optional[RateLimitWindow] = None
+    secondary: Optional[RateLimitWindow] = None
 
 
 class AccountRateLimitsUpdatedNotification(BaseModel):

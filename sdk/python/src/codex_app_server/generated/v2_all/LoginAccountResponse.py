@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Union
 
 from pydantic import BaseModel, Field, RootModel
 
@@ -39,8 +40,10 @@ class LoginAccountResponse3(BaseModel):
 
 
 class LoginAccountResponse(
-    RootModel[LoginAccountResponse1 | LoginAccountResponse2 | LoginAccountResponse3]
+    RootModel[
+        Union[LoginAccountResponse1, LoginAccountResponse2, LoginAccountResponse3]
+    ]
 ):
-    root: LoginAccountResponse1 | LoginAccountResponse2 | LoginAccountResponse3 = Field(
-        ..., title="LoginAccountResponse"
+    root: Union[LoginAccountResponse1, LoginAccountResponse2, LoginAccountResponse3] = (
+        Field(..., title="LoginAccountResponse")
     )

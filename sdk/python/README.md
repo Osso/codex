@@ -2,6 +2,15 @@
 
 Python SDK for `codex app-server` JSON-RPC v2 over stdio, with a small typed public surface for sync and async apps.
 
+## Experimental status
+
+This SDK is experimental and not published yet. Expect API and packaging changes before the first public release.
+
+Current runtime limitation:
+
+- one active `Turn.stream()` or `Turn.run()` consumer per client at a time
+- concurrent turn consumers on the same `Codex` / `AsyncCodex` instance raise a `RuntimeError`
+
 ## Install
 
 ```bash
@@ -94,4 +103,5 @@ This refreshes all bundled OS/arch binaries and regenerates protocol-derived Pyt
 
 - `Codex()` is eager and performs startup + `initialize` in the constructor.
 - `AsyncCodex` should be used with `async with AsyncCodex() as codex:`.
+- `TurnResult.text` prefers streamed assistant deltas and falls back to completed raw response items when no deltas are emitted.
 - For transient overload, use `retry_on_overload(...)`.

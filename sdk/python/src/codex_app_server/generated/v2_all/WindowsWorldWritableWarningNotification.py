@@ -4,10 +4,12 @@
 
 from __future__ import annotations
 
+from typing import List
+
 from pydantic import BaseModel, conint
 
 
 class WindowsWorldWritableWarningNotification(BaseModel):
     extraCount: conint(ge=0)
     failedScan: bool
-    samplePaths: list[str]
+    samplePaths: List[str]

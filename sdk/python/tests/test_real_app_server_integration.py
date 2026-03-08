@@ -137,12 +137,14 @@ def test_real_codex_event_ids_are_not_blank_strings() -> None:
 
 def test_notebook_bootstrap_resolves_sdk_from_unrelated_cwd() -> None:
     cell_1_source = _notebook_cell_source(1)
+    env = os.environ.copy()
+    env["CODEX_PYTHON_SDK_DIR"] = str(ROOT)
 
     with tempfile.TemporaryDirectory() as temp_cwd:
         result = subprocess.run(
             [sys.executable, "-c", cell_1_source],
             cwd=temp_cwd,
-            env=os.environ.copy(),
+            env=env,
             text=True,
             capture_output=True,
             timeout=60,

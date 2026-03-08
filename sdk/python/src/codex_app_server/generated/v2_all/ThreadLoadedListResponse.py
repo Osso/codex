@@ -4,14 +4,16 @@
 
 from __future__ import annotations
 
+from typing import List, Optional
+
 from pydantic import BaseModel, Field
 
 
 class ThreadLoadedListResponse(BaseModel):
-    data: list[str] = Field(
+    data: List[str] = Field(
         ..., description="Thread ids for sessions currently loaded in memory."
     )
-    nextCursor: str | None = Field(
+    nextCursor: Optional[str] = Field(
         None,
         description="Opaque cursor to pass to the next call to continue after the last item. if None, there are no more items to return.",
     )

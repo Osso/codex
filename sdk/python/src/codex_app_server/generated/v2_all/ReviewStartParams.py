@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Optional, Union
 
 from pydantic import BaseModel, Field, RootModel
 
@@ -37,7 +38,7 @@ class Type112(Enum):
 
 class ReviewTarget3(BaseModel):
     sha: str
-    title: str | None = Field(
+    title: Optional[str] = Field(
         None,
         description="Optional human-readable label (e.g., commit subject) for UIs.",
     )
@@ -54,13 +55,13 @@ class ReviewTarget4(BaseModel):
 
 
 class ReviewTarget(
-    RootModel[ReviewTarget1 | ReviewTarget2 | ReviewTarget3 | ReviewTarget4]
+    RootModel[Union[ReviewTarget1, ReviewTarget2, ReviewTarget3, ReviewTarget4]]
 ):
-    root: ReviewTarget1 | ReviewTarget2 | ReviewTarget3 | ReviewTarget4
+    root: Union[ReviewTarget1, ReviewTarget2, ReviewTarget3, ReviewTarget4]
 
 
 class ReviewStartParams(BaseModel):
-    delivery: ReviewDelivery | None = Field(
+    delivery: Optional[ReviewDelivery] = Field(
         None,
         description="Where to run the review: inline (default) on the current thread or detached on a new thread (returned in `reviewThreadId`).",
     )

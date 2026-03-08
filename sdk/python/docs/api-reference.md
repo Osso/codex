@@ -2,6 +2,8 @@
 
 Public surface of `codex_app_server` for app-server v2.
 
+This SDK surface is experimental. The current implementation intentionally allows only one active `Turn.stream()` or `Turn.run()` consumer per client instance at a time.
+
 ## Package Entry
 
 ```python
@@ -22,6 +24,7 @@ from codex_app_server import (
     SkillInput,
     MentionInput,
     ThreadItem,
+    TurnStatus,
 )
 ```
 
@@ -105,12 +108,22 @@ async with AsyncCodex() as codex:
 - `stream() -> Iterator[Notification]`
 - `run() -> TurnResult`
 
+Behavior notes:
+
+- `stream()` and `run()` are exclusive per client instance in the current experimental build
+- starting a second turn consumer on the same `Codex` instance raises `RuntimeError`
+
 ### AsyncTurn
 
 - `steer(input: Input) -> Awaitable[TurnSteerResponse]`
 - `interrupt() -> Awaitable[TurnInterruptResponse]`
 - `stream() -> AsyncIterator[Notification]`
 - `run() -> Awaitable[TurnResult]`
+
+Behavior notes:
+
+- `stream()` and `run()` are exclusive per client instance in the current experimental build
+- starting a second turn consumer on the same `AsyncCodex` instance raises `RuntimeError`
 
 ## TurnResult
 

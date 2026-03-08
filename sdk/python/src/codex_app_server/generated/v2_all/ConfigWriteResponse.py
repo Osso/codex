@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any
+from typing import Any, Optional, Union
 
 from pydantic import BaseModel, Field, RootModel
 
@@ -91,24 +91,26 @@ class ConfigLayerSource14(BaseModel):
 
 class ConfigLayerSource(
     RootModel[
-        ConfigLayerSource8
-        | ConfigLayerSource9
-        | ConfigLayerSource10
-        | ConfigLayerSource11
-        | ConfigLayerSource12
-        | ConfigLayerSource13
-        | ConfigLayerSource14
+        Union[
+            ConfigLayerSource8,
+            ConfigLayerSource9,
+            ConfigLayerSource10,
+            ConfigLayerSource11,
+            ConfigLayerSource12,
+            ConfigLayerSource13,
+            ConfigLayerSource14,
+        ]
     ]
 ):
-    root: (
-        ConfigLayerSource8
-        | ConfigLayerSource9
-        | ConfigLayerSource10
-        | ConfigLayerSource11
-        | ConfigLayerSource12
-        | ConfigLayerSource13
-        | ConfigLayerSource14
-    )
+    root: Union[
+        ConfigLayerSource8,
+        ConfigLayerSource9,
+        ConfigLayerSource10,
+        ConfigLayerSource11,
+        ConfigLayerSource12,
+        ConfigLayerSource13,
+        ConfigLayerSource14,
+    ]
 
 
 class WriteStatus(Enum):
@@ -131,6 +133,6 @@ class ConfigWriteResponse(BaseModel):
     filePath: AbsolutePathBuf = Field(
         ..., description="Canonical path to the config file that was written."
     )
-    overriddenMetadata: OverriddenMetadata | None = None
+    overriddenMetadata: Optional[OverriddenMetadata] = None
     status: WriteStatus
     version: str

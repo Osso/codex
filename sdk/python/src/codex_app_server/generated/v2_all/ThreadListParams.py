@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import List, Optional
 
 from pydantic import BaseModel, Field, conint
 
@@ -28,29 +29,29 @@ class ThreadSourceKind(Enum):
 
 
 class ThreadListParams(BaseModel):
-    archived: bool | None = Field(
+    archived: Optional[bool] = Field(
         None,
         description="Optional archived filter; when set to true, only archived threads are returned. If false or null, only non-archived threads are returned.",
     )
-    cursor: str | None = Field(
+    cursor: Optional[str] = Field(
         None, description="Opaque pagination cursor returned by a previous call."
     )
-    cwd: str | None = Field(
+    cwd: Optional[str] = Field(
         None,
         description="Optional cwd filter; when set, only threads whose session cwd exactly matches this path are returned.",
     )
-    limit: conint(ge=0) | None = Field(
+    limit: Optional[conint(ge=0)] = Field(
         None,
         description="Optional page size; defaults to a reasonable server-side value.",
     )
-    modelProviders: list[str] | None = Field(
+    modelProviders: Optional[List[str]] = Field(
         None,
         description="Optional provider filter; when set, only sessions recorded under these providers are returned. When present but empty, includes all providers.",
     )
-    sortKey: ThreadSortKey | None = Field(
+    sortKey: Optional[ThreadSortKey] = Field(
         None, description="Optional sort key; defaults to created_at."
     )
-    sourceKinds: list[ThreadSourceKind] | None = Field(
+    sourceKinds: Optional[List[ThreadSourceKind]] = Field(
         None,
         description="Optional source filter; when set, only sessions from these source kinds are returned. When omitted or empty, defaults to interactive sources.",
     )
