@@ -45,7 +45,12 @@ def test_generate_types_wires_all_generation_steps() -> None:
             if isinstance(fn, ast.Name):
                 calls.append(fn.id)
 
-    assert calls == ["generate_v2_all", "generate_public_api_flat_methods"]
+    assert calls == [
+        "generate_v2_all",
+        "generate_notification_registry",
+        "generate_codex_event_types",
+        "generate_public_api_flat_methods",
+    ]
 
 
 def test_bundled_binaries_exist_for_all_supported_platforms() -> None:
