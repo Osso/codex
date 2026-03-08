@@ -19,6 +19,7 @@ from .public_types import (
     ThreadSourceKind,
     ThreadStartParams,
     ThreadResumeParams,
+    TurnStartParams,
     TurnSteerParams,
     TurnStatus,
 )
@@ -308,24 +309,6 @@ class Codex:
             raise TypeError("thread/compact response must be a dict")
         return ThreadCompactStartResponse.model_validate(result)
 
-    def turn_steer(
-        self, thread_id: str, expected_turn_id: str, input: Input
-    ) -> TurnSteerResponse:
-        params = TurnSteerParams.model_validate(
-            {
-                "threadId": thread_id,
-                "expectedTurnId": expected_turn_id,
-                "input": _to_wire_input(input),
-            }
-        ).model_dump(exclude_none=True, mode="json")
-        result = self._client.request("turn/steer", params)
-        if not isinstance(result, dict):
-            raise TypeError("turn/steer response must be a dict")
-        return TurnSteerResponse.model_validate(result)
-
-    def turn_interrupt(self, thread_id: str, turn_id: str) -> None:
-        self._client.turn_interrupt(thread_id, turn_id)
-
     def models(self, *, include_hidden: bool = False) -> ModelListResponse:
         result = self._client.model_list(include_hidden=include_hidden)
         if not isinstance(result, dict):
@@ -338,9 +321,30 @@ class Thread:
     _client: AppServerClient
     id: str
 
-    def turn(self, input: Input) -> Turn:
-        turn = self._client.turn_start(self.id, _to_wire_input(input))
+    def turn(
+        self,
+        input: Input,
+        *,
+        params: TurnStartParams | JsonObject | None = None,
+    ) -> Turn:
+        turn = self._client.turn_start(self.id, _to_wire_input(input), params=params)
         return Turn(self._client, self.id, turn["turn"]["id"])
+
+    def turn_steer(self, expected_turn_id: str, input: Input) -> TurnSteerResponse:
+        params = TurnSteerParams.model_validate(
+            {
+                "threadId": self.id,
+                "expectedTurnId": expected_turn_id,
+                "input": _to_wire_input(input),
+            }
+        ).model_dump(exclude_none=True, mode="json")
+        result = self._client.request("turn/steer", params)
+        if not isinstance(result, dict):
+            raise TypeError("turn/steer response must be a dict")
+        return TurnSteerResponse.model_validate(result)
+
+    def turn_interrupt(self, turn_id: str) -> None:
+        self._client.turn_interrupt(self.id, turn_id)
 
 
 @dataclass(slots=True)
