@@ -2,16 +2,15 @@
 
 Searches over apps tool metadata with BM25 and exposes matching tools for the next model call.
 
-MCP tools of the apps ({{app_names}}) are hidden until you search for them with this tool (`search_tool_bm25`).
+MCP tools of the apps ({{app_names}}) are hidden until you search for them with this tool (`tool_search`).
 
 Follow this workflow:
 
-1. Call `search_tool_bm25` with:
+1. Call `tool_search` with:
    - `query` (required): focused terms that describe the capability you need.
    - `limit` (optional): maximum number of tools to return (default `8`).
-2. Use the returned `tools` list to decide which Apps tools are relevant.
-3. Matching tools are added to available `tools` and available for the remainder of the current session/thread.
-4. Repeated searches in the same session/thread are additive: new matches are unioned into `tools`.
+2. Read the returned `tool_search_output.tools` list to see the matching Apps tools.
+3. Use those returned tools directly in the rest of the response flow.
 
 Notes:
 - Core tools remain available without searching.
@@ -25,4 +24,4 @@ Notes:
   - `connector_name`
   - input schema property keys (`input_keys`)
 - If the needed app is already explicit in the prompt (for example `[$app-name](app://{connector_id})`) or already present in the current `tools` list, you can call that tool directly.
-- Do not use `search_tool_bm25` for non-apps/local tasks (filesystem, repo search, or shell-only workflows) or anything not related to {{app_names}}.
+- Do not use `tool_search` for non-apps/local tasks (filesystem, repo search, or shell-only workflows) or anything not related to {{app_names}}.

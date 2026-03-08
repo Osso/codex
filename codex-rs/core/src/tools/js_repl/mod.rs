@@ -643,6 +643,16 @@ impl JsReplManager {
                     summary
                 }
             },
+            ResponseInputItem::ToolSearchOutput { tools, .. } => JsReplToolCallResponseSummary {
+                response_type: Some("tool_search_output".to_string()),
+                payload_kind: Some(JsReplToolCallPayloadKind::FunctionText),
+                payload_text_preview: Some(serde_json::Value::Array(tools.clone()).to_string()),
+                payload_text_length: Some(
+                    serde_json::Value::Array(tools.clone()).to_string().len(),
+                ),
+                payload_item_count: Some(tools.len()),
+                ..Default::default()
+            },
         }
     }
 

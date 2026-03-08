@@ -8,8 +8,8 @@ use crate::features::Features;
 use crate::mcp_connection_manager::ToolInfo;
 use crate::models_manager::collaboration_mode_presets::CollaborationModesConfig;
 use crate::tools::handlers::PLAN_TOOL;
-use crate::tools::handlers::SEARCH_TOOL_BM25_DEFAULT_LIMIT;
-use crate::tools::handlers::SEARCH_TOOL_BM25_TOOL_NAME;
+use crate::tools::handlers::TOOL_SEARCH_DEFAULT_LIMIT;
+use crate::tools::handlers::TOOL_SEARCH_TOOL_NAME;
 use crate::tools::handlers::agent_jobs::BatchJobHandler;
 use crate::tools::handlers::apply_patch::create_apply_patch_freeform_tool;
 use crate::tools::handlers::apply_patch::create_apply_patch_json_tool;
@@ -35,7 +35,7 @@ use serde_json::json;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 
-const SEARCH_TOOL_BM25_DESCRIPTION_TEMPLATE: &str =
+const TOOL_SEARCH_DESCRIPTION_TEMPLATE: &str =
     include_str!("../../templates/search_tool/tool_description.md");
 const WEB_SEARCH_CONTENT_TYPES: [&str; 2] = ["text", "image"];
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -397,6 +397,7 @@ fn create_exec_command_tool(allow_login_shell: bool, request_permission_enabled:
             "Runs a command in a PTY, returning output or a session ID for ongoing interaction."
                 .to_string(),
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties,
             required: Some(vec!["cmd".to_string()]),
@@ -444,6 +445,7 @@ fn create_write_stdin_tool() -> ToolSpec {
             "Writes characters to an existing unified exec session and returns recent output."
                 .to_string(),
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties,
             required: Some(vec!["session_id".to_string()]),
@@ -497,6 +499,7 @@ Examples of valid command strings:
         name: "shell".to_string(),
         description,
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties,
             required: Some(vec!["command".to_string()]),
@@ -564,6 +567,7 @@ Examples of valid command strings:
         name: "shell_command".to_string(),
         description,
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties,
             required: Some(vec!["command".to_string()]),
@@ -586,6 +590,7 @@ fn create_view_image_tool() -> ToolSpec {
         description: "View a local image from the filesystem (only use if given a full filepath by the user, and the image isn't already attached to the thread context within <image ...> tags)."
             .to_string(),
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties,
             required: Some(vec!["path".to_string()]),
@@ -711,6 +716,7 @@ fn create_spawn_agent_tool(config: &ToolsConfig) -> ToolSpec {
 - The key is to find opportunities to spawn multiple independent subtasks in parallel within the same round, while ensuring each subtask is well-defined, self-contained, and materially advances the main task."#
             .to_string(),
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties,
             required: None,
@@ -787,6 +793,7 @@ fn create_spawn_agents_on_csv_tool() -> ToolSpec {
         description: "Process a CSV by spawning one worker sub-agent per row. The instruction string is a template where `{column}` placeholders are replaced with row values. Each worker must call `report_agent_job_result` with a JSON object (matching `output_schema` when provided); missing reports are treated as failures. This call blocks until all rows finish and automatically exports results to `output_csv_path` (or a default path)."
             .to_string(),
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties,
             required: Some(vec!["csv_path".to_string(), "instruction".to_string()]),
@@ -832,6 +839,7 @@ fn create_report_agent_job_result_tool() -> ToolSpec {
             "Worker-only tool to report a result for an agent job item. Main agents should not call this."
                 .to_string(),
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties,
             required: Some(vec![
@@ -878,6 +886,7 @@ fn create_send_input_tool() -> ToolSpec {
         description: "Send a message to an existing agent. Use interrupt=true to redirect work immediately. You should reuse the agent by send_input if you believe your assigned task is highly dependent on the context of a previous task."
             .to_string(),
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties,
             required: Some(vec!["id".to_string()]),
@@ -901,6 +910,7 @@ fn create_resume_agent_tool() -> ToolSpec {
             "Resume a previously closed agent by id so it can receive send_input and wait calls."
                 .to_string(),
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties,
             required: Some(vec!["id".to_string()]),
@@ -935,6 +945,7 @@ fn create_wait_tool() -> ToolSpec {
         description: "Wait for agents to reach a final status. Completed statuses may include the agent's final message. Returns empty status when timed out. Once the agent reaches a final status, a notification message will be received containing the same completed status."
             .to_string(),
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties,
             required: Some(vec!["ids".to_string()]),
@@ -1020,6 +1031,7 @@ fn create_request_user_input_tool(
             collaboration_modes_config.default_mode_request_user_input,
         ),
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties,
             required: Some(vec!["questions".to_string()]),
@@ -1042,6 +1054,7 @@ fn create_close_agent_tool() -> ToolSpec {
         description: "Close an agent when it is no longer needed and return its last known status."
             .to_string(),
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties,
             required: Some(vec!["id".to_string()]),
@@ -1109,6 +1122,7 @@ fn create_test_sync_tool() -> ToolSpec {
         name: "test_sync_tool".to_string(),
         description: "Internal synchronization helper used by Codex integration tests.".to_string(),
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties,
             required: None,
@@ -1160,6 +1174,7 @@ fn create_grep_files_tool() -> ToolSpec {
                       time."
             .to_string(),
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties,
             required: Some(vec!["pattern".to_string()]),
@@ -1168,7 +1183,7 @@ fn create_grep_files_tool() -> ToolSpec {
     })
 }
 
-fn create_search_tool_bm25_tool(app_tools: &HashMap<String, ToolInfo>) -> ToolSpec {
+fn create_tool_search_tool(app_tools: &HashMap<String, ToolInfo>) -> ToolSpec {
     let properties = BTreeMap::from([
         (
             "query".to_string(),
@@ -1180,7 +1195,7 @@ fn create_search_tool_bm25_tool(app_tools: &HashMap<String, ToolInfo>) -> ToolSp
             "limit".to_string(),
             JsonSchema::Number {
                 description: Some(format!(
-                    "Maximum number of tools to return (defaults to {SEARCH_TOOL_BM25_DEFAULT_LIMIT})."
+                    "Maximum number of tools to return (defaults to {TOOL_SEARCH_DEFAULT_LIMIT})."
                 )),
             },
         ),
@@ -1193,19 +1208,17 @@ fn create_search_tool_bm25_tool(app_tools: &HashMap<String, ToolInfo>) -> ToolSp
     app_names.dedup();
     let app_names = app_names.join(", ");
 
-    let description =
-        SEARCH_TOOL_BM25_DESCRIPTION_TEMPLATE.replace("{{app_names}}", app_names.as_str());
+    let description = TOOL_SEARCH_DESCRIPTION_TEMPLATE.replace("{{app_names}}", app_names.as_str());
 
-    ToolSpec::Function(ResponsesApiTool {
-        name: SEARCH_TOOL_BM25_TOOL_NAME.to_string(),
-        description,
-        strict: false,
-        parameters: JsonSchema::Object {
+    ToolSpec::ToolSearch {
+        execution: Some("client".to_string()),
+        description: Some(description),
+        parameters: Some(JsonSchema::Object {
             properties,
             required: Some(vec!["query".to_string()]),
             additional_properties: Some(false.into()),
-        },
-    })
+        }),
+    }
 }
 
 fn create_read_file_tool() -> ToolSpec {
@@ -1303,6 +1316,7 @@ fn create_read_file_tool() -> ToolSpec {
             "Reads a local file with 1-indexed line numbers, supporting slice and indentation-aware block modes."
                 .to_string(),
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties,
             required: Some(vec!["file_path".to_string()]),
@@ -1349,6 +1363,7 @@ fn create_list_dir_tool() -> ToolSpec {
             "Lists entries in a local directory with 1-indexed entry numbers and simple type labels."
                 .to_string(),
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties,
             required: Some(vec!["dir_path".to_string()]),
@@ -1423,6 +1438,7 @@ fn create_js_repl_reset_tool() -> ToolSpec {
             "Restarts the js_repl kernel for this run and clears persisted top-level bindings."
                 .to_string(),
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties: BTreeMap::new(),
             required: None,
@@ -1457,6 +1473,7 @@ fn create_list_mcp_resources_tool() -> ToolSpec {
         name: "list_mcp_resources".to_string(),
         description: "Lists resources provided by MCP servers. Resources allow servers to share data that provides context to language models, such as files, database schemas, or application-specific information. Prefer resources over web search when possible.".to_string(),
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties,
             required: None,
@@ -1491,6 +1508,7 @@ fn create_list_mcp_resource_templates_tool() -> ToolSpec {
         name: "list_mcp_resource_templates".to_string(),
         description: "Lists resource templates provided by MCP servers. Parameterized resource templates allow servers to share data that takes parameters and provides context to language models, such as files, database schemas, or application-specific information. Prefer resource templates over web search when possible.".to_string(),
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties,
             required: None,
@@ -1527,6 +1545,7 @@ fn create_read_mcp_resource_tool() -> ToolSpec {
             "Read a specific resource from an MCP server given the server name and resource URI."
                 .to_string(),
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties,
             required: Some(vec!["server".to_string(), "uri".to_string()]),
@@ -1561,6 +1580,56 @@ pub(crate) fn mcp_tool_to_openai_tool(
     fully_qualified_name: String,
     tool: rmcp::model::Tool,
 ) -> Result<ResponsesApiTool, serde_json::Error> {
+    let (description, input_schema) = mcp_tool_to_openai_tool_parts(tool)?;
+
+    Ok(ResponsesApiTool {
+        name: fully_qualified_name,
+        description,
+        strict: false,
+        defer_loading: None,
+        parameters: input_schema,
+    })
+}
+
+pub(crate) fn mcp_tool_to_deferred_openai_tool(
+    fully_qualified_name: String,
+    tool: rmcp::model::Tool,
+) -> Result<ResponsesApiTool, serde_json::Error> {
+    let (description, input_schema) = mcp_tool_to_openai_tool_parts(tool)?;
+
+    Ok(ResponsesApiTool {
+        name: fully_qualified_name,
+        description,
+        strict: false,
+        defer_loading: Some(true),
+        parameters: input_schema,
+    })
+}
+
+fn dynamic_tool_to_openai_tool(
+    tool: &DynamicToolSpec,
+) -> Result<ResponsesApiTool, serde_json::Error> {
+    let input_schema = parse_tool_input_schema(&tool.input_schema)?;
+
+    Ok(ResponsesApiTool {
+        name: tool.name.clone(),
+        description: tool.description.clone(),
+        strict: false,
+        defer_loading: None,
+        parameters: input_schema,
+    })
+}
+
+/// Parse the tool input_schema or return an error for invalid schema
+pub fn parse_tool_input_schema(input_schema: &JsonValue) -> Result<JsonSchema, serde_json::Error> {
+    let mut input_schema = input_schema.clone();
+    sanitize_json_schema(&mut input_schema);
+    serde_json::from_value::<JsonSchema>(input_schema)
+}
+
+fn mcp_tool_to_openai_tool_parts(
+    tool: rmcp::model::Tool,
+) -> Result<(String, JsonSchema), serde_json::Error> {
     let rmcp::model::Tool {
         description,
         input_schema,
@@ -1588,33 +1657,9 @@ pub(crate) fn mcp_tool_to_openai_tool(
     // `type`, so we coerce/sanitize here for compatibility.
     sanitize_json_schema(&mut serialized_input_schema);
     let input_schema = serde_json::from_value::<JsonSchema>(serialized_input_schema)?;
+    let description = description.map(Into::into).unwrap_or_default();
 
-    Ok(ResponsesApiTool {
-        name: fully_qualified_name,
-        description: description.map(Into::into).unwrap_or_default(),
-        strict: false,
-        parameters: input_schema,
-    })
-}
-
-fn dynamic_tool_to_openai_tool(
-    tool: &DynamicToolSpec,
-) -> Result<ResponsesApiTool, serde_json::Error> {
-    let input_schema = parse_tool_input_schema(&tool.input_schema)?;
-
-    Ok(ResponsesApiTool {
-        name: tool.name.clone(),
-        description: tool.description.clone(),
-        strict: false,
-        parameters: input_schema,
-    })
-}
-
-/// Parse the tool input_schema or return an error for invalid schema
-pub fn parse_tool_input_schema(input_schema: &JsonValue) -> Result<JsonSchema, serde_json::Error> {
-    let mut input_schema = input_schema.clone();
-    sanitize_json_schema(&mut input_schema);
-    serde_json::from_value::<JsonSchema>(input_schema)
+    Ok((description, input_schema))
 }
 
 /// Sanitize a JSON Schema (as serde_json::Value) so it can fit our limited
@@ -1748,10 +1793,10 @@ pub(crate) fn build_specs(
     use crate::tools::handlers::PlanHandler;
     use crate::tools::handlers::ReadFileHandler;
     use crate::tools::handlers::RequestUserInputHandler;
-    use crate::tools::handlers::SearchToolBm25Handler;
     use crate::tools::handlers::ShellCommandHandler;
     use crate::tools::handlers::ShellHandler;
     use crate::tools::handlers::TestSyncHandler;
+    use crate::tools::handlers::ToolSearchHandler;
     use crate::tools::handlers::UnifiedExecHandler;
     use crate::tools::handlers::ViewImageHandler;
     use std::sync::Arc;
@@ -1770,7 +1815,7 @@ pub(crate) fn build_specs(
     let request_user_input_handler = Arc::new(RequestUserInputHandler {
         default_mode_request_user_input: config.default_mode_request_user_input,
     });
-    let search_tool_handler = Arc::new(SearchToolBm25Handler);
+    let search_tool_handler = Arc::new(ToolSearchHandler);
     let js_repl_handler = Arc::new(JsReplHandler);
     let js_repl_reset_handler = Arc::new(JsReplResetHandler);
     let artifacts_handler = Arc::new(ArtifactsHandler);
@@ -1843,8 +1888,8 @@ pub(crate) fn build_specs(
     if config.search_tool
         && let Some(app_tools) = app_tools
     {
-        builder.push_spec_with_parallel_support(create_search_tool_bm25_tool(&app_tools), true);
-        builder.register_handler(SEARCH_TOOL_BM25_TOOL_NAME, search_tool_handler);
+        builder.push_spec_with_parallel_support(create_tool_search_tool(&app_tools), true);
+        builder.register_handler(TOOL_SEARCH_TOOL_NAME, search_tool_handler);
     }
 
     if let Some(apply_patch_tool_type) = &config.apply_patch_tool_type {
@@ -2048,9 +2093,73 @@ mod tests {
         assert_eq!(parameters.get("properties"), Some(&serde_json::json!({})));
     }
 
+    #[test]
+    fn search_tool_deferred_tools_always_set_defer_loading_true() {
+        let tool = mcp_tool(
+            "lookup_order",
+            "Look up an order",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "order_id": {"type": "string"}
+                },
+                "required": ["order_id"],
+                "additionalProperties": false,
+            }),
+        );
+
+        let openai_tool =
+            mcp_tool_to_deferred_openai_tool("mcp__codex_apps__lookup_order".to_string(), tool)
+                .expect("convert deferred tool");
+
+        assert_eq!(openai_tool.defer_loading, Some(true));
+    }
+
+    #[test]
+    fn deferred_responses_api_tool_serializes_with_defer_loading() {
+        let tool = mcp_tool(
+            "lookup_order",
+            "Look up an order",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "order_id": {"type": "string"}
+                },
+                "required": ["order_id"],
+                "additionalProperties": false,
+            }),
+        );
+
+        let serialized = serde_json::to_value(ToolSpec::Function(
+            mcp_tool_to_deferred_openai_tool("mcp__codex_apps__lookup_order".to_string(), tool)
+                .expect("convert deferred tool"),
+        ))
+        .expect("serialize deferred tool");
+
+        assert_eq!(
+            serialized,
+            serde_json::json!({
+                "type": "function",
+                "name": "mcp__codex_apps__lookup_order",
+                "description": "Look up an order",
+                "strict": false,
+                "defer_loading": true,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "order_id": {"type": "string"}
+                    },
+                    "required": ["order_id"],
+                    "additionalProperties": false,
+                }
+            })
+        );
+    }
+
     fn tool_name(tool: &ToolSpec) -> &str {
         match tool {
             ToolSpec::Function(ResponsesApiTool { name, .. }) => name,
+            ToolSpec::ToolSearch { .. } => "tool_search",
             ToolSpec::LocalShell {} => "local_shell",
             ToolSpec::ImageGeneration {} => "image_generation",
             ToolSpec::WebSearch { .. } => "web_search",
@@ -2139,6 +2248,11 @@ mod tests {
 
     fn strip_descriptions_tool(spec: &mut ToolSpec) {
         match spec {
+            ToolSpec::ToolSearch { parameters, .. } => {
+                if let Some(parameters) = parameters {
+                    strip_descriptions_schema(parameters);
+                }
+            }
             ToolSpec::Function(ResponsesApiTool { parameters, .. }) => {
                 strip_descriptions_schema(parameters);
             }
@@ -2984,6 +3098,7 @@ mod tests {
                 },
                 description: "Do something cool".to_string(),
                 strict: false,
+                defer_loading: None,
             })
         );
     }
@@ -3093,10 +3208,11 @@ mod tests {
         )
         .build();
 
-        let search_tool = find_tool(&tools, SEARCH_TOOL_BM25_TOOL_NAME);
-        let ToolSpec::Function(ResponsesApiTool { description, .. }) = &search_tool.spec else {
-            panic!("expected function tool");
+        let search_tool = find_tool(&tools, TOOL_SEARCH_TOOL_NAME);
+        let ToolSpec::ToolSearch { description, .. } = &search_tool.spec else {
+            panic!("expected tool_search tool");
         };
+        let description = description.as_ref().expect("description should be present");
         assert!(description.contains("Calendar"));
         assert!(!description.contains("mcp__rmcp__echo"));
     }
@@ -3152,6 +3268,7 @@ mod tests {
                 },
                 description: "Search docs".to_string(),
                 strict: false,
+                defer_loading: None,
             })
         );
     }
@@ -3203,6 +3320,7 @@ mod tests {
                 },
                 description: "Pagination".to_string(),
                 strict: false,
+                defer_loading: None,
             })
         );
     }
@@ -3258,6 +3376,7 @@ mod tests {
                 },
                 description: "Tags".to_string(),
                 strict: false,
+                defer_loading: None,
             })
         );
     }
@@ -3311,6 +3430,7 @@ mod tests {
                 },
                 description: "AnyOf Value".to_string(),
                 strict: false,
+                defer_loading: None,
             })
         );
     }
@@ -3496,6 +3616,7 @@ Examples of valid command strings:
                 },
                 description: "Do something cool".to_string(),
                 strict: false,
+                defer_loading: None,
             })
         );
     }
@@ -3508,6 +3629,7 @@ Examples of valid command strings:
             name: "demo".to_string(),
             description: "A demo tool".to_string(),
             strict: false,
+            defer_loading: None,
             parameters: JsonSchema::Object {
                 properties,
                 required: None,

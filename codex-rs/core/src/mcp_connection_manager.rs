@@ -1135,19 +1135,6 @@ pub(crate) fn filter_non_codex_apps_mcp_tools_only(
         .collect()
 }
 
-pub(crate) fn filter_mcp_tools_by_name(
-    mcp_tools: &HashMap<String, ToolInfo>,
-    selected_tools: &[String],
-) -> HashMap<String, ToolInfo> {
-    let allowed: HashSet<&str> = selected_tools.iter().map(String::as_str).collect();
-
-    mcp_tools
-        .iter()
-        .filter(|(name, _)| allowed.contains(name.as_str()))
-        .map(|(name, tool)| (name.clone(), tool.clone()))
-        .collect()
-}
-
 fn normalize_codex_apps_tool_title(
     server_name: &str,
     connector_name: Option<&str>,

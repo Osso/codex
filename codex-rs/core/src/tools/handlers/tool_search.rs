@@ -3,12 +3,12 @@ use bm25::Document;
 use bm25::Language;
 use bm25::SearchEngineBuilder;
 use codex_app_server_protocol::AppInfo;
-use codex_protocol::models::FunctionCallOutputBody;
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::to_value;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use crate::client_common::tools::ToolSpec;
 use crate::connectors;
 use crate::function_tool::FunctionCallError;
 use crate::mcp::CODEX_APPS_MCP_SERVER_NAME;
@@ -16,13 +16,13 @@ use crate::mcp_connection_manager::ToolInfo;
 use crate::tools::context::ToolInvocation;
 use crate::tools::context::ToolOutput;
 use crate::tools::context::ToolPayload;
-use crate::tools::handlers::parse_arguments;
 use crate::tools::registry::ToolHandler;
 use crate::tools::registry::ToolKind;
+use crate::tools::spec::mcp_tool_to_deferred_openai_tool;
 
-pub struct SearchToolBm25Handler;
+pub struct ToolSearchHandler;
 
-pub(crate) const SEARCH_TOOL_BM25_TOOL_NAME: &str = "search_tool_bm25";
+pub(crate) const TOOL_SEARCH_TOOL_NAME: &str = "tool_search";
 pub(crate) const DEFAULT_LIMIT: usize = 8;
 
 fn default_limit() -> usize {
@@ -30,7 +30,7 @@ fn default_limit() -> usize {
 }
 
 #[derive(Deserialize)]
-struct SearchToolBm25Args {
+struct ToolSearchArgs {
     query: String,
     #[serde(default = "default_limit")]
     limit: usize,
@@ -39,11 +39,7 @@ struct SearchToolBm25Args {
 #[derive(Clone)]
 struct ToolEntry {
     name: String,
-    server_name: String,
-    title: Option<String>,
-    description: Option<String>,
-    connector_name: Option<String>,
-    input_keys: Vec<String>,
+    info: ToolInfo,
     search_text: String,
 }
 
@@ -59,21 +55,14 @@ impl ToolEntry {
         let search_text = build_search_text(&name, &info, &input_keys);
         Self {
             name,
-            server_name: info.server_name,
-            title: info.tool.title,
-            description: info
-                .tool
-                .description
-                .map(|description| description.to_string()),
-            connector_name: info.connector_name,
-            input_keys,
+            info,
             search_text,
         }
     }
 }
 
 #[async_trait]
-impl ToolHandler for SearchToolBm25Handler {
+impl ToolHandler for ToolSearchHandler {
     fn kind(&self) -> ToolKind {
         ToolKind::Function
     }
@@ -87,15 +76,19 @@ impl ToolHandler for SearchToolBm25Handler {
         } = invocation;
 
         let arguments = match payload {
-            ToolPayload::Function { arguments } => arguments,
+            ToolPayload::ToolSearch { arguments } => arguments,
             _ => {
                 return Err(FunctionCallError::Fatal(format!(
-                    "{SEARCH_TOOL_BM25_TOOL_NAME} handler received unsupported payload"
+                    "{TOOL_SEARCH_TOOL_NAME} handler received unsupported payload"
                 )));
             }
         };
 
-        let args: SearchToolBm25Args = parse_arguments(&arguments)?;
+        let args: ToolSearchArgs = serde_json::from_value(arguments).map_err(|err| {
+            FunctionCallError::RespondToModel(format!(
+                "failed to parse tool_search arguments: {err}"
+            ))
+        })?;
         let query = args.query.trim();
         if query.is_empty() {
             return Err(FunctionCallError::RespondToModel(
@@ -133,18 +126,7 @@ impl ToolHandler for SearchToolBm25Handler {
         entries.sort_by(|a, b| a.name.cmp(&b.name));
 
         if entries.is_empty() {
-            let active_selected_tools = session.get_mcp_tool_selection().await.unwrap_or_default();
-            let content = json!({
-                "query": query,
-                "total_tools": 0,
-                "active_selected_tools": active_selected_tools,
-                "tools": [],
-            })
-            .to_string();
-            return Ok(ToolOutput::Function {
-                body: FunctionCallOutputBody::Text(content),
-                success: Some(true),
-            });
+            return Ok(ToolOutput::ToolSearch { tools: Vec::new() });
         }
 
         let documents: Vec<Document<usize>> = entries
@@ -156,38 +138,23 @@ impl ToolHandler for SearchToolBm25Handler {
             SearchEngineBuilder::<usize>::with_documents(Language::English, documents).build();
         let results = search_engine.search(query, limit);
 
-        let mut selected_tools = Vec::new();
-        let mut result_payloads = Vec::new();
+        let mut tools = Vec::new();
         for result in results {
             let Some(entry) = entries.get(result.document.id) else {
                 continue;
             };
-            selected_tools.push(entry.name.clone());
-            result_payloads.push(json!({
-                "name": entry.name.clone(),
-                "server": entry.server_name.clone(),
-                "title": entry.title.clone(),
-                "description": entry.description.clone(),
-                "connector_name": entry.connector_name.clone(),
-                "input_keys": entry.input_keys.clone(),
-                "score": result.score,
-            }));
+            let tool =
+                mcp_tool_to_deferred_openai_tool(entry.name.clone(), entry.info.tool.clone())
+                    .map_err(|err| {
+                        FunctionCallError::Fatal(format!("failed to serialize tool: {err}"))
+                    })?;
+            let tool = to_value(ToolSpec::Function(tool)).map_err(|err| {
+                FunctionCallError::Fatal(format!("failed to encode tool_search result: {err}"))
+            })?;
+            tools.push(tool);
         }
 
-        let active_selected_tools = session.merge_mcp_tool_selection(selected_tools).await;
-
-        let content = json!({
-            "query": query,
-            "total_tools": entries.len(),
-            "active_selected_tools": active_selected_tools,
-            "tools": result_payloads,
-        })
-        .to_string();
-
-        Ok(ToolOutput::Function {
-            body: FunctionCallOutputBody::Text(content),
-            success: Some(true),
-        })
+        Ok(ToolOutput::ToolSearch { tools })
     }
 }
 

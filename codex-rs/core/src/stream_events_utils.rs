@@ -266,7 +266,9 @@ pub(crate) fn handle_non_tool_response_item(
             }
             Some(turn_item)
         }
-        ResponseItem::FunctionCallOutput { .. } | ResponseItem::CustomToolCallOutput { .. } => {
+        ResponseItem::FunctionCallOutput { .. }
+        | ResponseItem::CustomToolCallOutput { .. }
+        | ResponseItem::ToolSearchOutput { .. } => {
             debug!("unexpected tool output from stream");
             None
         }
@@ -305,6 +307,17 @@ pub(crate) fn response_input_to_response_item(input: &ResponseInputItem) -> Opti
                 output: output.clone(),
             })
         }
+        ResponseInputItem::ToolSearchOutput {
+            call_id,
+            status,
+            execution,
+            tools,
+        } => Some(ResponseItem::ToolSearchOutput {
+            call_id: Some(call_id.clone()),
+            status: status.clone(),
+            execution: execution.clone(),
+            tools: tools.clone(),
+        }),
         ResponseInputItem::McpToolCallOutput { call_id, result } => {
             let output = match result {
                 Ok(call_tool_result) => FunctionCallOutputPayload::from(call_tool_result),

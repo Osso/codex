@@ -38,6 +38,7 @@ pub trait ToolHandler: Send + Sync {
         matches!(
             (self.kind(), payload),
             (ToolKind::Function, ToolPayload::Function { .. })
+                | (ToolKind::Function, ToolPayload::ToolSearch { .. })
                 | (ToolKind::Mcp, ToolPayload::Mcp { .. })
         )
     }
@@ -330,6 +331,9 @@ impl From<&ToolPayload> for HookToolInput {
         match payload {
             ToolPayload::Function { arguments } => HookToolInput::Function {
                 arguments: arguments.clone(),
+            },
+            ToolPayload::ToolSearch { arguments } => HookToolInput::Function {
+                arguments: arguments.to_string(),
             },
             ToolPayload::Custom { input } => HookToolInput::Custom {
                 input: input.clone(),

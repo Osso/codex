@@ -164,6 +164,15 @@ pub(crate) mod tools {
     pub(crate) enum ToolSpec {
         #[serde(rename = "function")]
         Function(ResponsesApiTool),
+        #[serde(rename = "tool_search")]
+        ToolSearch {
+            #[serde(skip_serializing_if = "Option::is_none")]
+            execution: Option<String>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            description: Option<String>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            parameters: Option<JsonSchema>,
+        },
         #[serde(rename = "local_shell")]
         LocalShell {},
         #[serde(rename = "image_generation")]
@@ -187,6 +196,7 @@ pub(crate) mod tools {
         pub(crate) fn name(&self) -> &str {
             match self {
                 ToolSpec::Function(tool) => tool.name.as_str(),
+                ToolSpec::ToolSearch { .. } => "tool_search",
                 ToolSpec::LocalShell {} => "local_shell",
                 ToolSpec::ImageGeneration {} => "image_generation",
                 ToolSpec::WebSearch { .. } => "web_search",
@@ -217,6 +227,8 @@ pub(crate) mod tools {
         /// `required` and `additional_properties` must be present. All fields in
         /// `properties` must be present in `required`.
         pub(crate) strict: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub(crate) defer_loading: Option<bool>,
         pub(crate) parameters: JsonSchema,
     }
 }

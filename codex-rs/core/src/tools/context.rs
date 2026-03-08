@@ -10,6 +10,7 @@ use codex_protocol::models::FunctionCallOutputPayload;
 use codex_protocol::models::ResponseInputItem;
 use codex_protocol::models::ShellToolCallParams;
 use codex_utils_string::take_bytes_at_char_boundary;
+use serde_json::json;
 use std::borrow::Cow;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -37,6 +38,9 @@ pub enum ToolPayload {
     Function {
         arguments: String,
     },
+    ToolSearch {
+        arguments: serde_json::Value,
+    },
     Custom {
         input: String,
     },
@@ -54,6 +58,7 @@ impl ToolPayload {
     pub fn log_payload(&self) -> Cow<'_, str> {
         match self {
             ToolPayload::Function { arguments } => Cow::Borrowed(arguments),
+            ToolPayload::ToolSearch { arguments } => Cow::Owned(arguments.to_string()),
             ToolPayload::Custom { input } => Cow::Borrowed(input),
             ToolPayload::LocalShell { params } => Cow::Owned(params.command.join(" ")),
             ToolPayload::Mcp { raw_arguments, .. } => Cow::Borrowed(raw_arguments),
@@ -69,6 +74,9 @@ pub enum ToolOutput {
         body: FunctionCallOutputBody,
         success: Option<bool>,
     },
+    ToolSearch {
+        tools: Vec<serde_json::Value>,
+    },
     Mcp {
         result: Result<CallToolResult, String>,
     },
@@ -80,6 +88,7 @@ impl ToolOutput {
             ToolOutput::Function { body, .. } => {
                 telemetry_preview(&body.to_text().unwrap_or_default())
             }
+            ToolOutput::ToolSearch { tools } => telemetry_preview(&json!(tools).to_string()),
             ToolOutput::Mcp { result } => format!("{result:?}"),
         }
     }
@@ -87,6 +96,7 @@ impl ToolOutput {
     pub fn success_for_logging(&self) -> bool {
         match self {
             ToolOutput::Function { success, .. } => success.unwrap_or(true),
+            ToolOutput::ToolSearch { .. } => true,
             ToolOutput::Mcp { result } => result.is_ok(),
         }
     }
@@ -111,6 +121,12 @@ impl ToolOutput {
                     output: FunctionCallOutputPayload { body, success },
                 }
             }
+            ToolOutput::ToolSearch { tools } => ResponseInputItem::ToolSearchOutput {
+                call_id: call_id.to_string(),
+                status: "completed".to_string(),
+                execution: "client".to_string(),
+                tools,
+            },
             // Direct MCP response path for MCP tool result envelopes.
             ToolOutput::Mcp { result } => ResponseInputItem::McpToolCallOutput {
                 call_id: call_id.to_string(),
@@ -165,6 +181,7 @@ mod tests {
     use super::*;
     use codex_protocol::models::FunctionCallOutputContentItem;
     use pretty_assertions::assert_eq;
+    use serde_json::json;
 
     #[test]
     fn custom_tool_calls_should_roundtrip_as_custom_outputs() {
@@ -252,6 +269,41 @@ mod tests {
                 assert_eq!(output.success, Some(true));
             }
             other => panic!("expected CustomToolCallOutput, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn tool_search_payloads_roundtrip_as_tool_search_outputs() {
+        let payload = ToolPayload::ToolSearch {
+            arguments: json!({"query": "calendar"}),
+        };
+        let response = ToolOutput::ToolSearch {
+            tools: vec![json!({
+                "type": "function",
+                "name": "mcp__codex_apps__calendar_create_event",
+            })],
+        }
+        .into_response("search-1", &payload);
+
+        match response {
+            ResponseInputItem::ToolSearchOutput {
+                call_id,
+                status,
+                execution,
+                tools,
+            } => {
+                assert_eq!(call_id, "search-1");
+                assert_eq!(status, "completed");
+                assert_eq!(execution, "client");
+                assert_eq!(
+                    tools,
+                    vec![json!({
+                        "type": "function",
+                        "name": "mcp__codex_apps__calendar_create_event",
+                    })]
+                );
+            }
+            other => panic!("expected ToolSearchOutput, got {other:?}"),
         }
     }
 

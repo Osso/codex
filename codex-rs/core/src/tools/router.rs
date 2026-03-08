@@ -93,6 +93,17 @@ impl ToolRouter {
                     }))
                 }
             }
+            ResponseItem::ToolSearchCall {
+                call_id: Some(call_id),
+                execution,
+                arguments,
+                ..
+            } if execution == "client" => Ok(Some(ToolCall {
+                tool_name: "tool_search".to_string(),
+                call_id,
+                payload: ToolPayload::ToolSearch { arguments },
+            })),
+            ResponseItem::ToolSearchCall { .. } => Ok(None),
             ResponseItem::CustomToolCall {
                 name,
                 input,
@@ -151,6 +162,7 @@ impl ToolRouter {
             payload,
         } = call;
         let payload_outputs_custom = matches!(payload, ToolPayload::Custom { .. });
+        let payload_outputs_tool_search = matches!(payload, ToolPayload::ToolSearch { .. });
         let failure_call_id = call_id.clone();
 
         if source == ToolCallSource::Direct
@@ -164,6 +176,7 @@ impl ToolRouter {
             return Ok(Self::failure_response(
                 failure_call_id,
                 payload_outputs_custom,
+                payload_outputs_tool_search,
                 err,
             ));
         }
@@ -183,6 +196,7 @@ impl ToolRouter {
             Err(err) => Ok(Self::failure_response(
                 failure_call_id,
                 payload_outputs_custom,
+                payload_outputs_tool_search,
                 err,
             )),
         }
@@ -191,8 +205,18 @@ impl ToolRouter {
     fn failure_response(
         call_id: String,
         payload_outputs_custom: bool,
+        payload_outputs_tool_search: bool,
         err: FunctionCallError,
     ) -> ResponseInputItem {
+        if payload_outputs_tool_search {
+            return ResponseInputItem::ToolSearchOutput {
+                call_id,
+                status: "completed".to_string(),
+                execution: "client".to_string(),
+                tools: Vec::new(),
+            };
+        }
+
         let message = err.to_string();
         if payload_outputs_custom {
             ResponseInputItem::CustomToolCallOutput {

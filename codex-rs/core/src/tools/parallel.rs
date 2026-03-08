@@ -122,6 +122,12 @@ impl ToolCallRuntime {
                     ..Default::default()
                 },
             },
+            ToolPayload::ToolSearch { .. } => ResponseInputItem::ToolSearchOutput {
+                call_id: call.call_id.clone(),
+                status: "completed".to_string(),
+                execution: "client".to_string(),
+                tools: Vec::new(),
+            },
             ToolPayload::Mcp { .. } => ResponseInputItem::McpToolCallOutput {
                 call_id: call.call_id.clone(),
                 result: Err(Self::abort_message(call, secs)),

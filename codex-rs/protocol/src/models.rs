@@ -180,6 +180,13 @@ pub enum ResponseInputItem {
         call_id: String,
         output: FunctionCallOutputPayload,
     },
+    ToolSearchOutput {
+        call_id: String,
+        status: String,
+        execution: String,
+        #[ts(type = "unknown[]")]
+        tools: Vec<serde_json::Value>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema, TS)]
@@ -266,6 +273,18 @@ pub enum ResponseItem {
         arguments: String,
         call_id: String,
     },
+    ToolSearchCall {
+        #[serde(default, skip_serializing)]
+        #[ts(skip)]
+        id: Option<String>,
+        call_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        status: Option<String>,
+        execution: String,
+        #[ts(type = "unknown")]
+        arguments: serde_json::Value,
+    },
     // NOTE: The `output` field for `function_call_output` uses a dedicated payload type with
     // custom serialization. On the wire it is either:
     //   - a plain string (`content`)
@@ -293,6 +312,13 @@ pub enum ResponseItem {
     CustomToolCallOutput {
         call_id: String,
         output: FunctionCallOutputPayload,
+    },
+    ToolSearchOutput {
+        call_id: Option<String>,
+        status: String,
+        execution: String,
+        #[ts(type = "unknown[]")]
+        tools: Vec<serde_json::Value>,
     },
     // Emitted by the Responses API when the agent triggers a web search.
     // Example payload (from SSE `response.output_item.done`):
@@ -822,6 +848,17 @@ impl From<ResponseInputItem> for ResponseItem {
             ResponseInputItem::CustomToolCallOutput { call_id, output } => {
                 Self::CustomToolCallOutput { call_id, output }
             }
+            ResponseInputItem::ToolSearchOutput {
+                call_id,
+                status,
+                execution,
+                tools,
+            } => Self::ToolSearchOutput {
+                call_id: Some(call_id),
+                status,
+                execution,
+                tools,
+            },
         }
     }
 }
@@ -1900,6 +1937,169 @@ mod tests {
             }
             other => panic!("expected message response but got {other:?}"),
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn tool_search_call_roundtrips() -> Result<()> {
+        let parsed: ResponseItem = serde_json::from_str(
+            r#"{
+                "type": "tool_search_call",
+                "call_id": "search-1",
+                "execution": "client",
+                "arguments": {
+                    "query": "calendar create",
+                    "limit": 1
+                }
+            }"#,
+        )?;
+
+        assert_eq!(
+            parsed,
+            ResponseItem::ToolSearchCall {
+                id: None,
+                call_id: Some("search-1".to_string()),
+                status: None,
+                execution: "client".to_string(),
+                arguments: serde_json::json!({
+                    "query": "calendar create",
+                    "limit": 1,
+                }),
+            }
+        );
+
+        assert_eq!(
+            serde_json::to_value(&parsed)?,
+            serde_json::json!({
+                "type": "tool_search_call",
+                "call_id": "search-1",
+                "execution": "client",
+                "arguments": {
+                    "query": "calendar create",
+                    "limit": 1,
+                }
+            })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn tool_search_output_roundtrips() -> Result<()> {
+        let input = ResponseInputItem::ToolSearchOutput {
+            call_id: "search-1".to_string(),
+            status: "completed".to_string(),
+            execution: "client".to_string(),
+            tools: vec![serde_json::json!({
+                "type": "function",
+                "name": "mcp__codex_apps__calendar_create_event",
+                "description": "Create a calendar event.",
+                "defer_loading": true,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string"}
+                    },
+                    "required": ["title"],
+                    "additionalProperties": false,
+                }
+            })],
+        };
+        assert_eq!(
+            ResponseItem::from(input.clone()),
+            ResponseItem::ToolSearchOutput {
+                call_id: Some("search-1".to_string()),
+                status: "completed".to_string(),
+                execution: "client".to_string(),
+                tools: vec![serde_json::json!({
+                    "type": "function",
+                    "name": "mcp__codex_apps__calendar_create_event",
+                    "description": "Create a calendar event.",
+                    "defer_loading": true,
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "title": {"type": "string"}
+                        },
+                        "required": ["title"],
+                        "additionalProperties": false,
+                    }
+                })],
+            }
+        );
+
+        assert_eq!(
+            serde_json::to_value(input)?,
+            serde_json::json!({
+                "type": "tool_search_output",
+                "call_id": "search-1",
+                "status": "completed",
+                "execution": "client",
+                "tools": [{
+                    "type": "function",
+                    "name": "mcp__codex_apps__calendar_create_event",
+                    "description": "Create a calendar event.",
+                    "defer_loading": true,
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "title": {"type": "string"}
+                        },
+                        "required": ["title"],
+                        "additionalProperties": false,
+                    }
+                }]
+            })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn tool_search_server_items_allow_null_call_id() -> Result<()> {
+        let parsed_call: ResponseItem = serde_json::from_str(
+            r#"{
+                "type": "tool_search_call",
+                "execution": "server",
+                "call_id": null,
+                "status": "completed",
+                "arguments": {
+                    "paths": ["crm"]
+                }
+            }"#,
+        )?;
+        assert_eq!(
+            parsed_call,
+            ResponseItem::ToolSearchCall {
+                id: None,
+                call_id: None,
+                status: Some("completed".to_string()),
+                execution: "server".to_string(),
+                arguments: serde_json::json!({
+                    "paths": ["crm"],
+                }),
+            }
+        );
+
+        let parsed_output: ResponseItem = serde_json::from_str(
+            r#"{
+                "type": "tool_search_output",
+                "execution": "server",
+                "call_id": null,
+                "status": "completed",
+                "tools": []
+            }"#,
+        )?;
+        assert_eq!(
+            parsed_output,
+            ResponseItem::ToolSearchOutput {
+                call_id: None,
+                status: "completed".to_string(),
+                execution: "server".to_string(),
+                tools: vec![],
+            }
+        );
 
         Ok(())
     }
