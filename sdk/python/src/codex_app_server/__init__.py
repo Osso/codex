@@ -1,5 +1,5 @@
 from .generated.v2_types import ThreadItem
-from .minimal import (
+from .public_api import (
     Codex,
     ImageInput,
     InitializeResult,
