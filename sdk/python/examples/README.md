@@ -7,7 +7,30 @@ Each example folder contains runnable versions:
 
 All examples intentionally use only public SDK exports from `codex_app_server`.
 
-## Run format
+## Prerequisites
+
+- Python `>=3.10`
+- Install SDK dependencies for the same Python interpreter you will use to run examples
+
+Recommended setup (from `sdk/python`):
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -U pip
+python -m pip install -e .
+```
+
+If you want to use a specific interpreter (example: Homebrew Python 3.13), use that exact binary for both install and run:
+
+```bash
+/opt/homebrew/bin/python3.13 -m pip install -e .
+/opt/homebrew/bin/python3.13 examples/01_quickstart_constructor/async.py
+```
+
+If you see `ModuleNotFoundError: No module named 'pydantic'`, it usually means install and run used different Python interpreters.
+
+## Run examples
 
 From `sdk/python`:
 
@@ -17,6 +40,7 @@ python examples/<example-folder>/async.py
 ```
 
 The examples bootstrap local imports from `sdk/python/src` automatically, so no `pip install -e .` step is required to run them from this repository checkout.
+The only required install step is dependencies for your active interpreter.
 
 ## Recommended first run
 
