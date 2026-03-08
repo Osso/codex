@@ -8,7 +8,7 @@ async def main() -> None:
 
     async with AsyncAppServerClient() as client:
         await client.initialize()
-        started = await client.thread_start(model="gpt-5")
+        started = await client.thread_start(ThreadStartParams(model="gpt-5"))
         thread_id = started["thread"]["id"]
         print("Thread:", thread_id)
 

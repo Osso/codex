@@ -13,6 +13,7 @@ from .public_api import (
     Turn,
     TurnResult,
 )
+from .public_types import ThreadStartParams, TurnStartParams
 
 __version__ = "0.2.0"
 
@@ -31,4 +32,6 @@ __all__ = [
     "SkillInput",
     "MentionInput",
     "ThreadItem",
+    "ThreadStartParams",
+    "TurnStartParams",
 ]

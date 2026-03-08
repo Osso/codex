@@ -5,7 +5,7 @@ with AppServerClient() as client:
     server = metadata.get("serverInfo", {})
     print("Server:", server.get("name"), server.get("version"))
 
-    started = client.thread_start(model="gpt-5")
+    started = client.thread_start(ThreadStartParams(model="gpt-5"))
     thread_id = started["thread"]["id"]
 
     turn = client.turn_text(thread_id, "Say hello in one sentence.")

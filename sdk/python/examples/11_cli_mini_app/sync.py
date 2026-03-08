@@ -1,9 +1,9 @@
-from codex_app_server import Codex, TextInput
+from codex_app_server import ThreadStartParams, Codex, TextInput
 
 print("Codex mini CLI. Type /exit to quit.")
 
 with Codex() as codex:
-    thread = codex.thread_start(model="gpt-5")
+    thread = codex.thread_start(ThreadStartParams(model="gpt-5"))
     print("Thread:", thread.id)
 
     while True:

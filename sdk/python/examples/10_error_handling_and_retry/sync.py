@@ -10,7 +10,7 @@ from codex_app_server.retry import retry_on_overload
 with AppServerClient() as client:
     client.initialize()
 
-    started = client.thread_start(model="gpt-5")
+    started = client.thread_start(ThreadStartParams(model="gpt-5"))
     thread_id = started["thread"]["id"]
 
     # Example 1: retry a turn on transient server overload.

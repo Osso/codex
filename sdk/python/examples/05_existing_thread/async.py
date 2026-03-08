@@ -7,7 +7,7 @@ async def main() -> None:
     async with AsyncAppServerClient() as client:
         await client.initialize()
 
-        created = await client.thread_start(model="gpt-5")
+        created = await client.thread_start(ThreadStartParams(model="gpt-5"))
         thread_id = created["thread"]["id"]
 
         first = await client.turn_text(thread_id, "Tell me one fact about Saturn.")

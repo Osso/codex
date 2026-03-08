@@ -18,7 +18,7 @@ if not IMAGE_PATH.exists():
 async def main() -> None:
     async with AsyncAppServerClient() as client:
         await client.initialize()
-        started = await client.thread_start(model="gpt-5")
+        started = await client.thread_start(ThreadStartParams(model="gpt-5"))
         thread_id = started["thread"]["id"]
 
         turn = await client.turn_start(

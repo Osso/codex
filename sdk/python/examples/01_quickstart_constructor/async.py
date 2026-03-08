@@ -9,7 +9,7 @@ async def main() -> None:
         server = metadata.get("serverInfo", {})
         print("Server:", server.get("name"), server.get("version"))
 
-        started = await client.thread_start(model="gpt-5")
+        started = await client.thread_start(ThreadStartParams(model="gpt-5"))
         thread_id = started["thread"]["id"]
         turn = await client.turn_text(thread_id, "Say hello in one sentence.")
         turn_id = turn["turn"]["id"]

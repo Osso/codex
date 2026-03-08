@@ -1,7 +1,7 @@
-from codex_app_server import Codex, ImageInput, TextInput
+from codex_app_server import ThreadStartParams, Codex, ImageInput, TextInput
 
 with Codex() as codex:
-    thread = codex.thread_start(model="gpt-5")
+    thread = codex.thread_start(ThreadStartParams(model="gpt-5"))
 
     result = thread.turn(
         [
