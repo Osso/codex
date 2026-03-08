@@ -92,7 +92,7 @@ pub(crate) struct SandboxTransformRequest<'a> {
     #[cfg(target_os = "macos")]
     pub macos_seatbelt_profile_extensions: Option<&'a MacOsSeatbeltProfileExtensions>,
     pub codex_linux_sandbox_exe: Option<&'a PathBuf>,
-    pub use_linux_sandbox_bwrap: bool,
+    pub use_legacy_landlock: bool,
     pub windows_sandbox_level: WindowsSandboxLevel,
 }
 
@@ -431,7 +431,7 @@ impl SandboxManager {
             #[cfg(target_os = "macos")]
             macos_seatbelt_profile_extensions,
             codex_linux_sandbox_exe,
-            use_linux_sandbox_bwrap,
+            use_legacy_landlock,
             windows_sandbox_level,
         } = request;
         #[cfg(not(target_os = "macos"))]
@@ -513,7 +513,7 @@ impl SandboxManager {
                     &effective_file_system_policy,
                     effective_network_policy,
                     sandbox_policy_cwd,
-                    use_linux_sandbox_bwrap,
+                    use_legacy_landlock,
                     allow_proxy_network,
                 );
                 let mut full_command = Vec::with_capacity(1 + args.len());
@@ -742,7 +742,7 @@ mod tests {
                 #[cfg(target_os = "macos")]
                 macos_seatbelt_profile_extensions: None,
                 codex_linux_sandbox_exe: None,
-                use_linux_sandbox_bwrap: false,
+                use_legacy_landlock: false,
                 windows_sandbox_level: WindowsSandboxLevel::Disabled,
             })
             .expect("transform");
@@ -986,7 +986,7 @@ mod tests {
                 #[cfg(target_os = "macos")]
                 macos_seatbelt_profile_extensions: None,
                 codex_linux_sandbox_exe: None,
-                use_linux_sandbox_bwrap: false,
+                use_legacy_landlock: false,
                 windows_sandbox_level: WindowsSandboxLevel::Disabled,
             })
             .expect("transform");
@@ -1058,7 +1058,7 @@ mod tests {
                 #[cfg(target_os = "macos")]
                 macos_seatbelt_profile_extensions: None,
                 codex_linux_sandbox_exe: None,
-                use_linux_sandbox_bwrap: false,
+                use_legacy_landlock: false,
                 windows_sandbox_level: WindowsSandboxLevel::Disabled,
             })
             .expect("transform");

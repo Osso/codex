@@ -100,8 +100,9 @@ pub enum Feature {
     WebSearchCached,
     /// Legacy search-tool feature flag kept for backward compatibility.
     SearchTool,
-    /// Use the bubblewrap-based Linux sandbox pipeline.
-    UseLinuxSandboxBwrap,
+    /// Use the legacy Landlock Linux sandbox fallback instead of the default
+    /// bubblewrap pipeline.
+    UseLegacyLandlock,
     /// Allow the model to request approval and propose exec rules.
     RequestRule,
     /// Enable Windows sandbox (restricted token) on Windows.
@@ -249,6 +250,10 @@ impl Features {
 
     pub fn enabled(&self, f: Feature) -> bool {
         self.enabled.contains(&f)
+    }
+
+    pub fn use_legacy_landlock(&self) -> bool {
+        self.enabled(Feature::UseLegacyLandlock)
     }
 
     pub fn enable(&mut self, f: Feature) -> &mut Self {
@@ -582,16 +587,9 @@ pub const FEATURES: &[FeatureSpec] = &[
         default_enabled: false,
     },
     FeatureSpec {
-        id: Feature::UseLinuxSandboxBwrap,
-        key: "use_linux_sandbox_bwrap",
-        #[cfg(target_os = "linux")]
-        stage: Stage::Experimental {
-            name: "Bubblewrap sandbox",
-            menu_description: "Try the new linux sandbox based on bubblewrap.",
-            announcement: "NEW: Linux bubblewrap sandbox offers stronger filesystem and network controls than Landlock alone, including keeping .git and .codex read-only inside writable workspaces. Enable it in /experimental and restart Codex to try it.",
-        },
-        #[cfg(not(target_os = "linux"))]
-        stage: Stage::UnderDevelopment,
+        id: Feature::UseLegacyLandlock,
+        key: "use_legacy_landlock",
+        stage: Stage::Stable,
         default_enabled: false,
     },
     FeatureSpec {
@@ -866,24 +864,10 @@ mod tests {
         }
     }
 
-    #[cfg(target_os = "linux")]
     #[test]
-    fn use_linux_sandbox_bwrap_is_experimental_on_linux() {
-        assert!(matches!(
-            Feature::UseLinuxSandboxBwrap.stage(),
-            Stage::Experimental { .. }
-        ));
-        assert_eq!(Feature::UseLinuxSandboxBwrap.default_enabled(), false);
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    #[test]
-    fn use_linux_sandbox_bwrap_is_under_development_off_linux() {
-        assert_eq!(
-            Feature::UseLinuxSandboxBwrap.stage(),
-            Stage::UnderDevelopment
-        );
-        assert_eq!(Feature::UseLinuxSandboxBwrap.default_enabled(), false);
+    fn use_legacy_landlock_is_stable_and_disabled_by_default() {
+        assert_eq!(Feature::UseLegacyLandlock.stage(), Stage::Stable);
+        assert_eq!(Feature::UseLegacyLandlock.default_enabled(), false);
     }
 
     #[test]
