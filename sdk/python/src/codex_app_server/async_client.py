@@ -7,7 +7,6 @@ from typing import AsyncIterator, Callable, Iterable, ParamSpec, TypeVar
 from pydantic import BaseModel
 
 from .client import AppServerClient, AppServerConfig
-from .conversation import AsyncThreadSession
 from .generated.v2_all.AgentMessageDeltaNotification import AgentMessageDeltaNotification
 from .generated.v2_all.ModelListResponse import ModelListResponse
 from .generated.v2_all.ThreadArchiveResponse import ThreadArchiveResponse
@@ -161,22 +160,6 @@ class AsyncAppServerClient:
 
     async def model_list(self, include_hidden: bool = False) -> ModelListResponse:
         return await self._call_sync(self._sync.model_list, include_hidden)
-
-    def thread(self, thread_id: str) -> AsyncThreadSession:
-        return AsyncThreadSession(client=self, thread_id=thread_id)
-
-    async def thread_start_session(
-        self,
-        *,
-        model: str | None = None,
-        params: V2ThreadStartParams | JsonObject | None = None,
-    ) -> AsyncThreadSession:
-        sync_session = await self._call_sync(
-            self._sync.thread_start_session,
-            model=model,
-            params=params,
-        )
-        return AsyncThreadSession(client=self, thread_id=sync_session.thread_id)
 
     async def request_with_retry_on_overload(
         self,

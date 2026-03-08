@@ -12,7 +12,6 @@ from typing import Callable, Iterable, Iterator, TypeVar
 
 from pydantic import BaseModel
 
-from .conversation import ThreadSession
 from .errors import AppServerError, TransportClosedError, map_jsonrpc_error
 from .generated.v2_all.AgentMessageDeltaNotification import AgentMessageDeltaNotification
 from .generated.v2_all.ModelListResponse import ModelListResponse
@@ -350,21 +349,6 @@ class AppServerClient:
             {"includeHidden": include_hidden},
             response_model=ModelListResponse,
         )
-
-    def thread(self, thread_id: str) -> ThreadSession:
-        return ThreadSession(client=self, thread_id=thread_id)
-
-    def thread_start_session(
-        self,
-        *,
-        model: str | None = None,
-        params: V2ThreadStartParams | JsonObject | None = None,
-    ) -> ThreadSession:
-        payload = _params_dict(params)
-        if model is not None:
-            payload["model"] = model
-        started = self.thread_start(payload)
-        return ThreadSession(client=self, thread_id=started.thread.id)
 
     def request_with_retry_on_overload(
         self,
