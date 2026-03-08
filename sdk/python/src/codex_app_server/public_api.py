@@ -90,9 +90,9 @@ Input = list[InputItem] | InputItem
 
 @dataclass(slots=True)
 class InitializeResult:
-    server_name: str | None = None
-    server_version: str | None = None
-    user_agent: str | None = None
+    server_name: str
+    server_version: str
+    user_agent: str
 
 
 def _to_wire_item(item: InputItem) -> JsonObject:
@@ -144,15 +144,15 @@ class Codex:
 
     @staticmethod
     def _parse_initialize(payload: InitializeResponse) -> InitializeResult:
-        user_agent = payload.userAgent
+        user_agent = (payload.userAgent or "").strip()
         server = payload.serverInfo
 
         server_name: str | None = None
         server_version: str | None = None
 
         if server is not None:
-            server_name = server.name
-            server_version = server.version
+            server_name = (server.name or "").strip() or None
+            server_version = (server.version or "").strip() or None
 
         if (server_name is None or server_version is None) and user_agent:
             parsed_name, parsed_version = _split_user_agent(user_agent)
@@ -161,9 +161,17 @@ class Codex:
             if server_version is None:
                 server_version = parsed_version
 
+        normalized_server_name = (server_name or "").strip()
+        normalized_server_version = (server_version or "").strip()
+        if not user_agent or not normalized_server_name or not normalized_server_version:
+            raise RuntimeError(
+                "initialize response missing required metadata "
+                f"(user_agent={user_agent!r}, server_name={normalized_server_name!r}, server_version={normalized_server_version!r})"
+            )
+
         return InitializeResult(
-            server_name=server_name,
-            server_version=server_version,
+            server_name=normalized_server_name,
+            server_version=normalized_server_version,
             user_agent=user_agent,
         )
 
@@ -607,6 +615,10 @@ class Turn:
 
         if completed is None:
             raise RuntimeError("turn completed event not received")
+        if completed.turn.status == TurnStatus.completed and usage is None:
+            raise RuntimeError(
+                "thread/tokenUsage/updated notification not received for completed turn"
+            )
 
         return TurnResult(
             thread_id=completed.threadId,
@@ -676,6 +688,10 @@ class AsyncTurn:
 
         if completed is None:
             raise RuntimeError("turn completed event not received")
+        if completed.turn.status == TurnStatus.completed and usage is None:
+            raise RuntimeError(
+                "thread/tokenUsage/updated notification not received for completed turn"
+            )
 
         return TurnResult(
             thread_id=completed.threadId,

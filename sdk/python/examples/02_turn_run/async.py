@@ -23,10 +23,14 @@ async def main() -> None:
         print("thread_id:", result.thread_id)
         print("turn_id:", result.turn_id)
         print("status:", result.status)
-        print("error:", result.error)
+        if result.error is not None:
+            print("error:", result.error)
         print("text:", result.text)
-        print("items:", result.items)
-        print("usage:", result.usage)
+        print("items.count:", len(result.items))
+        if result.usage is None:
+            raise RuntimeError("missing usage for completed turn")
+        print("usage.thread_id:", result.usage.threadId)
+        print("usage.turn_id:", result.usage.turnId)
 
 
 if __name__ == "__main__":

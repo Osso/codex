@@ -186,3 +186,12 @@ def test_initialize_metadata_parses_user_agent_shape() -> None:
     assert parsed.user_agent == "codex-cli/1.2.3"
     assert parsed.server_name == "codex-cli"
     assert parsed.server_version == "1.2.3"
+
+
+def test_initialize_metadata_requires_non_empty_information() -> None:
+    try:
+        Codex._parse_initialize(InitializeResponse.model_validate({}))
+    except RuntimeError as exc:
+        assert "missing required metadata" in str(exc)
+    else:
+        raise AssertionError("expected RuntimeError when initialize metadata is missing")
