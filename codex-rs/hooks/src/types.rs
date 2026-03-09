@@ -12,7 +12,8 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde::Serializer;
 
-pub type HookFn = Arc<dyn for<'a> Fn(&'a HookPayload) -> BoxFuture<'a, HookResult> + Send + Sync>;
+pub type HookFn =
+    Arc<dyn for<'a> Fn(&'a HookPayload) -> BoxFuture<'a, HookExecutionOutcome> + Send + Sync>;
 
 #[derive(Debug)]
 pub enum HookResult {
@@ -32,10 +33,33 @@ impl HookResult {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HookPermissionDecision {
+    Allow { reason: String },
+    Ask { reason: String },
+    Deny { reason: String },
+}
+
+#[derive(Debug)]
+pub struct HookExecutionOutcome {
+    pub result: HookResult,
+    pub permission_decision: Option<HookPermissionDecision>,
+}
+
+impl HookExecutionOutcome {
+    pub fn success() -> Self {
+        Self {
+            result: HookResult::Success,
+            permission_decision: None,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct HookResponse {
     pub hook_name: String,
     pub result: HookResult,
+    pub permission_decision: Option<HookPermissionDecision>,
 }
 
 #[derive(Clone)]
@@ -48,16 +72,18 @@ impl Default for Hook {
     fn default() -> Self {
         Self {
             name: "default".to_string(),
-            func: Arc::new(|_| Box::pin(async { HookResult::Success })),
+            func: Arc::new(|_| Box::pin(async { HookExecutionOutcome::success() })),
         }
     }
 }
 
 impl Hook {
     pub async fn execute(&self, payload: &HookPayload) -> HookResponse {
+        let outcome = (self.func)(payload).await;
         HookResponse {
             hook_name: self.name.clone(),
-            result: (self.func)(payload).await,
+            result: outcome.result,
+            permission_decision: outcome.permission_decision,
         }
     }
 }

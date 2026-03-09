@@ -24,6 +24,7 @@ use crate::tools::network_approval::finish_deferred_network_approval;
 use crate::tools::orchestrator::ToolOrchestrator;
 use crate::tools::runtimes::unified_exec::UnifiedExecRequest as UnifiedExecToolRequest;
 use crate::tools::runtimes::unified_exec::UnifiedExecRuntime;
+use crate::tools::sandboxing::ExecApprovalRequirement;
 use crate::tools::sandboxing::ToolCtx;
 use crate::truncate::TruncationPolicy;
 use crate::truncate::approx_token_count;
@@ -52,6 +53,7 @@ use crate::unified_exec::process::OutputHandles;
 use crate::unified_exec::process::SpawnLifecycleHandle;
 use crate::unified_exec::process::UnifiedExecProcess;
 use crate::unified_exec::resolve_max_tokens;
+use codex_hooks::HookPermissionDecision;
 
 const UNIFIED_EXEC_ENV: [(&str, &str); 10] = [
     ("NO_COLOR", "1"),
@@ -104,6 +106,27 @@ struct PreparedProcessHandles {
 }
 
 impl UnifiedExecProcessManager {
+    fn hook_exec_approval_requirement(
+        decision: Option<HookPermissionDecision>,
+    ) -> Option<ExecApprovalRequirement> {
+        match decision {
+            Some(HookPermissionDecision::Allow { .. }) => Some(ExecApprovalRequirement::Skip {
+                bypass_sandbox: false,
+                proposed_execpolicy_amendment: None,
+            }),
+            Some(HookPermissionDecision::Ask { reason }) => {
+                Some(ExecApprovalRequirement::NeedsApproval {
+                    reason: Some(reason),
+                    proposed_execpolicy_amendment: None,
+                })
+            }
+            Some(HookPermissionDecision::Deny { reason }) => {
+                Some(ExecApprovalRequirement::Forbidden { reason })
+            }
+            None => None,
+        }
+    }
+
     pub(crate) async fn allocate_process_id(&self) -> String {
         loop {
             let mut store = self.process_store.lock().await;
@@ -575,22 +598,28 @@ impl UnifiedExecProcessManager {
         let mut orchestrator = ToolOrchestrator::new();
         let mut runtime =
             UnifiedExecRuntime::new(self, context.turn.tools_config.unified_exec_backend);
-        let exec_approval_requirement = context
-            .session
-            .services
-            .exec_policy
-            .create_exec_approval_requirement_for_command(ExecApprovalRequest {
-                command: &request.command,
-                approval_policy: context.turn.approval_policy.value(),
-                sandbox_policy: context.turn.sandbox_policy.get(),
-                sandbox_permissions: if request.additional_permissions_preapproved {
-                    crate::sandboxing::SandboxPermissions::UseDefault
-                } else {
-                    request.sandbox_permissions
-                },
-                prefix_rule: request.prefix_rule.clone(),
-            })
-            .await;
+        let exec_approval_requirement =
+            match Self::hook_exec_approval_requirement(request.pre_tool_hook_decision.clone()) {
+                Some(requirement) => requirement,
+                None => {
+                    context
+                        .session
+                        .services
+                        .exec_policy
+                        .create_exec_approval_requirement_for_command(ExecApprovalRequest {
+                            command: &request.command,
+                            approval_policy: context.turn.approval_policy.value(),
+                            sandbox_policy: context.turn.sandbox_policy.get(),
+                            sandbox_permissions: if request.additional_permissions_preapproved {
+                                crate::sandboxing::SandboxPermissions::UseDefault
+                            } else {
+                                request.sandbox_permissions
+                            },
+                            prefix_rule: request.prefix_rule.clone(),
+                        })
+                        .await
+                }
+            };
         let req = UnifiedExecToolRequest {
             command: request.command.clone(),
             cwd,

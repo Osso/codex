@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use codex_hooks::HookPermissionDecision;
 use codex_protocol::ThreadId;
 use codex_protocol::models::FunctionCallOutputBody;
 use codex_protocol::models::ShellCommandToolCallParams;
@@ -31,6 +32,7 @@ use crate::tools::registry::ToolKind;
 use crate::tools::runtimes::shell::ShellRequest;
 use crate::tools::runtimes::shell::ShellRuntime;
 use crate::tools::runtimes::shell::ShellRuntimeBackend;
+use crate::tools::sandboxing::ExecApprovalRequirement;
 use crate::tools::sandboxing::ToolCtx;
 use crate::tools::spec::ShellCommandBackendConfig;
 use codex_protocol::models::PermissionProfile;
@@ -56,6 +58,7 @@ struct RunExecLikeArgs {
     turn: Arc<TurnContext>,
     tracker: crate::tools::context::SharedTurnDiffTracker,
     call_id: String,
+    pre_tool_hook_decision: Option<HookPermissionDecision>,
     freeform: bool,
     shell_runtime_backend: ShellRuntimeBackend,
 }
@@ -173,6 +176,7 @@ impl ToolHandler for ShellHandler {
             call_id,
             tool_name,
             payload,
+            pre_tool_hook_decision,
             ..
         } = invocation;
 
@@ -193,6 +197,7 @@ impl ToolHandler for ShellHandler {
                     turn,
                     tracker,
                     call_id,
+                    pre_tool_hook_decision,
                     freeform: false,
                     shell_runtime_backend: ShellRuntimeBackend::Generic,
                 })
@@ -210,6 +215,7 @@ impl ToolHandler for ShellHandler {
                     turn,
                     tracker,
                     call_id,
+                    pre_tool_hook_decision,
                     freeform: false,
                     shell_runtime_backend: ShellRuntimeBackend::Generic,
                 })
@@ -261,6 +267,7 @@ impl ToolHandler for ShellCommandHandler {
             call_id,
             tool_name,
             payload,
+            pre_tool_hook_decision,
             ..
         } = invocation;
 
@@ -297,6 +304,7 @@ impl ToolHandler for ShellCommandHandler {
             turn,
             tracker,
             call_id,
+            pre_tool_hook_decision,
             freeform: true,
             shell_runtime_backend: self.shell_runtime_backend(),
         })
@@ -305,6 +313,27 @@ impl ToolHandler for ShellCommandHandler {
 }
 
 impl ShellHandler {
+    fn hook_exec_approval_requirement(
+        decision: Option<HookPermissionDecision>,
+    ) -> Option<ExecApprovalRequirement> {
+        match decision {
+            Some(HookPermissionDecision::Allow { .. }) => Some(ExecApprovalRequirement::Skip {
+                bypass_sandbox: false,
+                proposed_execpolicy_amendment: None,
+            }),
+            Some(HookPermissionDecision::Ask { reason }) => {
+                Some(ExecApprovalRequirement::NeedsApproval {
+                    reason: Some(reason),
+                    proposed_execpolicy_amendment: None,
+                })
+            }
+            Some(HookPermissionDecision::Deny { reason }) => {
+                Some(ExecApprovalRequirement::Forbidden { reason })
+            }
+            None => None,
+        }
+    }
+
     async fn run_exec_like(args: RunExecLikeArgs) -> Result<ToolOutput, FunctionCallError> {
         let RunExecLikeArgs {
             tool_name,
@@ -315,6 +344,7 @@ impl ShellHandler {
             turn,
             tracker,
             call_id,
+            pre_tool_hook_decision,
             freeform,
             shell_runtime_backend,
         } = args;
@@ -393,21 +423,29 @@ impl ShellHandler {
         let event_ctx = ToolEventCtx::new(session.as_ref(), turn.as_ref(), &call_id, None);
         emitter.begin(event_ctx).await;
 
-        let exec_approval_requirement = session
-            .services
-            .exec_policy
-            .create_exec_approval_requirement_for_command(ExecApprovalRequest {
-                command: &exec_params.command,
-                approval_policy: turn.approval_policy.value(),
-                sandbox_policy: turn.sandbox_policy.get(),
-                sandbox_permissions: if effective_additional_permissions.permissions_preapproved {
-                    codex_protocol::models::SandboxPermissions::UseDefault
-                } else {
-                    effective_additional_permissions.sandbox_permissions
-                },
-                prefix_rule,
-            })
-            .await;
+        let exec_approval_requirement =
+            match Self::hook_exec_approval_requirement(pre_tool_hook_decision) {
+                Some(requirement) => requirement,
+                None => {
+                    session
+                        .services
+                        .exec_policy
+                        .create_exec_approval_requirement_for_command(ExecApprovalRequest {
+                            command: &exec_params.command,
+                            approval_policy: turn.approval_policy.value(),
+                            sandbox_policy: turn.sandbox_policy.get(),
+                            sandbox_permissions: if effective_additional_permissions
+                                .permissions_preapproved
+                            {
+                                codex_protocol::models::SandboxPermissions::UseDefault
+                            } else {
+                                effective_additional_permissions.sandbox_permissions
+                            },
+                            prefix_rule,
+                        })
+                        .await
+                }
+            };
 
         let req = ShellRequest {
             command: exec_params.command.clone(),

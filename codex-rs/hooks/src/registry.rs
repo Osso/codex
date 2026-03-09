@@ -3,6 +3,8 @@ use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 
+use codex_protocol::models::ShellCommandToolCallParams;
+use codex_protocol::models::ShellToolCallParams;
 use serde_json::Value;
 use tokio::process::Command;
 use tokio::time::timeout;
@@ -10,10 +12,13 @@ use tokio::time::timeout;
 use crate::types::CommandHookConfig;
 use crate::types::Hook;
 use crate::types::HookEvent;
+use crate::types::HookExecutionOutcome;
 use crate::types::HookPayload;
+use crate::types::HookPermissionDecision;
 use crate::types::HookResponse;
 use crate::types::HookResult;
 use crate::types::HookRuleConfig;
+use crate::types::HookToolInput;
 use crate::types::HooksToml;
 
 #[cfg(test)]
@@ -34,8 +39,6 @@ use codex_protocol::ThreadId;
 use crate::types::HookEventAfterAgent;
 #[cfg(test)]
 use crate::types::HookEventAfterToolUse;
-#[cfg(test)]
-use crate::types::HookToolInput;
 #[cfg(test)]
 use crate::types::HookToolKind;
 
@@ -158,7 +161,7 @@ fn command_hook(
             let command = command.clone();
             Box::pin(async move {
                 if !matches_hook(matcher.as_deref(), &payload.hook_event) {
-                    return HookResult::Success;
+                    return HookExecutionOutcome::success();
                 }
                 run_command_hook(&command.command, command.timeout_sec, payload).await
             })
@@ -202,7 +205,7 @@ async fn run_command_hook(
     command_text: &str,
     timeout_sec: Option<u64>,
     payload: &HookPayload,
-) -> HookResult {
+) -> HookExecutionOutcome {
     let mut command = shell_command(command_text);
     command
         .stdin(Stdio::piped())
@@ -213,14 +216,24 @@ async fn run_command_hook(
         command.env("CLAUDE_TOOL_NAME", tool_name);
     }
 
-    let payload_json = match serde_json::to_vec(payload) {
+    let payload_json = match serde_json::to_vec(&command_hook_input(payload)) {
         Ok(payload_json) => payload_json,
-        Err(err) => return HookResult::FailedContinue(err.into()),
+        Err(err) => {
+            return HookExecutionOutcome {
+                result: HookResult::FailedContinue(err.into()),
+                permission_decision: None,
+            };
+        }
     };
 
     let mut child = match command.spawn() {
         Ok(child) => child,
-        Err(err) => return HookResult::FailedContinue(err.into()),
+        Err(err) => {
+            return HookExecutionOutcome {
+                result: HookResult::FailedContinue(err.into()),
+                permission_decision: None,
+            };
+        }
     };
 
     if let Some(mut stdin) = child.stdin.take() {
@@ -235,21 +248,34 @@ async fn run_command_hook(
         Some(seconds) => {
             match timeout(Duration::from_secs(seconds), child.wait_with_output()).await {
                 Ok(Ok(output)) => output,
-                Ok(Err(err)) => return HookResult::FailedContinue(err.into()),
+                Ok(Err(err)) => {
+                    return HookExecutionOutcome {
+                        result: HookResult::FailedContinue(err.into()),
+                        permission_decision: None,
+                    };
+                }
                 Err(_) => {
-                    return HookResult::FailedContinue(
-                        io::Error::new(
-                            io::ErrorKind::TimedOut,
-                            format!("hook timed out after {seconds}s"),
-                        )
-                        .into(),
-                    );
+                    return HookExecutionOutcome {
+                        result: HookResult::FailedContinue(
+                            io::Error::new(
+                                io::ErrorKind::TimedOut,
+                                format!("hook timed out after {seconds}s"),
+                            )
+                            .into(),
+                        ),
+                        permission_decision: None,
+                    };
                 }
             }
         }
         None => match child.wait_with_output().await {
             Ok(output) => output,
-            Err(err) => return HookResult::FailedContinue(err.into()),
+            Err(err) => {
+                return HookExecutionOutcome {
+                    result: HookResult::FailedContinue(err.into()),
+                    permission_decision: None,
+                };
+            }
         },
     };
 
@@ -261,7 +287,10 @@ async fn run_command_hook(
         } else {
             format!("hook command exited with {status}: {stderr}")
         };
-        return HookResult::FailedContinue(io::Error::other(message).into());
+        return HookExecutionOutcome {
+            result: HookResult::FailedContinue(io::Error::other(message).into()),
+            permission_decision: None,
+        };
     }
 
     parse_command_output(&output.stdout)
@@ -279,14 +308,14 @@ fn shell_command(command_text: &str) -> Command {
     }
 }
 
-fn parse_command_output(stdout: &[u8]) -> HookResult {
+fn parse_command_output(stdout: &[u8]) -> HookExecutionOutcome {
     let text = String::from_utf8_lossy(stdout);
     let trimmed = text.trim();
     if trimmed.is_empty() {
-        return HookResult::Success;
+        return HookExecutionOutcome::success();
     }
     let Ok(json) = serde_json::from_str::<Value>(trimmed) else {
-        return HookResult::Success;
+        return HookExecutionOutcome::success();
     };
 
     if json.get("decision").and_then(Value::as_str) == Some("block") {
@@ -294,25 +323,202 @@ fn parse_command_output(stdout: &[u8]) -> HookResult {
             .get("reason")
             .and_then(Value::as_str)
             .unwrap_or("hook blocked operation");
-        return HookResult::FailedAbort(io::Error::other(reason.to_string()).into());
+        return HookExecutionOutcome {
+            result: HookResult::FailedAbort(io::Error::other(reason.to_string()).into()),
+            permission_decision: Some(HookPermissionDecision::Deny {
+                reason: reason.to_string(),
+            }),
+        };
     }
 
-    let maybe_deny = json
+    let maybe_permission = json
         .get("hookSpecificOutput")
         .and_then(Value::as_object)
-        .and_then(|obj| {
-            (obj.get("permissionDecision").and_then(Value::as_str) == Some("deny")).then(|| {
-                obj.get("permissionDecisionReason")
-                    .and_then(Value::as_str)
-                    .unwrap_or("hook denied operation")
-                    .to_string()
-            })
-        });
-    if let Some(reason) = maybe_deny {
-        return HookResult::FailedAbort(io::Error::other(reason).into());
+        .and_then(parse_permission_decision)
+        .or_else(|| json.as_object().and_then(parse_permission_decision));
+    if let Some(permission_decision) = maybe_permission {
+        let result = match &permission_decision {
+            HookPermissionDecision::Deny { reason } => {
+                HookResult::FailedAbort(io::Error::other(reason.clone()).into())
+            }
+            HookPermissionDecision::Allow { .. } | HookPermissionDecision::Ask { .. } => {
+                HookResult::Success
+            }
+        };
+        return HookExecutionOutcome {
+            result,
+            permission_decision: Some(permission_decision),
+        };
     }
 
-    HookResult::Success
+    HookExecutionOutcome::success()
+}
+
+fn parse_permission_decision(
+    obj: &serde_json::Map<String, Value>,
+) -> Option<HookPermissionDecision> {
+    let decision = obj.get("permissionDecision").and_then(Value::as_str)?;
+    let reason = obj
+        .get("permissionDecisionReason")
+        .and_then(Value::as_str)
+        .unwrap_or(match decision {
+            "allow" => "hook allowed operation",
+            "ask" => "hook requires approval",
+            "deny" => "hook denied operation",
+            _ => "hook returned a permission decision",
+        })
+        .to_string();
+
+    match decision {
+        "allow" => Some(HookPermissionDecision::Allow { reason }),
+        "ask" => Some(HookPermissionDecision::Ask { reason }),
+        "deny" => Some(HookPermissionDecision::Deny { reason }),
+        _ => None,
+    }
+}
+
+fn command_hook_input(payload: &HookPayload) -> Value {
+    let mut value =
+        serde_json::to_value(payload).unwrap_or_else(|_| Value::Object(Default::default()));
+    let Value::Object(ref mut obj) = value else {
+        return value;
+    };
+
+    obj.insert(
+        "hook_event_name".to_string(),
+        Value::String(claude_hook_event_name(&payload.hook_event).to_string()),
+    );
+
+    if let Some(tool_name) = claude_tool_name(&payload.hook_event) {
+        obj.insert("tool_name".to_string(), Value::String(tool_name));
+    }
+
+    if let Some(tool_input) = claude_tool_input(&payload.hook_event) {
+        obj.insert("tool_input".to_string(), tool_input);
+    }
+
+    value
+}
+
+fn claude_hook_event_name(event: &HookEvent) -> &'static str {
+    match event {
+        HookEvent::PreToolUse { .. } => "PreToolUse",
+        HookEvent::AfterAgent { .. } => "Stop",
+        HookEvent::AfterToolUse { .. } => "PostToolUse",
+        HookEvent::UserPromptSubmit { .. } => "UserPromptSubmit",
+        HookEvent::SessionEnd { .. } => "SessionEnd",
+        HookEvent::SubagentStart { .. } => "SubagentStart",
+        HookEvent::SubagentStop { .. } => "SubagentStop",
+    }
+}
+
+fn claude_tool_name(event: &HookEvent) -> Option<String> {
+    match event {
+        HookEvent::PreToolUse { event } | HookEvent::AfterToolUse { event } => Some(
+            match event.tool_name.as_str() {
+                "shell" | "local_shell" | "shell_command" | "exec_command" => "Bash",
+                "apply_patch" => "Write",
+                other => other,
+            }
+            .to_string(),
+        ),
+        _ => None,
+    }
+}
+
+fn claude_tool_input(event: &HookEvent) -> Option<Value> {
+    let after_tool_use = match event {
+        HookEvent::PreToolUse { event } | HookEvent::AfterToolUse { event } => event,
+        _ => return None,
+    };
+    let tool_input = &after_tool_use.tool_input;
+
+    match tool_input {
+        HookToolInput::LocalShell { params } => Some(serde_json::json!({
+            "command": shell_join(&params.command),
+            "cwd": params.workdir,
+        })),
+        HookToolInput::Custom { input } => Some(serde_json::json!({
+            "file_path": input,
+        })),
+        HookToolInput::Mcp {
+            server,
+            tool,
+            arguments,
+        } => {
+            if server == "regex-replace" && tool == "regex_replace" {
+                let parsed = serde_json::from_str::<Value>(arguments).ok();
+                Some(serde_json::json!({
+                    "dry_run": parsed
+                        .as_ref()
+                        .and_then(|value| value.get("dry_run"))
+                        .and_then(Value::as_bool),
+                }))
+            } else {
+                None
+            }
+        }
+        HookToolInput::Function { arguments } => {
+            function_tool_input(&after_tool_use.tool_name, arguments)
+        }
+    }
+}
+
+fn function_tool_input(tool_name: &str, arguments: &str) -> Option<Value> {
+    match tool_name {
+        "shell" => serde_json::from_str::<ShellToolCallParams>(arguments)
+            .ok()
+            .map(|params| {
+                serde_json::json!({
+                    "command": shell_join(&params.command),
+                    "cwd": params.workdir,
+                })
+            }),
+        "shell_command" | "exec_command" => {
+            serde_json::from_str::<ShellCommandToolCallParams>(arguments)
+                .ok()
+                .map(|params| {
+                    serde_json::json!({
+                        "command": params.command,
+                        "cwd": params.workdir,
+                    })
+                })
+                .or_else(|| exec_command_tool_input(arguments))
+        }
+        _ => None,
+    }
+}
+
+fn exec_command_tool_input(arguments: &str) -> Option<Value> {
+    let parsed = serde_json::from_str::<Value>(arguments).ok()?;
+    let command = parsed.get("cmd")?.as_str()?.to_string();
+    let cwd = parsed
+        .get("workdir")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    Some(serde_json::json!({
+        "command": command,
+        "cwd": cwd,
+    }))
+}
+
+fn shell_join(args: &[String]) -> String {
+    args.iter()
+        .map(|arg| shell_escape(arg))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn shell_escape(arg: &str) -> String {
+    if !arg.is_empty()
+        && arg
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.' | '/' | ':' | '='))
+    {
+        arg.to_string()
+    } else {
+        format!("'{}'", arg.replace('\'', r#"'"'"'"#))
+    }
 }
 
 #[cfg(test)]
@@ -359,7 +565,7 @@ mod tests {
                 let calls = Arc::clone(&calls);
                 Box::pin(async move {
                     calls.fetch_add(1, Ordering::SeqCst);
-                    HookResult::Success
+                    HookExecutionOutcome::success()
                 })
             }),
         }
@@ -376,7 +582,10 @@ mod tests {
                 let message = message.clone();
                 Box::pin(async move {
                     calls.fetch_add(1, Ordering::SeqCst);
-                    HookResult::FailedContinue(std::io::Error::other(message).into())
+                    HookExecutionOutcome {
+                        result: HookResult::FailedContinue(std::io::Error::other(message).into()),
+                        permission_decision: None,
+                    }
                 })
             }),
         }
@@ -393,7 +602,10 @@ mod tests {
                 let message = message.clone();
                 Box::pin(async move {
                     calls.fetch_add(1, Ordering::SeqCst);
-                    HookResult::FailedAbort(std::io::Error::other(message).into())
+                    HookExecutionOutcome {
+                        result: HookResult::FailedAbort(std::io::Error::other(message).into()),
+                        permission_decision: None,
+                    }
                 })
             }),
         }
@@ -722,7 +934,7 @@ mod tests {
     #[test]
     fn parse_command_output_denies_block_decisions() {
         let result = parse_command_output(br#"{"decision":"block","reason":"stop"}"#);
-        assert!(matches!(result, HookResult::FailedAbort(_)));
+        assert!(matches!(result.result, HookResult::FailedAbort(_)));
     }
 
     #[test]
@@ -730,13 +942,164 @@ mod tests {
         let result = parse_command_output(
             br#"{"hookSpecificOutput":{"permissionDecision":"deny","permissionDecisionReason":"blocked"}}"#,
         );
-        assert!(matches!(result, HookResult::FailedAbort(_)));
+        assert!(matches!(result.result, HookResult::FailedAbort(_)));
     }
 
     #[test]
     fn parse_command_output_ignores_advisory_json() {
         let result =
             parse_command_output(br#"{"continue":true,"stopReason":"Consider simplifying"}"#);
-        assert!(matches!(result, HookResult::Success));
+        assert!(matches!(result.result, HookResult::Success));
+    }
+
+    #[test]
+    fn parse_command_output_recognizes_allow_and_ask() {
+        let allow = parse_command_output(
+            br#"{"hookSpecificOutput":{"permissionDecision":"allow","permissionDecisionReason":"ok"}}"#,
+        );
+        assert!(matches!(allow.result, HookResult::Success));
+        assert_eq!(
+            allow.permission_decision,
+            Some(HookPermissionDecision::Allow {
+                reason: "ok".to_string(),
+            })
+        );
+
+        let ask = parse_command_output(
+            br#"{"hookSpecificOutput":{"permissionDecision":"ask","permissionDecisionReason":"check"}}"#,
+        );
+        assert!(matches!(ask.result, HookResult::Success));
+        assert_eq!(
+            ask.permission_decision,
+            Some(HookPermissionDecision::Ask {
+                reason: "check".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn command_hook_input_translates_shell_function_arguments_for_claude_hooks() {
+        let payload = HookPayload {
+            session_id: ThreadId::new(),
+            cwd: PathBuf::from("/tmp"),
+            client: None,
+            triggered_at: Utc
+                .with_ymd_and_hms(2025, 1, 1, 0, 0, 0)
+                .single()
+                .expect("valid timestamp"),
+            hook_event: HookEvent::PreToolUse {
+                event: HookEventAfterToolUse {
+                    turn_id: "turn-shell".to_string(),
+                    call_id: "call-shell".to_string(),
+                    tool_name: "shell".to_string(),
+                    tool_kind: HookToolKind::Function,
+                    tool_input: HookToolInput::Function {
+                        arguments: r#"{"command":["dmidecode"],"workdir":"/tmp"}"#.to_string(),
+                    },
+                    executed: false,
+                    success: false,
+                    duration_ms: 0,
+                    mutating: false,
+                    sandbox: "danger-full-access".to_string(),
+                    sandbox_policy: "danger-full-access".to_string(),
+                    output_preview: String::new(),
+                },
+            },
+        };
+
+        let input = command_hook_input(&payload);
+        assert_eq!(input["tool_name"], Value::String("Bash".to_string()));
+        assert_eq!(
+            input["tool_input"]["command"],
+            Value::String("dmidecode".to_string())
+        );
+        assert_eq!(
+            input["tool_input"]["cwd"],
+            Value::String("/tmp".to_string())
+        );
+    }
+
+    #[test]
+    fn command_hook_input_translates_shell_command_arguments_for_claude_hooks() {
+        let payload = HookPayload {
+            session_id: ThreadId::new(),
+            cwd: PathBuf::from("/tmp"),
+            client: None,
+            triggered_at: Utc
+                .with_ymd_and_hms(2025, 1, 1, 0, 0, 0)
+                .single()
+                .expect("valid timestamp"),
+            hook_event: HookEvent::PreToolUse {
+                event: HookEventAfterToolUse {
+                    turn_id: "turn-shell-command".to_string(),
+                    call_id: "call-shell-command".to_string(),
+                    tool_name: "shell_command".to_string(),
+                    tool_kind: HookToolKind::Function,
+                    tool_input: HookToolInput::Function {
+                        arguments: r#"{"command":"dmidecode","workdir":"/tmp"}"#.to_string(),
+                    },
+                    executed: false,
+                    success: false,
+                    duration_ms: 0,
+                    mutating: false,
+                    sandbox: "danger-full-access".to_string(),
+                    sandbox_policy: "danger-full-access".to_string(),
+                    output_preview: String::new(),
+                },
+            },
+        };
+
+        let input = command_hook_input(&payload);
+        assert_eq!(input["tool_name"], Value::String("Bash".to_string()));
+        assert_eq!(
+            input["tool_input"]["command"],
+            Value::String("dmidecode".to_string())
+        );
+        assert_eq!(
+            input["tool_input"]["cwd"],
+            Value::String("/tmp".to_string())
+        );
+    }
+
+    #[test]
+    fn command_hook_input_translates_exec_command_arguments_for_claude_hooks() {
+        let payload = HookPayload {
+            session_id: ThreadId::new(),
+            cwd: PathBuf::from("/tmp"),
+            client: None,
+            triggered_at: Utc
+                .with_ymd_and_hms(2025, 1, 1, 0, 0, 0)
+                .single()
+                .expect("valid timestamp"),
+            hook_event: HookEvent::PreToolUse {
+                event: HookEventAfterToolUse {
+                    turn_id: "turn-exec-command".to_string(),
+                    call_id: "call-exec-command".to_string(),
+                    tool_name: "exec_command".to_string(),
+                    tool_kind: HookToolKind::Function,
+                    tool_input: HookToolInput::Function {
+                        arguments: r#"{"cmd":"dmidecode","workdir":"/tmp"}"#.to_string(),
+                    },
+                    executed: false,
+                    success: false,
+                    duration_ms: 0,
+                    mutating: false,
+                    sandbox: "danger-full-access".to_string(),
+                    sandbox_policy: "danger-full-access".to_string(),
+                    output_preview: String::new(),
+                },
+            },
+        };
+
+        let input = command_hook_input(&payload);
+        assert_eq!(input["tool_name"], Value::String("Bash".to_string()));
+        assert_eq!(
+            input["tool_input"]["command"],
+            Value::String("dmidecode".to_string())
+        );
+        assert_eq!(
+            input["tool_input"]["cwd"],
+            Value::String("/tmp".to_string())
+        );
     }
 }

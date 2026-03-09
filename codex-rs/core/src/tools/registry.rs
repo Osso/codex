@@ -16,6 +16,7 @@ use async_trait::async_trait;
 use codex_hooks::HookEvent;
 use codex_hooks::HookEventAfterToolUse;
 use codex_hooks::HookPayload;
+use codex_hooks::HookPermissionDecision;
 use codex_hooks::HookResult;
 use codex_hooks::HookToolInput;
 use codex_hooks::HookToolInputLocalShell;
@@ -80,6 +81,7 @@ impl ToolRegistry {
         &self,
         invocation: ToolInvocation,
     ) -> Result<ResponseInputItem, FunctionCallError> {
+        let mut invocation = invocation;
         let tool_name = invocation.tool_name.clone();
         let call_id_owned = invocation.call_id.clone();
         let otel = invocation.turn.session_telemetry.clone();
@@ -163,8 +165,11 @@ impl ToolRegistry {
         }
 
         let is_mutating = handler.is_mutating(&invocation).await;
-        if let Some(err) = dispatch_pre_tool_use_hook(&invocation, is_mutating).await {
-            return Err(err);
+        match dispatch_pre_tool_use_hook(&invocation, is_mutating).await {
+            Ok(permission_decision) => {
+                invocation.pre_tool_hook_decision = permission_decision;
+            }
+            Err(err) => return Err(err),
         }
         let output_cell = tokio::sync::Mutex::new(None);
         let invocation_for_tool = invocation.clone();
@@ -381,7 +386,7 @@ struct AfterToolUseHookDispatch<'a> {
 async fn dispatch_pre_tool_use_hook(
     invocation: &ToolInvocation,
     mutating: bool,
-) -> Option<FunctionCallError> {
+) -> Result<Option<HookPermissionDecision>, FunctionCallError> {
     let session = invocation.session.as_ref();
     let turn = invocation.turn.as_ref();
     let tool_input = HookToolInput::from(&invocation.payload);
@@ -416,8 +421,12 @@ async fn dispatch_pre_tool_use_hook(
         })
         .await;
 
+    let mut permission_decision = None;
     for hook_outcome in hook_outcomes {
         let hook_name = hook_outcome.hook_name;
+        if permission_decision.is_none() {
+            permission_decision = hook_outcome.permission_decision.clone();
+        }
         match hook_outcome.result {
             HookResult::Success => {}
             HookResult::FailedContinue(error) => {
@@ -437,12 +446,12 @@ async fn dispatch_pre_tool_use_hook(
                     error = %error,
                     "pre_tool_use hook denied operation"
                 );
-                return Some(FunctionCallError::RespondToModel(error.to_string()));
+                return Err(FunctionCallError::RespondToModel(error.to_string()));
             }
         }
     }
 
-    None
+    Ok(permission_decision)
 }
 
 async fn dispatch_after_tool_use_hook(
