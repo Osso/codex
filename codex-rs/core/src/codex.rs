@@ -347,6 +347,20 @@ pub(crate) const SUBMISSION_CHANNEL_CAPACITY: usize = 512;
 const CYBER_VERIFY_URL: &str = "https://chatgpt.com/cyber";
 const CYBER_SAFETY_URL: &str = "https://developers.openai.com/codex/concepts/cyber-safety";
 
+fn hook_input_messages(input: &[UserInput]) -> Vec<String> {
+    input
+        .iter()
+        .map(|item| match item {
+            UserInput::Text { text, .. } => text.clone(),
+            UserInput::Image { image_url } => format!("[image] {image_url}"),
+            UserInput::LocalImage { path } => format!("[local_image] {}", path.display()),
+            UserInput::Skill { name, path } => format!("[skill] {name} {}", path.display()),
+            UserInput::Mention { name, path } => format!("[mention] {name} {path}"),
+            _ => "[unsupported_input]".to_string(),
+        })
+        .collect()
+}
+
 impl Codex {
     /// Spawn a new [`Codex`] and initialize the session.
     #[allow(clippy::too_many_arguments)]
@@ -1555,6 +1569,7 @@ impl Session {
             ),
             hooks: Hooks::new(HooksConfig {
                 legacy_notify_argv: config.notify.clone(),
+                hooks: config.hooks.clone(),
             }),
             rollout: Mutex::new(rollout_recorder),
             user_shell: Arc::new(default_shell),
@@ -4144,6 +4159,7 @@ mod handlers {
     use crate::codex::Session;
     use crate::codex::SessionSettingsUpdate;
     use crate::codex::SteerInputError;
+    use crate::codex::hook_input_messages;
 
     use crate::codex::spawn_review_thread;
     use crate::config::Config;
@@ -4158,6 +4174,11 @@ mod handlers {
     use crate::tasks::UserShellCommandMode;
     use crate::tasks::UserShellCommandTask;
     use crate::tasks::execute_user_shell_command;
+    use codex_hooks::HookEvent;
+    use codex_hooks::HookEventSessionEnd;
+    use codex_hooks::HookEventUserPromptSubmit;
+    use codex_hooks::HookPayload;
+    use codex_hooks::HookResult;
     use codex_protocol::custom_prompts::CustomPrompt;
     use codex_protocol::protocol::CodexErrorInfo;
     use codex_protocol::protocol::ErrorEvent;
@@ -4283,6 +4304,48 @@ mod handlers {
         };
         sess.maybe_emit_unknown_model_warning_for_turn(current_context.as_ref())
             .await;
+        let hook_outcomes = sess
+            .hooks()
+            .dispatch(HookPayload {
+                session_id: sess.conversation_id,
+                cwd: current_context.cwd.clone(),
+                client: current_context.app_server_client_name.clone(),
+                triggered_at: chrono::Utc::now(),
+                hook_event: HookEvent::UserPromptSubmit {
+                    event: HookEventUserPromptSubmit {
+                        turn_id: current_context.sub_id.clone(),
+                        input_messages: hook_input_messages(&items),
+                    },
+                },
+            })
+            .await;
+        for hook_outcome in hook_outcomes {
+            let hook_name = hook_outcome.hook_name;
+            match hook_outcome.result {
+                HookResult::Success => {}
+                HookResult::FailedContinue(error) => {
+                    warn!(
+                        turn_id = %current_context.sub_id,
+                        hook_name = %hook_name,
+                        error = %error,
+                        "user_prompt_submit hook failed; continuing"
+                    );
+                }
+                HookResult::FailedAbort(error) => {
+                    sess.send_event(
+                        &current_context,
+                        EventMsg::Error(ErrorEvent {
+                            message: format!(
+                                "user_prompt_submit hook '{hook_name}' aborted submission: {error}"
+                            ),
+                            codex_error_info: None,
+                        }),
+                    )
+                    .await;
+                    return;
+                }
+            }
+        }
         current_context.session_telemetry.user_prompt(&items);
 
         // Attempt to inject input into current task.
@@ -4922,6 +4985,42 @@ mod handlers {
             .terminate_all_processes()
             .await;
         info!("Shutting down Codex instance");
+        let session_config = sess.state.lock().await.session_configuration.clone();
+        let rollout_path = {
+            let guard = sess.services.rollout.lock().await;
+            guard
+                .as_ref()
+                .map(|recorder| recorder.rollout_path().display().to_string())
+        };
+        let hook_outcomes = sess
+            .hooks()
+            .dispatch(HookPayload {
+                session_id: sess.conversation_id,
+                cwd: session_config.cwd,
+                client: session_config.app_server_client_name,
+                triggered_at: chrono::Utc::now(),
+                hook_event: HookEvent::SessionEnd {
+                    event: HookEventSessionEnd {
+                        thread_id: sess.conversation_id,
+                        transcript_path: rollout_path,
+                    },
+                },
+            })
+            .await;
+        for hook_outcome in hook_outcomes {
+            let hook_name = hook_outcome.hook_name;
+            match hook_outcome.result {
+                HookResult::Success => {}
+                HookResult::FailedContinue(error) | HookResult::FailedAbort(error) => {
+                    warn!(
+                        thread_id = %sess.conversation_id,
+                        hook_name = %hook_name,
+                        error = %error,
+                        "session_end hook failed; continuing shutdown"
+                    );
+                }
+            }
+        }
         let history = sess.clone_history().await;
         let turn_count = history
             .raw_items()

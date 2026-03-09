@@ -284,6 +284,24 @@
         }
       ]
     },
+    "CommandHookConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "timeout_sec": {
+          "default": null,
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "command"
+      ],
+      "type": "object"
+    },
     "ConfigProfile": {
       "additionalProperties": false,
       "description": "Collection of common configuration options that a user can define as a unit in `config.toml`.",
@@ -666,6 +684,78 @@
           "type": "string"
         }
       ]
+    },
+    "HookRuleConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "commands": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/CommandHookConfig"
+          },
+          "type": "array"
+        },
+        "matcher": {
+          "default": null,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "HooksToml": {
+      "additionalProperties": false,
+      "properties": {
+        "post_tool_use": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/HookRuleConfig"
+          },
+          "type": "array"
+        },
+        "pre_tool_use": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/HookRuleConfig"
+          },
+          "type": "array"
+        },
+        "session_end": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/HookRuleConfig"
+          },
+          "type": "array"
+        },
+        "stop": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/HookRuleConfig"
+          },
+          "type": "array"
+        },
+        "subagent_start": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/HookRuleConfig"
+          },
+          "type": "array"
+        },
+        "subagent_stop": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/HookRuleConfig"
+          },
+          "type": "array"
+        },
+        "user_prompt_submit": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/HookRuleConfig"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
     },
     "MemoriesToml": {
       "additionalProperties": false,
@@ -1664,7 +1754,7 @@
       ]
     }
   },
-  "description": "Base config deserialized from ~/.codex/config.toml.",
+  "description": "Base config deserialized from the user `config.toml`.",
   "properties": {
     "agents": {
       "allOf": [
@@ -2002,6 +2092,23 @@
       ],
       "default": null,
       "description": "Settings that govern if and what will be written to `~/.codex/history.jsonl`."
+    },
+    "hooks": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/HooksToml"
+        }
+      ],
+      "default": {
+        "post_tool_use": [],
+        "pre_tool_use": [],
+        "session_end": [],
+        "stop": [],
+        "subagent_start": [],
+        "subagent_stop": [],
+        "user_prompt_submit": []
+      },
+      "description": "Configured lifecycle hooks."
     },
     "instructions": {
       "description": "System instructions.",

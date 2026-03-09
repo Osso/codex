@@ -13,6 +13,7 @@ use crate::config_loader::RequirementSource;
 use crate::features::Feature;
 use assert_matches::assert_matches;
 use codex_config::CONFIG_TOML_FILE;
+use codex_hooks::HooksToml;
 use codex_protocol::permissions::FileSystemAccessMode;
 use codex_protocol::permissions::FileSystemPath;
 use codex_protocol::permissions::FileSystemSandboxEntry;
@@ -3021,6 +3022,7 @@ fn test_precedence_fixture_with_o3_profile() -> std::io::Result<()> {
             enforce_residency: Constrained::allow_any(None),
             user_instructions: None,
             notify: None,
+            hooks: HooksToml::default(),
             cwd: fixture.cwd(),
             cli_auth_credentials_store_mode: Default::default(),
             mcp_servers: Constrained::allow_any(HashMap::new()),
@@ -3156,6 +3158,7 @@ fn test_precedence_fixture_with_gpt3_profile() -> std::io::Result<()> {
         enforce_residency: Constrained::allow_any(None),
         user_instructions: None,
         notify: None,
+        hooks: HooksToml::default(),
         cwd: fixture.cwd(),
         cli_auth_credentials_store_mode: Default::default(),
         mcp_servers: Constrained::allow_any(HashMap::new()),
@@ -3289,6 +3292,7 @@ fn test_precedence_fixture_with_zdr_profile() -> std::io::Result<()> {
         enforce_residency: Constrained::allow_any(None),
         user_instructions: None,
         notify: None,
+        hooks: HooksToml::default(),
         cwd: fixture.cwd(),
         cli_auth_credentials_store_mode: Default::default(),
         mcp_servers: Constrained::allow_any(HashMap::new()),
@@ -3408,6 +3412,7 @@ fn test_precedence_fixture_with_gpt5_profile() -> std::io::Result<()> {
         enforce_residency: Constrained::allow_any(None),
         user_instructions: None,
         notify: None,
+        hooks: HooksToml::default(),
         cwd: fixture.cwd(),
         cli_auth_credentials_store_mode: Default::default(),
         mcp_servers: Constrained::allow_any(HashMap::new()),
