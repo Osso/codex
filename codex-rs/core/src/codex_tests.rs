@@ -99,6 +99,30 @@ fn user_message(text: &str) -> ResponseItem {
     }
 }
 
+fn developer_message(text: &str) -> ResponseItem {
+    ResponseItem::Message {
+        id: None,
+        role: "developer".to_string(),
+        content: vec![ContentItem::InputText {
+            text: text.to_string(),
+        }],
+        end_turn: None,
+        phase: None,
+    }
+}
+
+fn environment_context_message(cwd: &str) -> ResponseItem {
+    ResponseItem::Message {
+        id: None,
+        role: "user".to_string(),
+        content: vec![ContentItem::InputText {
+            text: format!("<environment_context>\n<cwd>{cwd}</cwd>\n</environment_context>"),
+        }],
+        end_turn: None,
+        phase: None,
+    }
+}
+
 fn assistant_message(text: &str) -> ResponseItem {
     ResponseItem::Message {
         id: None,
@@ -231,6 +255,10 @@ fn build_server_side_compaction_replacement_history_keeps_current_turn_inputs() 
     let prior_snapshot = ghost_snapshot("ghost-before");
     let same_turn_snapshot = ghost_snapshot("ghost-during");
     let history_before_turn = vec![user_message("earlier"), prior_snapshot.clone()];
+    let initial_context = vec![
+        developer_message("fresh permissions"),
+        environment_context_message("/fresh"),
+    ];
     let current_turn_user = user_message("current turn");
     let current_turn_tool_output = ResponseItem::FunctionCallOutput {
         call_id: "call-1".to_string(),
@@ -239,6 +267,8 @@ fn build_server_side_compaction_replacement_history_keeps_current_turn_inputs() 
     let current_history = vec![
         user_message("earlier"),
         prior_snapshot.clone(),
+        developer_message("stale permissions diff"),
+        environment_context_message("/stale"),
         current_turn_user.clone(),
         current_turn_tool_output.clone(),
         same_turn_snapshot.clone(),
@@ -249,6 +279,7 @@ fn build_server_side_compaction_replacement_history_keeps_current_turn_inputs() 
 
     let replacement_history = build_server_side_compaction_replacement_history(
         compaction_item.clone(),
+        initial_context.clone(),
         &history_before_turn,
         &current_history,
     );
@@ -256,9 +287,11 @@ fn build_server_side_compaction_replacement_history_keeps_current_turn_inputs() 
     assert_eq!(
         replacement_history,
         vec![
-            compaction_item,
+            initial_context[0].clone(),
+            initial_context[1].clone(),
             current_turn_user,
             current_turn_tool_output,
+            compaction_item,
             prior_snapshot,
             same_turn_snapshot,
         ]
@@ -270,6 +303,10 @@ fn build_server_side_compaction_replacement_history_replaces_prior_same_turn_sum
     let prior_snapshot = ghost_snapshot("ghost-before");
     let same_turn_snapshot = ghost_snapshot("ghost-during");
     let history_before_turn = vec![user_message("earlier"), prior_snapshot.clone()];
+    let initial_context = vec![
+        developer_message("fresh permissions"),
+        environment_context_message("/fresh"),
+    ];
     let current_turn_user = user_message("current turn");
     let current_turn_tool_output = ResponseItem::FunctionCallOutput {
         call_id: "call-1".to_string(),
@@ -282,15 +319,18 @@ fn build_server_side_compaction_replacement_history_replaces_prior_same_turn_sum
         encrypted_content: "INLINE_SUMMARY_2".to_string(),
     };
     let current_history = vec![
-        prior_compaction,
+        initial_context[0].clone(),
+        initial_context[1].clone(),
         current_turn_user.clone(),
         current_turn_tool_output.clone(),
+        prior_compaction,
         prior_snapshot.clone(),
         same_turn_snapshot.clone(),
     ];
 
     let replacement_history = build_server_side_compaction_replacement_history(
         new_compaction.clone(),
+        initial_context.clone(),
         &history_before_turn,
         &current_history,
     );
@@ -298,9 +338,11 @@ fn build_server_side_compaction_replacement_history_replaces_prior_same_turn_sum
     assert_eq!(
         replacement_history,
         vec![
-            new_compaction,
+            initial_context[0].clone(),
+            initial_context[1].clone(),
             current_turn_user,
             current_turn_tool_output,
+            new_compaction,
             prior_snapshot,
             same_turn_snapshot,
         ]
@@ -311,6 +353,10 @@ fn build_server_side_compaction_replacement_history_replaces_prior_same_turn_sum
 fn build_server_side_compaction_replacement_history_replaces_prior_summary_with_empty_history() {
     let same_turn_snapshot = ghost_snapshot("ghost-during");
     let history_before_turn = Vec::new();
+    let initial_context = vec![
+        developer_message("fresh permissions"),
+        environment_context_message("/fresh"),
+    ];
     let current_turn_user = user_message("current turn");
     let current_turn_tool_output = ResponseItem::FunctionCallOutput {
         call_id: "call-1".to_string(),
@@ -323,6 +369,8 @@ fn build_server_side_compaction_replacement_history_replaces_prior_summary_with_
         encrypted_content: "INLINE_SUMMARY_2".to_string(),
     };
     let current_history = vec![
+        initial_context[0].clone(),
+        initial_context[1].clone(),
         prior_compaction,
         current_turn_user.clone(),
         current_turn_tool_output.clone(),
@@ -331,6 +379,7 @@ fn build_server_side_compaction_replacement_history_replaces_prior_summary_with_
 
     let replacement_history = build_server_side_compaction_replacement_history(
         new_compaction.clone(),
+        initial_context.clone(),
         &history_before_turn,
         &current_history,
     );
@@ -338,9 +387,11 @@ fn build_server_side_compaction_replacement_history_replaces_prior_summary_with_
     assert_eq!(
         replacement_history,
         vec![
-            new_compaction,
+            initial_context[0].clone(),
+            initial_context[1].clone(),
             current_turn_user,
             current_turn_tool_output,
+            new_compaction,
             same_turn_snapshot,
         ]
     );
