@@ -69,6 +69,7 @@ SANDBOX_POLICY = TurnSandboxPolicy.model_validate(
         "access": {"type": "fullAccess"},
     }
 )
+APPROVAL_POLICY = TurnAskForApproval.model_validate("never")
 
 
 async def main() -> None:
@@ -97,7 +98,7 @@ async def main() -> None:
 
         second_turn = await thread.turn(
             TextInput("Return JSON for a safe feature-flag rollout plan."),
-            approval_policy=TurnAskForApproval.never,
+            approval_policy=APPROVAL_POLICY,
             cwd=str(Path.cwd()),
             effort=selected_effort,
             model=selected_model.model,

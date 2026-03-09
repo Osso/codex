@@ -7,7 +7,7 @@ from .v2_all.ThreadReadResponse import ThreadReadResponse
 from .v2_all.ThreadTokenUsageUpdatedNotification import (
     ThreadTokenUsageUpdatedNotification,
 )
-from .v2_all.TurnCompletedNotification import ThreadItem153 as ThreadItem
+from .v2_all.TurnCompletedNotification import ThreadItem191 as ThreadItem
 from .v2_all.TurnCompletedNotification import (
     TurnCompletedNotification as TurnCompletedNotificationPayload,
 )

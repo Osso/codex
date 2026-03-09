@@ -49,6 +49,8 @@ def test_generated_public_signatures_are_snake_case_and_typed() -> None:
             "model_provider",
             "personality",
             "sandbox",
+            "service_name",
+            "service_tier",
         ],
         Codex.thread_list: [
             "archived",
@@ -56,6 +58,7 @@ def test_generated_public_signatures_are_snake_case_and_typed() -> None:
             "cwd",
             "limit",
             "model_providers",
+            "search_term",
             "sort_key",
             "source_kinds",
         ],
@@ -69,6 +72,7 @@ def test_generated_public_signatures_are_snake_case_and_typed() -> None:
             "model_provider",
             "personality",
             "sandbox",
+            "service_tier",
         ],
         Codex.thread_fork: [
             "approval_policy",
@@ -79,6 +83,7 @@ def test_generated_public_signatures_are_snake_case_and_typed() -> None:
             "model",
             "model_provider",
             "sandbox",
+            "service_tier",
         ],
         Thread.turn: [
             "approval_policy",
@@ -88,6 +93,7 @@ def test_generated_public_signatures_are_snake_case_and_typed() -> None:
             "output_schema",
             "personality",
             "sandbox_policy",
+            "service_tier",
             "summary",
         ],
         AsyncCodex.thread_start: [
@@ -101,6 +107,8 @@ def test_generated_public_signatures_are_snake_case_and_typed() -> None:
             "model_provider",
             "personality",
             "sandbox",
+            "service_name",
+            "service_tier",
         ],
         AsyncCodex.thread_list: [
             "archived",
@@ -108,6 +116,7 @@ def test_generated_public_signatures_are_snake_case_and_typed() -> None:
             "cwd",
             "limit",
             "model_providers",
+            "search_term",
             "sort_key",
             "source_kinds",
         ],
@@ -121,6 +130,7 @@ def test_generated_public_signatures_are_snake_case_and_typed() -> None:
             "model_provider",
             "personality",
             "sandbox",
+            "service_tier",
         ],
         AsyncCodex.thread_fork: [
             "approval_policy",
@@ -131,6 +141,7 @@ def test_generated_public_signatures_are_snake_case_and_typed() -> None:
             "model",
             "model_provider",
             "sandbox",
+            "service_tier",
         ],
         AsyncThread.turn: [
             "approval_policy",
@@ -140,6 +151,7 @@ def test_generated_public_signatures_are_snake_case_and_typed() -> None:
             "output_schema",
             "personality",
             "sandbox_policy",
+            "service_tier",
             "summary",
         ],
     }

@@ -44,13 +44,14 @@ PROMPT = (
     "Analyze a safe rollout plan for enabling a feature flag in production. "
     "Return JSON matching the requested schema."
 )
+APPROVAL_POLICY = TurnAskForApproval.model_validate("never")
 
 with Codex() as codex:
     thread = codex.thread_start(model="gpt-5", config={"model_reasoning_effort": "high"})
 
     turn = thread.turn(
         TextInput(PROMPT),
-        approval_policy=TurnAskForApproval.never,
+        approval_policy=APPROVAL_POLICY,
         cwd=str(Path.cwd()),
         effort=TurnReasoningEffort.medium,
         model="gpt-5",

@@ -253,6 +253,8 @@ class Codex:
         model_provider: str | None = None,
         personality: Personality | None = None,
         sandbox: SandboxMode | None = None,
+        service_name: str | None = None,
+        service_tier: Any | None = None,
     ) -> Thread:
         params = ThreadStartParams(
             approvalPolicy=approval_policy,
@@ -265,6 +267,8 @@ class Codex:
             modelProvider=model_provider,
             personality=personality,
             sandbox=sandbox,
+            serviceName=service_name,
+            serviceTier=service_tier,
         )
         started = self._client.thread_start(params)
         return Thread(self._client, started.thread.id)
@@ -277,6 +281,7 @@ class Codex:
         cwd: str | None = None,
         limit: int | None = None,
         model_providers: list[str] | None = None,
+        search_term: str | None = None,
         sort_key: ThreadSortKey | None = None,
         source_kinds: list[ThreadSourceKind] | None = None,
     ) -> ThreadListResponse:
@@ -286,6 +291,7 @@ class Codex:
             cwd=cwd,
             limit=limit,
             modelProviders=model_providers,
+            searchTerm=search_term,
             sortKey=sort_key,
             sourceKinds=source_kinds,
         )
@@ -304,6 +310,7 @@ class Codex:
         model_provider: str | None = None,
         personality: ResumePersonality | None = None,
         sandbox: ResumeSandboxMode | None = None,
+        service_tier: Any | None = None,
     ) -> Thread:
         params = ThreadResumeParams(
             threadId=thread_id,
@@ -316,6 +323,7 @@ class Codex:
             modelProvider=model_provider,
             personality=personality,
             sandbox=sandbox,
+            serviceTier=service_tier,
         )
         resumed = self._client.thread_resume(thread_id, params)
         return Thread(self._client, resumed.thread.id)
@@ -332,6 +340,7 @@ class Codex:
         model: str | None = None,
         model_provider: str | None = None,
         sandbox: ForkSandboxMode | None = None,
+        service_tier: Any | None = None,
     ) -> Thread:
         params = ThreadForkParams(
             threadId=thread_id,
@@ -343,6 +352,7 @@ class Codex:
             model=model,
             modelProvider=model_provider,
             sandbox=sandbox,
+            serviceTier=service_tier,
         )
         forked = self._client.thread_fork(thread_id, params)
         return Thread(self._client, forked.thread.id)
@@ -419,6 +429,8 @@ class AsyncCodex:
         model_provider: str | None = None,
         personality: Personality | None = None,
         sandbox: SandboxMode | None = None,
+        service_name: str | None = None,
+        service_tier: Any | None = None,
     ) -> AsyncThread:
         await self._ensure_initialized()
         params = ThreadStartParams(
@@ -432,6 +444,8 @@ class AsyncCodex:
             modelProvider=model_provider,
             personality=personality,
             sandbox=sandbox,
+            serviceName=service_name,
+            serviceTier=service_tier,
         )
         started = await self._client.thread_start(params)
         return AsyncThread(self, started.thread.id)
@@ -444,6 +458,7 @@ class AsyncCodex:
         cwd: str | None = None,
         limit: int | None = None,
         model_providers: list[str] | None = None,
+        search_term: str | None = None,
         sort_key: ThreadSortKey | None = None,
         source_kinds: list[ThreadSourceKind] | None = None,
     ) -> ThreadListResponse:
@@ -454,6 +469,7 @@ class AsyncCodex:
             cwd=cwd,
             limit=limit,
             modelProviders=model_providers,
+            searchTerm=search_term,
             sortKey=sort_key,
             sourceKinds=source_kinds,
         )
@@ -472,6 +488,7 @@ class AsyncCodex:
         model_provider: str | None = None,
         personality: ResumePersonality | None = None,
         sandbox: ResumeSandboxMode | None = None,
+        service_tier: Any | None = None,
     ) -> AsyncThread:
         await self._ensure_initialized()
         params = ThreadResumeParams(
@@ -485,6 +502,7 @@ class AsyncCodex:
             modelProvider=model_provider,
             personality=personality,
             sandbox=sandbox,
+            serviceTier=service_tier,
         )
         resumed = await self._client.thread_resume(thread_id, params)
         return AsyncThread(self, resumed.thread.id)
@@ -501,6 +519,7 @@ class AsyncCodex:
         model: str | None = None,
         model_provider: str | None = None,
         sandbox: ForkSandboxMode | None = None,
+        service_tier: Any | None = None,
     ) -> AsyncThread:
         await self._ensure_initialized()
         params = ThreadForkParams(
@@ -513,6 +532,7 @@ class AsyncCodex:
             model=model,
             modelProvider=model_provider,
             sandbox=sandbox,
+            serviceTier=service_tier,
         )
         forked = await self._client.thread_fork(thread_id, params)
         return AsyncThread(self, forked.thread.id)
@@ -549,6 +569,7 @@ class Thread:
         output_schema: JsonObject | None = None,
         personality: TurnPersonality | None = None,
         sandbox_policy: TurnSandboxPolicy | None = None,
+        service_tier: Any | None = None,
         summary: TurnReasoningSummary | None = None,
     ) -> Turn:
         wire_input = _to_wire_input(input)
@@ -562,6 +583,7 @@ class Thread:
             outputSchema=output_schema,
             personality=personality,
             sandboxPolicy=sandbox_policy,
+            serviceTier=service_tier,
             summary=summary,
         )
         turn = self._client.turn_start(self.id, wire_input, params=params)
@@ -595,6 +617,7 @@ class AsyncThread:
         output_schema: JsonObject | None = None,
         personality: TurnPersonality | None = None,
         sandbox_policy: TurnSandboxPolicy | None = None,
+        service_tier: Any | None = None,
         summary: TurnReasoningSummary | None = None,
     ) -> AsyncTurn:
         await self._codex._ensure_initialized()
@@ -609,6 +632,7 @@ class AsyncThread:
             outputSchema=output_schema,
             personality=personality,
             sandboxPolicy=sandbox_policy,
+            serviceTier=service_tier,
             summary=summary,
         )
         turn = await self._codex._client.turn_start(

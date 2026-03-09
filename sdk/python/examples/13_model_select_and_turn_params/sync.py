@@ -67,6 +67,7 @@ SANDBOX_POLICY = TurnSandboxPolicy.model_validate(
         "access": {"type": "fullAccess"},
     }
 )
+APPROVAL_POLICY = TurnAskForApproval.model_validate("never")
 
 
 with Codex() as codex:
@@ -93,7 +94,7 @@ with Codex() as codex:
 
     second = thread.turn(
         TextInput("Return JSON for a safe feature-flag rollout plan."),
-        approval_policy=TurnAskForApproval.never,
+        approval_policy=APPROVAL_POLICY,
         cwd=str(Path.cwd()),
         effort=selected_effort,
         model=selected_model.model,
