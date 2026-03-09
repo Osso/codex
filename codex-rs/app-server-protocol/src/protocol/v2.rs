@@ -839,6 +839,7 @@ impl From<CoreFileSystemPermissions> for AdditionalFileSystemPermissions {
 pub struct AdditionalMacOsPermissions {
     pub preferences: CoreMacOsPreferencesPermission,
     pub automations: CoreMacOsAutomationPermission,
+    pub launch_services: bool,
     pub accessibility: bool,
     pub calendar: bool,
 }
@@ -848,6 +849,7 @@ impl From<CoreMacOsSeatbeltProfileExtensions> for AdditionalMacOsPermissions {
         Self {
             preferences: value.macos_preferences,
             automations: value.macos_automation,
+            launch_services: value.macos_launch_services,
             accessibility: value.macos_accessibility,
             calendar: value.macos_calendar,
         }
@@ -5126,6 +5128,7 @@ mod tests {
                     "automations": {
                         "bundle_ids": ["com.apple.Notes"]
                     },
+                    "launchServices": true,
                     "accessibility": false,
                     "calendar": false
                 }
@@ -5140,10 +5143,11 @@ mod tests {
             params
                 .additional_permissions
                 .and_then(|permissions| permissions.macos)
-                .map(|macos| macos.automations),
-            Some(CoreMacOsAutomationPermission::BundleIds(vec![
-                "com.apple.Notes".to_string(),
-            ]))
+                .map(|macos| (macos.automations, macos.launch_services)),
+            Some((
+                CoreMacOsAutomationPermission::BundleIds(vec!["com.apple.Notes".to_string(),]),
+                true,
+            ))
         );
     }
 

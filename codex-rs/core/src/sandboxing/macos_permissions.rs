@@ -24,6 +24,7 @@ pub(crate) fn merge_macos_seatbelt_profile_extensions(
                 &base.macos_automation,
                 &permissions.macos_automation,
             ),
+            macos_launch_services: base.macos_launch_services || permissions.macos_launch_services,
             macos_accessibility: base.macos_accessibility || permissions.macos_accessibility,
             macos_calendar: base.macos_calendar || permissions.macos_calendar,
         }),
@@ -92,6 +93,7 @@ mod tests {
             macos_automation: MacOsAutomationPermission::BundleIds(vec![
                 "com.apple.Calendar".to_string(),
             ]),
+            macos_launch_services: false,
             macos_accessibility: false,
             macos_calendar: false,
         };
@@ -101,6 +103,7 @@ mod tests {
                 "com.apple.Notes".to_string(),
                 "com.apple.Calendar".to_string(),
             ]),
+            macos_launch_services: true,
             macos_accessibility: true,
             macos_calendar: true,
         };
@@ -116,6 +119,7 @@ mod tests {
                     "com.apple.Calendar".to_string(),
                     "com.apple.Notes".to_string(),
                 ]),
+                macos_launch_services: true,
                 macos_accessibility: true,
                 macos_calendar: true,
             }

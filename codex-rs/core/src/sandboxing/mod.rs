@@ -800,6 +800,7 @@ mod tests {
                 macos_automation: MacOsAutomationPermission::BundleIds(vec![
                     "com.apple.Notes".to_string(),
                 ]),
+                macos_launch_services: true,
                 macos_accessibility: true,
                 macos_calendar: true,
             }),
@@ -814,6 +815,7 @@ mod tests {
                 macos_automation: MacOsAutomationPermission::BundleIds(vec![
                     "com.apple.Notes".to_string(),
                 ]),
+                macos_launch_services: true,
                 macos_accessibility: true,
                 macos_calendar: true,
             })
@@ -879,6 +881,7 @@ mod tests {
                 macos_automation: MacOsAutomationPermission::BundleIds(vec![
                     "com.apple.Calendar".to_string(),
                 ]),
+                macos_launch_services: false,
                 macos_accessibility: false,
                 macos_calendar: false,
             }),
@@ -892,6 +895,7 @@ mod tests {
                     macos_automation: MacOsAutomationPermission::BundleIds(vec![
                         "com.apple.Notes".to_string(),
                     ]),
+                    macos_launch_services: true,
                     macos_accessibility: true,
                     macos_calendar: true,
                 }),
@@ -907,6 +911,7 @@ mod tests {
                     "com.apple.Calendar".to_string(),
                     "com.apple.Notes".to_string(),
                 ]),
+                macos_launch_services: true,
                 macos_accessibility: true,
                 macos_calendar: true,
             })

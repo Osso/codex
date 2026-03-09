@@ -1466,6 +1466,7 @@ permissions:
     macos_preferences: "read_write"
     macos_automation:
       - "com.apple.Notes"
+    macos_launch_services: true
     macos_accessibility: true
     macos_calendar: true
 "#,
@@ -1480,6 +1481,7 @@ permissions:
                     macos_automation: MacOsAutomationPermission::BundleIds(vec![
                         "com.apple.Notes".to_string(),
                     ]),
+                    macos_launch_services: true,
                     macos_accessibility: true,
                     macos_calendar: true,
                 }),
@@ -1503,6 +1505,7 @@ permissions:
     macos_preferences: "read_write"
     macos_automation:
       - "com.apple.Notes"
+    macos_launch_services: true
     macos_accessibility: true
     macos_calendar: true
 "#,
@@ -1525,6 +1528,7 @@ permissions:
                     macos_automation: MacOsAutomationPermission::BundleIds(vec![
                         "com.apple.Notes".to_string()
                     ],),
+                    macos_launch_services: true,
                     macos_accessibility: true,
                     macos_calendar: true,
                 }),
@@ -1548,6 +1552,7 @@ permissions:
     macos_preferences: "read_write"
     macos_automation:
       - "com.apple.Notes"
+    macos_launch_services: true
     macos_accessibility: true
     macos_calendar: true
 "#,
@@ -1570,6 +1575,7 @@ permissions:
                     macos_automation: MacOsAutomationPermission::BundleIds(vec![
                         "com.apple.Notes".to_string()
                     ],),
+                    macos_launch_services: true,
                     macos_accessibility: true,
                     macos_calendar: true,
                 }),

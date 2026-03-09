@@ -3824,6 +3824,10 @@
           "default": false,
           "type": "boolean"
         },
+        "macos_launch_services": {
+          "default": false,
+          "type": "boolean"
+        },
         "macos_preferences": {
           "allOf": [
             {

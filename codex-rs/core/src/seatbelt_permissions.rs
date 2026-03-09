@@ -74,7 +74,7 @@ pub(crate) fn build_seatbelt_extensions(
         MacOsAutomationPermission::None => {}
         MacOsAutomationPermission::All => {
             clauses.push(
-                "(allow mach-lookup\n  (global-name \"com.apple.coreservices.launchservicesd\")\n  (global-name \"com.apple.coreservices.appleevents\"))"
+                "(allow mach-lookup\n  (global-name \"com.apple.coreservices.appleevents\"))"
                     .to_string(),
             );
             clauses.push("(allow appleevent-send)".to_string());
@@ -82,7 +82,7 @@ pub(crate) fn build_seatbelt_extensions(
         MacOsAutomationPermission::BundleIds(bundle_ids) => {
             if !bundle_ids.is_empty() {
                 clauses.push(
-                    "(allow mach-lookup\n  (global-name \"com.apple.coreservices.launchservicesd\")\n  (global-name \"com.apple.coreservices.appleevents\"))"
+                    "(allow mach-lookup\n  (global-name \"com.apple.coreservices.appleevents\"))"
                         .to_string(),
                 );
                 let destinations = bundle_ids
@@ -93,6 +93,14 @@ pub(crate) fn build_seatbelt_extensions(
                 clauses.push(format!("(allow appleevent-send\n{destinations}\n)"));
             }
         }
+    }
+
+    if extensions.macos_launch_services {
+        clauses.push(
+            "(allow mach-lookup\n  (global-name \"com.apple.coreservices.launchservicesd\")\n  (global-name \"com.apple.lsd.mapdb\")\n  (global-name \"com.apple.coreservices.quarantine-resolver\")\n  (global-name \"com.apple.lsd.modifydb\"))"
+                .to_string(),
+        );
+        clauses.push("(allow lsopen)".to_string());
     }
 
     if extensions.macos_accessibility {
@@ -173,11 +181,7 @@ mod tests {
             ..Default::default()
         });
         assert!(policy.policy.contains("(allow appleevent-send)"));
-        assert!(
-            policy
-                .policy
-                .contains("com.apple.coreservices.launchservicesd")
-        );
+        assert!(policy.policy.contains("com.apple.coreservices.appleevents"));
     }
 
     #[test]
@@ -202,6 +206,28 @@ mod tests {
                 .contains("(appleevent-destination \"com.apple.Notes\")")
         );
         assert!(!policy.policy.contains("bad bundle"));
+        assert!(policy.policy.contains("com.apple.coreservices.appleevents"));
+    }
+
+    #[test]
+    fn launch_services_emit_launch_clauses() {
+        let policy = build_seatbelt_extensions(&MacOsSeatbeltProfileExtensions {
+            macos_launch_services: true,
+            ..Default::default()
+        });
+        assert!(
+            policy
+                .policy
+                .contains("com.apple.coreservices.launchservicesd")
+        );
+        assert!(policy.policy.contains("com.apple.lsd.mapdb"));
+        assert!(
+            policy
+                .policy
+                .contains("com.apple.coreservices.quarantine-resolver")
+        );
+        assert!(policy.policy.contains("com.apple.lsd.modifydb"));
+        assert!(policy.policy.contains("(allow lsopen)"));
     }
 
     #[test]

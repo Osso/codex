@@ -35,6 +35,9 @@
         "calendar": {
           "type": "boolean"
         },
+        "launchServices": {
+          "type": "boolean"
+        },
         "preferences": {
           "$ref": "#/definitions/MacOsPreferencesPermission"
         }
@@ -43,6 +46,7 @@
         "accessibility",
         "automations",
         "calendar",
+        "launchServices",
         "preferences"
       ],
       "type": "object"
@@ -5379,6 +5383,10 @@
           "default": "none"
         },
         "macos_calendar": {
+          "default": false,
+          "type": "boolean"
+        },
+        "macos_launch_services": {
           "default": false,
           "type": "boolean"
         },
