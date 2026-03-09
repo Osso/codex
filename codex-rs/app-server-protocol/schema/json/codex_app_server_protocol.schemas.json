@@ -35,6 +35,9 @@
         "calendar": {
           "type": "boolean"
         },
+        "contacts": {
+          "$ref": "#/definitions/MacOsContactsPermission"
+        },
         "launchServices": {
           "type": "boolean"
         },
@@ -46,6 +49,7 @@
         "accessibility",
         "automations",
         "calendar",
+        "contacts",
         "launchServices",
         "preferences"
       ],
@@ -5360,6 +5364,14 @@
         }
       ]
     },
+    "MacOsContactsPermission": {
+      "enum": [
+        "none",
+        "read_only",
+        "read_write"
+      ],
+      "type": "string"
+    },
     "MacOsPreferencesPermission": {
       "enum": [
         "none",
@@ -5385,6 +5397,14 @@
         "macos_calendar": {
           "default": false,
           "type": "boolean"
+        },
+        "macos_contacts": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MacOsContactsPermission"
+            }
+          ],
+          "default": "none"
         },
         "macos_launch_services": {
           "default": false,

@@ -595,6 +595,8 @@ mod tests {
     #[cfg(target_os = "macos")]
     use codex_protocol::models::MacOsAutomationPermission;
     #[cfg(target_os = "macos")]
+    use codex_protocol::models::MacOsContactsPermission;
+    #[cfg(target_os = "macos")]
     use codex_protocol::models::MacOsPreferencesPermission;
     #[cfg(target_os = "macos")]
     use codex_protocol::models::MacOsSeatbeltProfileExtensions;
@@ -803,6 +805,7 @@ mod tests {
                 macos_launch_services: true,
                 macos_accessibility: true,
                 macos_calendar: true,
+                macos_contacts: MacOsContactsPermission::None,
             }),
             ..Default::default()
         })
@@ -818,6 +821,7 @@ mod tests {
                 macos_launch_services: true,
                 macos_accessibility: true,
                 macos_calendar: true,
+                macos_contacts: MacOsContactsPermission::None,
             })
         );
     }
@@ -884,6 +888,7 @@ mod tests {
                 macos_launch_services: false,
                 macos_accessibility: false,
                 macos_calendar: false,
+                macos_contacts: MacOsContactsPermission::None,
             }),
             Some(&PermissionProfile {
                 file_system: Some(FileSystemPermissions {
@@ -898,6 +903,7 @@ mod tests {
                     macos_launch_services: true,
                     macos_accessibility: true,
                     macos_calendar: true,
+                    macos_contacts: MacOsContactsPermission::None,
                 }),
                 ..Default::default()
             }),
@@ -914,6 +920,7 @@ mod tests {
                 macos_launch_services: true,
                 macos_accessibility: true,
                 macos_calendar: true,
+                macos_contacts: MacOsContactsPermission::None,
             })
         );
     }

@@ -39,6 +39,9 @@
         "calendar": {
           "type": "boolean"
         },
+        "contacts": {
+          "$ref": "#/definitions/MacOsContactsPermission"
+        },
         "launchServices": {
           "type": "boolean"
         },
@@ -50,6 +53,7 @@
         "accessibility",
         "automations",
         "calendar",
+        "contacts",
         "launchServices",
         "preferences"
       ],
@@ -316,6 +320,14 @@
           "type": "object"
         }
       ]
+    },
+    "MacOsContactsPermission": {
+      "enum": [
+        "none",
+        "read_only",
+        "read_write"
+      ],
+      "type": "string"
     },
     "MacOsPreferencesPermission": {
       "enum": [

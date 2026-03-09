@@ -599,6 +599,7 @@ mod tests {
     use crate::protocol::SandboxPolicy;
     use crate::seatbelt::MACOS_PATH_TO_SEATBELT_EXECUTABLE;
     use crate::seatbelt_permissions::MacOsAutomationPermission;
+    use crate::seatbelt_permissions::MacOsContactsPermission;
     use crate::seatbelt_permissions::MacOsPreferencesPermission;
     use crate::seatbelt_permissions::MacOsSeatbeltProfileExtensions;
     use codex_protocol::permissions::FileSystemAccessMode;
@@ -790,6 +791,7 @@ mod tests {
                 macos_launch_services: true,
                 macos_accessibility: true,
                 macos_calendar: true,
+                macos_contacts: MacOsContactsPermission::None,
             }),
         );
         let policy = &args[1];

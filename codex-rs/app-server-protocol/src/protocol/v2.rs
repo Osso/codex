@@ -30,6 +30,7 @@ use codex_protocol::mcp::ResourceTemplate as McpResourceTemplate;
 use codex_protocol::mcp::Tool as McpTool;
 use codex_protocol::models::FileSystemPermissions as CoreFileSystemPermissions;
 use codex_protocol::models::MacOsAutomationPermission as CoreMacOsAutomationPermission;
+use codex_protocol::models::MacOsContactsPermission as CoreMacOsContactsPermission;
 use codex_protocol::models::MacOsPreferencesPermission as CoreMacOsPreferencesPermission;
 use codex_protocol::models::MacOsSeatbeltProfileExtensions as CoreMacOsSeatbeltProfileExtensions;
 use codex_protocol::models::MessagePhase;
@@ -842,6 +843,7 @@ pub struct AdditionalMacOsPermissions {
     pub launch_services: bool,
     pub accessibility: bool,
     pub calendar: bool,
+    pub contacts: CoreMacOsContactsPermission,
 }
 
 impl From<CoreMacOsSeatbeltProfileExtensions> for AdditionalMacOsPermissions {
@@ -852,6 +854,7 @@ impl From<CoreMacOsSeatbeltProfileExtensions> for AdditionalMacOsPermissions {
             launch_services: value.macos_launch_services,
             accessibility: value.macos_accessibility,
             calendar: value.macos_calendar,
+            contacts: value.macos_contacts,
         }
     }
 }
@@ -5130,7 +5133,8 @@ mod tests {
                     },
                     "launchServices": true,
                     "accessibility": false,
-                    "calendar": false
+                    "calendar": false,
+                    "contacts": "read_only"
                 }
             },
             "proposedExecpolicyAmendment": null,
@@ -5143,10 +5147,11 @@ mod tests {
             params
                 .additional_permissions
                 .and_then(|permissions| permissions.macos)
-                .map(|macos| (macos.automations, macos.launch_services)),
+                .map(|macos| (macos.automations, macos.launch_services, macos.contacts)),
             Some((
                 CoreMacOsAutomationPermission::BundleIds(vec!["com.apple.Notes".to_string(),]),
                 true,
+                CoreMacOsContactsPermission::ReadOnly,
             ))
         );
     }

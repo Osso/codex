@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 
 use codex_protocol::models::MacOsAutomationPermission;
+use codex_protocol::models::MacOsContactsPermission;
 use codex_protocol::models::MacOsPreferencesPermission;
 use codex_protocol::models::MacOsSeatbeltProfileExtensions;
 
@@ -27,6 +28,10 @@ pub(crate) fn merge_macos_seatbelt_profile_extensions(
             macos_launch_services: base.macos_launch_services || permissions.macos_launch_services,
             macos_accessibility: base.macos_accessibility || permissions.macos_accessibility,
             macos_calendar: base.macos_calendar || permissions.macos_calendar,
+            macos_contacts: union_macos_contacts_permission(
+                &base.macos_contacts,
+                &permissions.macos_contacts,
+            ),
         }),
         None => Some(permissions.clone()),
     }
@@ -40,6 +45,17 @@ fn union_macos_preferences_permission(
     base: &MacOsPreferencesPermission,
     requested: &MacOsPreferencesPermission,
 ) -> MacOsPreferencesPermission {
+    if base < requested {
+        requested.clone()
+    } else {
+        base.clone()
+    }
+}
+
+fn union_macos_contacts_permission(
+    base: &MacOsContactsPermission,
+    requested: &MacOsContactsPermission,
+) -> MacOsContactsPermission {
     if base < requested {
         requested.clone()
     } else {
@@ -80,8 +96,10 @@ fn union_macos_automation_permission(
 mod tests {
     use super::merge_macos_seatbelt_profile_extensions;
     use super::union_macos_automation_permission;
+    use super::union_macos_contacts_permission;
     use super::union_macos_preferences_permission;
     use codex_protocol::models::MacOsAutomationPermission;
+    use codex_protocol::models::MacOsContactsPermission;
     use codex_protocol::models::MacOsPreferencesPermission;
     use codex_protocol::models::MacOsSeatbeltProfileExtensions;
     use pretty_assertions::assert_eq;
@@ -96,6 +114,7 @@ mod tests {
             macos_launch_services: false,
             macos_accessibility: false,
             macos_calendar: false,
+            macos_contacts: MacOsContactsPermission::ReadOnly,
         };
         let requested = MacOsSeatbeltProfileExtensions {
             macos_preferences: MacOsPreferencesPermission::ReadWrite,
@@ -106,6 +125,7 @@ mod tests {
             macos_launch_services: true,
             macos_accessibility: true,
             macos_calendar: true,
+            macos_contacts: MacOsContactsPermission::ReadWrite,
         };
 
         let merged =
@@ -122,6 +142,7 @@ mod tests {
                 macos_launch_services: true,
                 macos_accessibility: true,
                 macos_calendar: true,
+                macos_contacts: MacOsContactsPermission::ReadWrite,
             }
         );
     }
@@ -144,5 +165,15 @@ mod tests {
         let merged = union_macos_automation_permission(&base, &requested);
 
         assert_eq!(merged, MacOsAutomationPermission::All);
+    }
+
+    #[test]
+    fn union_macos_contacts_permission_does_not_downgrade() {
+        let base = MacOsContactsPermission::ReadWrite;
+        let requested = MacOsContactsPermission::ReadOnly;
+
+        let merged = union_macos_contacts_permission(&base, &requested);
+
+        assert_eq!(merged, MacOsContactsPermission::ReadWrite);
     }
 }

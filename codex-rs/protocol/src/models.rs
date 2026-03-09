@@ -110,6 +110,28 @@ pub enum MacOsPreferencesPermission {
     ReadWrite,
 }
 
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Default,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    TS,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum MacOsContactsPermission {
+    #[default]
+    None,
+    ReadOnly,
+    ReadWrite,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Default, Hash, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "snake_case", try_from = "MacOsAutomationPermissionDe")]
 pub enum MacOsAutomationPermission {
@@ -175,6 +197,7 @@ pub struct MacOsSeatbeltProfileExtensions {
     pub macos_launch_services: bool,
     pub macos_accessibility: bool,
     pub macos_calendar: bool,
+    pub macos_contacts: MacOsContactsPermission,
 }
 
 #[derive(Debug, Clone, Default, Eq, Hash, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
@@ -1454,6 +1477,12 @@ mod tests {
     }
 
     #[test]
+    fn macos_contacts_permission_order_matches_permissiveness() {
+        assert!(MacOsContactsPermission::None < MacOsContactsPermission::ReadOnly);
+        assert!(MacOsContactsPermission::ReadOnly < MacOsContactsPermission::ReadWrite);
+    }
+
+    #[test]
     fn permission_profile_deserializes_macos_seatbelt_profile_extensions() {
         let permission_profile = serde_json::from_value::<PermissionProfile>(serde_json::json!({
             "network": null,
@@ -1481,6 +1510,7 @@ mod tests {
                     macos_launch_services: true,
                     macos_accessibility: true,
                     macos_calendar: true,
+                    macos_contacts: MacOsContactsPermission::None,
                 }),
             }
         );
@@ -1504,6 +1534,7 @@ mod tests {
                 macos_launch_services: false,
                 macos_accessibility: false,
                 macos_calendar: false,
+                macos_contacts: MacOsContactsPermission::None,
             }
         );
     }

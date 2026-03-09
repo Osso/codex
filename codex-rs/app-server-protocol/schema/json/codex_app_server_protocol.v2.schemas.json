@@ -7746,6 +7746,14 @@
         }
       ]
     },
+    "MacOsContactsPermission": {
+      "enum": [
+        "none",
+        "read_only",
+        "read_write"
+      ],
+      "type": "string"
+    },
     "MacOsPreferencesPermission": {
       "enum": [
         "none",
@@ -7771,6 +7779,14 @@
         "macos_calendar": {
           "default": false,
           "type": "boolean"
+        },
+        "macos_contacts": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MacOsContactsPermission"
+            }
+          ],
+          "default": "none"
         },
         "macos_launch_services": {
           "default": false,

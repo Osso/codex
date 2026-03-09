@@ -867,6 +867,7 @@ mod tests {
     use codex_protocol::config_types::TrustLevel;
     use codex_protocol::models::FileSystemPermissions;
     use codex_protocol::models::MacOsAutomationPermission;
+    use codex_protocol::models::MacOsContactsPermission;
     use codex_protocol::models::MacOsPreferencesPermission;
     use codex_protocol::models::MacOsSeatbeltProfileExtensions;
     use codex_protocol::models::PermissionProfile;
@@ -1484,6 +1485,7 @@ permissions:
                     macos_launch_services: true,
                     macos_accessibility: true,
                     macos_calendar: true,
+                    macos_contacts: MacOsContactsPermission::None,
                 }),
                 ..Default::default()
             })
@@ -1531,6 +1533,7 @@ permissions:
                     macos_launch_services: true,
                     macos_accessibility: true,
                     macos_calendar: true,
+                    macos_contacts: MacOsContactsPermission::None,
                 }),
                 ..Default::default()
             })
@@ -1578,6 +1581,7 @@ permissions:
                     macos_launch_services: true,
                     macos_accessibility: true,
                     macos_calendar: true,
+                    macos_contacts: MacOsContactsPermission::None,
                 }),
                 ..Default::default()
             })
