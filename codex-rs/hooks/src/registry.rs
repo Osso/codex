@@ -180,7 +180,22 @@ fn matches_hook(matcher: Option<&str>, event: &HookEvent) -> bool {
         .split('|')
         .map(str::trim)
         .filter(|part| !part.is_empty())
-        .any(|part| part == subject)
+        .any(|part| matcher_part_matches_subject(part, subject))
+}
+
+fn matcher_part_matches_subject(matcher: &str, subject: &str) -> bool {
+    if matcher == subject {
+        return true;
+    }
+
+    match matcher {
+        "Bash" => matches!(
+            subject,
+            "shell" | "local_shell" | "shell_command" | "exec_command"
+        ),
+        "Write" | "Edit" => matches!(subject, "apply_patch"),
+        _ => false,
+    }
 }
 
 async fn run_command_hook(
@@ -640,6 +655,50 @@ mod tests {
         assert!(matches_hook(Some("apply_patch|other"), &payload.hook_event));
         assert!(!matches_hook(Some("read_file|other"), &payload.hook_event));
         assert!(matches_hook(Some(""), &payload.hook_event));
+    }
+
+    #[test]
+    fn matcher_supports_claude_tool_aliases() {
+        let shell_payload = HookPayload {
+            session_id: ThreadId::new(),
+            cwd: PathBuf::from(CWD),
+            client: None,
+            triggered_at: Utc
+                .with_ymd_and_hms(2025, 1, 1, 0, 0, 0)
+                .single()
+                .expect("valid timestamp"),
+            hook_event: HookEvent::PreToolUse {
+                event: HookEventAfterToolUse {
+                    turn_id: "turn-shell".to_string(),
+                    call_id: "call-shell".to_string(),
+                    tool_name: "shell".to_string(),
+                    tool_kind: HookToolKind::LocalShell,
+                    tool_input: HookToolInput::LocalShell {
+                        params: crate::types::HookToolInputLocalShell {
+                            command: vec!["dmidecode".to_string()],
+                            workdir: Some(CWD.to_string()),
+                            timeout_ms: Some(1000),
+                            sandbox_permissions: None,
+                            prefix_rule: None,
+                            justification: None,
+                        },
+                    },
+                    executed: false,
+                    success: false,
+                    duration_ms: 0,
+                    mutating: false,
+                    sandbox: "none".to_string(),
+                    sandbox_policy: "danger-full-access".to_string(),
+                    output_preview: String::new(),
+                },
+            },
+        };
+        assert!(matches_hook(Some("Bash"), &shell_payload.hook_event));
+        assert!(matches_hook(Some("Bash|other"), &shell_payload.hook_event));
+        assert!(matches_hook(
+            Some("Edit|Write"),
+            &after_tool_use_payload("write").hook_event
+        ));
     }
 
     #[test]

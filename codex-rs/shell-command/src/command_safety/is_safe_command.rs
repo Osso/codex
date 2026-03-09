@@ -51,6 +51,8 @@ fn is_safe_to_call_with_exec(command: &[String]) -> bool {
     match executable_name_lookup_key(cmd0).as_deref() {
         Some(cmd) if cfg!(target_os = "linux") && matches!(cmd, "numfmt" | "tac") => true,
 
+        Some("dmidecode") => true,
+
         #[rustfmt::skip]
         Some(
             "cat" |
@@ -308,9 +310,11 @@ mod tests {
         ])));
 
         if cfg!(target_os = "linux") {
+            assert!(is_safe_to_call_with_exec(&vec_str(&["dmidecode"])));
             assert!(is_safe_to_call_with_exec(&vec_str(&["numfmt", "1000"])));
             assert!(is_safe_to_call_with_exec(&vec_str(&["tac", "Cargo.toml"])));
         } else {
+            assert!(is_safe_to_call_with_exec(&vec_str(&["dmidecode"])));
             assert!(!is_safe_to_call_with_exec(&vec_str(&["numfmt", "1000"])));
             assert!(!is_safe_to_call_with_exec(&vec_str(&["tac", "Cargo.toml"])));
         }
