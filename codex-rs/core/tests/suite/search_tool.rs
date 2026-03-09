@@ -32,7 +32,7 @@ use serde_json::json;
 
 const SEARCH_TOOL_DESCRIPTION_SNIPPETS: [&str; 2] = [
     "MCP tools of the apps (Calendar) are hidden until you search for them with this tool (`tool_search`).",
-    "Read the returned `tool_search_output.tools` list to see the matching Apps tools.",
+    "Read the returned `tool_search_output.tools` namespaces to see the matching Apps tools grouped by app.",
 ];
 const TOOL_SEARCH_TOOL_NAME: &str = "tool_search";
 const CALENDAR_CREATE_TOOL: &str = "mcp__codex_apps__calendar_create_event";
@@ -347,21 +347,28 @@ async fn tool_search_returns_deferred_tools_without_follow_up_tool_injection() -
     assert_eq!(
         tools,
         vec![json!({
-            "type": "function",
-            "name": CALENDAR_CREATE_TOOL,
-            "description": "Create a calendar event.",
-            "strict": false,
-            "defer_loading": true,
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "starts_at": {"type": "string"},
-                    "timezone": {"type": "string"},
-                    "title": {"type": "string"},
-                },
-                "required": ["title", "starts_at"],
-                "additionalProperties": false,
-            }
+            "type": "namespace",
+            "name": "mcp__codex_apps__calendar",
+            "description": "Plan events and manage your calendar.",
+            "tools": [
+                {
+                    "type": "function",
+                    "name": CALENDAR_CREATE_TOOL,
+                    "description": "Create a calendar event.",
+                    "strict": false,
+                    "defer_loading": true,
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "starts_at": {"type": "string"},
+                            "timezone": {"type": "string"},
+                            "title": {"type": "string"},
+                        },
+                        "required": ["title", "starts_at"],
+                        "additionalProperties": false,
+                    }
+                }
+            ]
         })]
     );
 

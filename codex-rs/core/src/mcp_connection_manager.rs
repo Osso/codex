@@ -128,6 +128,20 @@ fn sha1_hex(s: &str) -> String {
     format!("{sha1:x}")
 }
 
+pub(crate) fn qualify_responses_api_tool_name(server_name: &str, tool_name: &str) -> String {
+    let qualified_name_raw =
+        format!("mcp{MCP_TOOL_NAME_DELIMITER}{server_name}{MCP_TOOL_NAME_DELIMITER}{tool_name}");
+
+    let mut qualified_name = sanitize_responses_api_tool_name(&qualified_name_raw);
+    if qualified_name.len() > MAX_TOOL_NAME_LENGTH {
+        let sha1_str = sha1_hex(&qualified_name_raw);
+        let prefix_len = MAX_TOOL_NAME_LENGTH - sha1_str.len();
+        qualified_name = format!("{}{}", &qualified_name[..prefix_len], sha1_str);
+    }
+
+    qualified_name
+}
+
 pub(crate) fn codex_apps_tools_cache_key(
     auth: Option<&crate::CodexAuth>,
 ) -> CodexAppsToolsCacheKey {
@@ -166,18 +180,11 @@ where
             continue;
         }
 
-        // Start from a "pretty" name (sanitized), then deterministically disambiguate on
-        // collisions by appending a hash of the *raw* (unsanitized) qualified name. This
-        // ensures tools like `foo.bar` and `foo_bar` don't collapse to the same key.
-        let mut qualified_name = sanitize_responses_api_tool_name(&qualified_name_raw);
-
-        // Enforce length constraints early; use the raw name for the hash input so the
-        // output remains stable even when sanitization changes.
-        if qualified_name.len() > MAX_TOOL_NAME_LENGTH {
-            let sha1_str = sha1_hex(&qualified_name_raw);
-            let prefix_len = MAX_TOOL_NAME_LENGTH - sha1_str.len();
-            qualified_name = format!("{}{}", &qualified_name[..prefix_len], sha1_str);
-        }
+        // Start from a "pretty" name (sanitized), then deterministically
+        // disambiguate on collisions by appending a hash of the raw qualified
+        // name. This ensures tools like `foo.bar` and `foo_bar` don't collapse
+        // to the same key.
+        let qualified_name = qualify_responses_api_tool_name(&tool.server_name, &tool.tool_name);
 
         if used_names.contains(&qualified_name) {
             warn!("skipping duplicated tool {}", qualified_name);
@@ -198,6 +205,7 @@ pub(crate) struct ToolInfo {
     pub(crate) tool: Tool,
     pub(crate) connector_id: Option<String>,
     pub(crate) connector_name: Option<String>,
+    pub(crate) connector_description: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1481,6 +1489,7 @@ async fn list_tools_for_client_uncached(
         .into_iter()
         .map(|tool| {
             let connector_name = tool.connector_name;
+            let connector_description = tool.connector_description;
             let mut tool_def = tool.tool;
             if let Some(title) = tool_def.title.as_deref() {
                 let normalized_title =
@@ -1495,6 +1504,7 @@ async fn list_tools_for_client_uncached(
                 tool: tool_def,
                 connector_id: tool.connector_id,
                 connector_name,
+                connector_description,
             }
         })
         .collect();
@@ -1608,6 +1618,7 @@ mod tests {
             },
             connector_id: None,
             connector_name: None,
+            connector_description: None,
         }
     }
 

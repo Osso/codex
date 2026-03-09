@@ -3191,6 +3191,7 @@ mod tests {
                         ),
                         connector_id: Some("calendar".to_string()),
                         connector_name: Some("Calendar".to_string()),
+                        connector_description: None,
                     },
                 ),
                 (
@@ -3201,6 +3202,7 @@ mod tests {
                         tool: mcp_tool("echo", "Echo", serde_json::json!({"type": "object"})),
                         connector_id: None,
                         connector_name: None,
+                        connector_description: None,
                     },
                 ),
             ])),

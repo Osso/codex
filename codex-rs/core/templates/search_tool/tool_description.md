@@ -9,8 +9,8 @@ Follow this workflow:
 1. Call `tool_search` with:
    - `query` (required): focused terms that describe the capability you need.
    - `limit` (optional): maximum number of tools to return (default `8`).
-2. Read the returned `tool_search_output.tools` list to see the matching Apps tools.
-3. Use those returned tools directly in the rest of the response flow.
+2. Read the returned `tool_search_output.tools` namespaces to see the matching Apps tools grouped by app.
+3. Choose the relevant child tool from the matching namespace and use that tool directly in the rest of the response flow.
 
 Notes:
 - Core tools remain available without searching.

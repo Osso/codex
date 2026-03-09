@@ -6772,6 +6772,7 @@ mod tests {
             },
             connector_id: connector_id.map(str::to_string),
             connector_name: connector_name.map(str::to_string),
+            connector_description: None,
         }
     }
 

@@ -231,6 +231,22 @@ pub(crate) mod tools {
         pub(crate) defer_loading: Option<bool>,
         pub(crate) parameters: JsonSchema,
     }
+
+    #[derive(Debug, Clone, Serialize, PartialEq)]
+    #[serde(tag = "type")]
+    pub(crate) enum ToolSearchOutputTool {
+        #[serde(rename = "function")]
+        Function(ResponsesApiTool),
+        #[serde(rename = "namespace")]
+        Namespace(ToolSearchOutputNamespace),
+    }
+
+    #[derive(Debug, Clone, Serialize, PartialEq)]
+    pub(crate) struct ToolSearchOutputNamespace {
+        pub(crate) name: String,
+        pub(crate) description: String,
+        pub(crate) tools: Vec<ToolSearchOutputTool>,
+    }
 }
 
 pub struct ResponseStream {
@@ -440,6 +456,51 @@ mod tests {
                     output: FunctionCallOutputPayload::from_text(expected_output.to_string()),
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn tool_search_output_namespace_serializes_with_deferred_child_tools() {
+        let namespace = tools::ToolSearchOutputTool::Namespace(tools::ToolSearchOutputNamespace {
+            name: "mcp__codex_apps__calendar".to_string(),
+            description: "Plan events".to_string(),
+            tools: vec![tools::ToolSearchOutputTool::Function(
+                tools::ResponsesApiTool {
+                    name: "mcp__codex_apps__calendar_create_event".to_string(),
+                    description: "Create a calendar event.".to_string(),
+                    strict: false,
+                    defer_loading: Some(true),
+                    parameters: crate::tools::spec::JsonSchema::Object {
+                        properties: Default::default(),
+                        required: None,
+                        additional_properties: None,
+                    },
+                },
+            )],
+        });
+
+        let value = serde_json::to_value(namespace).expect("serialize namespace");
+
+        assert_eq!(
+            value,
+            serde_json::json!({
+                "type": "namespace",
+                "name": "mcp__codex_apps__calendar",
+                "description": "Plan events",
+                "tools": [
+                    {
+                        "type": "function",
+                        "name": "mcp__codex_apps__calendar_create_event",
+                        "description": "Create a calendar event.",
+                        "strict": false,
+                        "defer_loading": true,
+                        "parameters": {
+                            "type": "object",
+                            "properties": {}
+                        }
+                    }
+                ]
+            })
         );
     }
 }
