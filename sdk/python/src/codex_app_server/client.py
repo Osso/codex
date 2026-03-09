@@ -34,10 +34,7 @@ from .generated.v2_all.TurnStartParams import TurnStartParams as V2TurnStartPara
 from .generated.v2_all.TurnStartResponse import TurnStartResponse
 from .generated.v2_all.TurnSteerResponse import TurnSteerResponse
 from .generated.codex_event_types import CodexEventNotification
-from .generated.notification_registry import (
-    NOTIFICATION_METHOD_ALIASES,
-    NOTIFICATION_MODELS,
-)
+from .generated.notification_registry import NOTIFICATION_MODELS
 from .models import (
     InitializeResponse,
     JsonObject,
@@ -505,17 +502,16 @@ class AppServerClient:
                 return Notification(method=method, payload=UnknownNotification(params=params_dict))
             return Notification(method=method, payload=payload)
 
-        canonical_method = NOTIFICATION_METHOD_ALIASES.get(method, method)
-        model = NOTIFICATION_MODELS.get(canonical_method)
+        model = NOTIFICATION_MODELS.get(method)
         if model is None:
             # Accept newer server notifications without breaking current SDK flows.
-            return Notification(method=canonical_method, payload=UnknownNotification(params=params_dict))
+            return Notification(method=method, payload=UnknownNotification(params=params_dict))
 
         try:
             payload = model.model_validate(params_dict)
         except Exception:  # noqa: BLE001
-            return Notification(method=canonical_method, payload=UnknownNotification(params=params_dict))
-        return Notification(method=canonical_method, payload=payload)
+            return Notification(method=method, payload=UnknownNotification(params=params_dict))
+        return Notification(method=method, payload=payload)
 
     def _normalize_input_items(
         self, input_items: list[JsonObject] | JsonObject | str

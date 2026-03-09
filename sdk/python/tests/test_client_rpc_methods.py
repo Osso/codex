@@ -27,10 +27,10 @@ def test_thread_set_name_and_compact_use_current_rpc_methods() -> None:
     assert calls[1][0] == "thread/compact/start"
 
 
-def test_notification_aliases_are_canonicalized_and_typed() -> None:
+def test_notifications_are_typed_with_canonical_v2_methods() -> None:
     client = AppServerClient()
     event = client._coerce_notification(
-        "thread/tokenUsageUpdated",
+        "thread/tokenUsage/updated",
         {
             "threadId": "thread-1",
             "turnId": "turn-1",
