@@ -262,6 +262,7 @@ impl ToolRouter {
             call_id,
             tool_name,
             payload,
+            pre_tool_hook_decision: None,
         };
 
         self.registry.dispatch_any(invocation).await

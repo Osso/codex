@@ -5,6 +5,7 @@ use crate::tools::TELEMETRY_PREVIEW_MAX_LINES;
 use crate::tools::TELEMETRY_PREVIEW_TRUNCATION_NOTICE;
 use crate::turn_diff_tracker::TurnDiffTracker;
 use crate::unified_exec::resolve_max_tokens;
+use codex_hooks::HookPermissionDecision;
 use codex_protocol::mcp::CallToolResult;
 use codex_protocol::models::FunctionCallOutputBody;
 use codex_protocol::models::FunctionCallOutputContentItem;
@@ -42,6 +43,7 @@ pub struct ToolInvocation {
     pub call_id: String,
     pub tool_name: ToolName,
     pub payload: ToolPayload,
+    pub pre_tool_hook_decision: Option<HookPermissionDecision>,
 }
 
 #[derive(Clone, Debug)]

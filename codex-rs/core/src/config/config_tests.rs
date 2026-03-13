@@ -16,6 +16,7 @@ use codex_config::config_toml::RealtimeTransport;
 use codex_config::config_toml::RealtimeWsMode;
 use codex_config::config_toml::RealtimeWsVersion;
 use codex_config::config_toml::ToolsToml;
+use codex_config::hooks_toml::HooksToml;
 use codex_config::permissions_toml::FilesystemPermissionToml;
 use codex_config::permissions_toml::FilesystemPermissionsToml;
 use codex_config::permissions_toml::NetworkDomainPermissionToml;
@@ -4579,6 +4580,7 @@ fn test_precedence_fixture_with_o3_profile() -> std::io::Result<()> {
             user_instructions: None,
             user_instructions_path: None,
             notify: None,
+            hooks: HooksToml::default(),
             cwd: fixture.cwd(),
             cli_auth_credentials_store_mode: Default::default(),
             mcp_servers: Constrained::allow_any(HashMap::new()),
@@ -4728,6 +4730,7 @@ fn test_precedence_fixture_with_gpt3_profile() -> std::io::Result<()> {
         user_instructions: None,
         user_instructions_path: None,
         notify: None,
+        hooks: HooksToml::default(),
         cwd: fixture.cwd(),
         cli_auth_credentials_store_mode: Default::default(),
         mcp_servers: Constrained::allow_any(HashMap::new()),
@@ -4875,6 +4878,7 @@ fn test_precedence_fixture_with_zdr_profile() -> std::io::Result<()> {
         user_instructions: None,
         user_instructions_path: None,
         notify: None,
+        hooks: HooksToml::default(),
         cwd: fixture.cwd(),
         cli_auth_credentials_store_mode: Default::default(),
         mcp_servers: Constrained::allow_any(HashMap::new()),
@@ -5008,6 +5012,7 @@ fn test_precedence_fixture_with_gpt5_profile() -> std::io::Result<()> {
         user_instructions: None,
         user_instructions_path: None,
         notify: None,
+        hooks: HooksToml::default(),
         cwd: fixture.cwd(),
         cli_auth_credentials_store_mode: Default::default(),
         mcp_servers: Constrained::allow_any(HashMap::new()),

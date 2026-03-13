@@ -8,7 +8,7 @@ For a full configuration reference, see [this documentation](https://developers.
 
 ## Connecting to MCP servers
 
-Codex can connect to MCP servers configured in `~/.codex/config.toml`. See the configuration reference for the latest MCP server options:
+Codex can connect to MCP servers configured in `~/.config/codex/config.toml` by default, or in `$CODEX_HOME/config.toml` when `CODEX_HOME` is set. If you already have a legacy `~/.codex` directory and no XDG config dir, Codex continues to use `~/.codex/config.toml`. See the configuration reference for the latest MCP server options:
 
 - https://developers.openai.com/codex/config-reference
 
@@ -47,6 +47,8 @@ and are labeled as connected; others are marked as can be installed.
 Codex can run a notification hook when the agent finishes a turn. See the configuration reference for the latest notification settings:
 
 - https://developers.openai.com/codex/config-reference
+
+Codex also supports native lifecycle hooks in `config.toml` under the top-level `hooks` table.
 
 When Codex knows which client started the turn, the legacy notify JSON payload also includes a top-level `client` field. The TUI reports `codex-tui`, and the app server reports the `clientInfo.name` value from `initialize`.
 

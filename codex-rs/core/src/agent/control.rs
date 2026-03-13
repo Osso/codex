@@ -15,6 +15,11 @@ use crate::shell_snapshot::ShellSnapshot;
 use crate::thread_manager::ThreadManagerState;
 use crate::thread_rollout_truncation::truncate_rollout_to_last_n_fork_turns;
 use codex_features::Feature;
+use codex_hooks::HookEvent;
+use codex_hooks::HookEventSubagentStart;
+use codex_hooks::HookEventSubagentStop;
+use codex_hooks::HookPayload;
+use codex_hooks::HookResult;
 use codex_protocol::AgentPath;
 use codex_protocol::ThreadId;
 use codex_protocol::error::CodexErr;
@@ -293,6 +298,8 @@ impl AgentControl {
         // to subscribe or drain this newly created thread.
         // TODO(jif) add helper for drain
         state.notify_thread_created(new_thread.thread_id);
+        self.dispatch_subagent_start_hook(new_thread.thread_id, &new_thread.thread)
+            .await;
 
         self.persist_thread_spawn_edge_for_source(
             new_thread.thread.as_ref(),
@@ -573,6 +580,8 @@ impl AgentControl {
             Some(&notification_source),
         )
         .await;
+        self.dispatch_subagent_start_hook(resumed_thread.thread_id, &resumed_thread.thread)
+            .await;
 
         Ok(resumed_thread.thread_id)
     }
@@ -928,6 +937,14 @@ impl AgentControl {
                 return;
             }
 
+            if let Ok(state) = control.upgrade()
+                && let Ok(child_thread) = state.get_thread(child_thread_id).await
+            {
+                control
+                    .dispatch_subagent_stop_hook(child_thread_id, &child_thread)
+                    .await;
+            }
+
             let Ok(state) = control.upgrade() else {
                 return;
             };
@@ -1009,7 +1026,69 @@ impl AgentControl {
         };
         Ok((session_source, agent_metadata))
     }
+    async fn dispatch_subagent_start_hook(
+        &self,
+        thread_id: ThreadId,
+        thread: &Arc<crate::codex_thread::CodexThread>,
+    ) {
+        self.dispatch_subagent_hook(
+            thread_id,
+            thread,
+            HookEvent::SubagentStart {
+                event: HookEventSubagentStart { thread_id },
+            },
+        )
+        .await;
+    }
 
+    async fn dispatch_subagent_stop_hook(
+        &self,
+        thread_id: ThreadId,
+        thread: &Arc<crate::codex_thread::CodexThread>,
+    ) {
+        self.dispatch_subagent_hook(
+            thread_id,
+            thread,
+            HookEvent::SubagentStop {
+                event: HookEventSubagentStop { thread_id },
+            },
+        )
+        .await;
+    }
+
+    async fn dispatch_subagent_hook(
+        &self,
+        thread_id: ThreadId,
+        thread: &Arc<crate::codex_thread::CodexThread>,
+        hook_event: HookEvent,
+    ) {
+        let session = &thread.codex.session;
+        let session_config = thread.config_snapshot().await;
+        let hook_outcomes = session
+            .hooks()
+            .dispatch(HookPayload {
+                session_id: session.conversation_id,
+                cwd: session_config.cwd,
+                client: None,
+                triggered_at: chrono::Utc::now(),
+                hook_event,
+            })
+            .await;
+        for hook_outcome in hook_outcomes {
+            let hook_name = hook_outcome.hook_name;
+            match hook_outcome.result {
+                HookResult::Success => {}
+                HookResult::FailedContinue(error) | HookResult::FailedAbort(error) => {
+                    tracing::warn!(
+                        thread_id = %thread_id,
+                        hook_name = %hook_name,
+                        error = %error,
+                        "subagent hook failed; continuing"
+                    );
+                }
+            }
+        }
+    }
     fn upgrade(&self) -> CodexResult<Arc<ThreadManagerState>> {
         self.manager
             .upgrade()

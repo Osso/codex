@@ -9,8 +9,10 @@ use codex_protocol::models::SandboxPermissions;
 use futures::future::BoxFuture;
 use serde::Serialize;
 use serde::Serializer;
+use serde_json::Value;
 
-pub type HookFn = Arc<dyn for<'a> Fn(&'a HookPayload) -> BoxFuture<'a, HookResult> + Send + Sync>;
+pub type HookFn =
+    Arc<dyn for<'a> Fn(&'a HookPayload) -> BoxFuture<'a, HookExecutionOutcome> + Send + Sync>;
 
 #[derive(Debug)]
 pub enum HookResult {
@@ -30,10 +32,36 @@ impl HookResult {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HookPermissionDecision {
+    Allow { reason: String },
+    Ask { reason: String },
+    Deny { reason: String },
+}
+
+#[derive(Debug)]
+pub struct HookExecutionOutcome {
+    pub result: HookResult,
+    pub permission_decision: Option<HookPermissionDecision>,
+    pub updated_input: Option<Value>,
+}
+
+impl HookExecutionOutcome {
+    pub fn success() -> Self {
+        Self {
+            result: HookResult::Success,
+            permission_decision: None,
+            updated_input: None,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct HookResponse {
     pub hook_name: String,
     pub result: HookResult,
+    pub permission_decision: Option<HookPermissionDecision>,
+    pub updated_input: Option<Value>,
 }
 
 #[derive(Clone)]
@@ -46,16 +74,19 @@ impl Default for Hook {
     fn default() -> Self {
         Self {
             name: "default".to_string(),
-            func: Arc::new(|_| Box::pin(async { HookResult::Success })),
+            func: Arc::new(|_| Box::pin(async { HookExecutionOutcome::success() })),
         }
     }
 }
 
 impl Hook {
     pub async fn execute(&self, payload: &HookPayload) -> HookResponse {
+        let outcome = (self.func)(payload).await;
         HookResponse {
             hook_name: self.name.clone(),
-            result: (self.func)(payload).await,
+            result: outcome.result,
+            permission_decision: outcome.permission_decision,
+            updated_input: outcome.updated_input,
         }
     }
 }
@@ -71,6 +102,9 @@ pub struct HookPayload {
     pub triggered_at: DateTime<Utc>,
     pub hook_event: HookEvent,
 }
+pub use codex_config::CommandHookConfig;
+pub use codex_config::HookRuleConfig;
+pub use codex_config::HooksToml;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -79,6 +113,13 @@ pub struct HookEventAfterAgent {
     pub turn_id: String,
     pub input_messages: Vec<String>,
     pub last_assistant_message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub struct HookEventUserPromptSubmit {
+    pub turn_id: String,
+    pub input_messages: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -134,7 +175,28 @@ pub struct HookEventAfterToolUse {
     pub mutating: bool,
     pub sandbox: String,
     pub sandbox_policy: String,
+    pub access_mode: String,
     pub output_preview: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub struct HookEventSessionEnd {
+    pub thread_id: ThreadId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transcript_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub struct HookEventSubagentStart {
+    pub thread_id: ThreadId,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub struct HookEventSubagentStop {
+    pub thread_id: ThreadId,
 }
 
 fn serialize_triggered_at<S>(value: &DateTime<Utc>, serializer: S) -> Result<S::Ok, S::Error>
@@ -147,6 +209,10 @@ where
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "event_type", rename_all = "snake_case")]
 pub enum HookEvent {
+    PreToolUse {
+        #[serde(flatten)]
+        event: HookEventAfterToolUse,
+    },
     AfterAgent {
         #[serde(flatten)]
         event: HookEventAfterAgent,
@@ -155,6 +221,50 @@ pub enum HookEvent {
         #[serde(flatten)]
         event: HookEventAfterToolUse,
     },
+    UserPromptSubmit {
+        #[serde(flatten)]
+        event: HookEventUserPromptSubmit,
+    },
+    SessionEnd {
+        #[serde(flatten)]
+        event: HookEventSessionEnd,
+    },
+    SubagentStart {
+        #[serde(flatten)]
+        event: HookEventSubagentStart,
+    },
+    SubagentStop {
+        #[serde(flatten)]
+        event: HookEventSubagentStop,
+    },
+}
+
+impl HookEvent {
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::PreToolUse { .. } => "pre_tool_use",
+            Self::AfterAgent { .. } => "after_agent",
+            Self::AfterToolUse { .. } => "after_tool_use",
+            Self::UserPromptSubmit { .. } => "user_prompt_submit",
+            Self::SessionEnd { .. } => "session_end",
+            Self::SubagentStart { .. } => "subagent_start",
+            Self::SubagentStop { .. } => "subagent_stop",
+        }
+    }
+
+    pub fn matcher_subject(&self) -> Option<&str> {
+        match self {
+            Self::PreToolUse { event } | Self::AfterToolUse { event } => Some(&event.tool_name),
+            _ => None,
+        }
+    }
+
+    pub fn tool_name(&self) -> Option<&str> {
+        match self {
+            Self::PreToolUse { event } | Self::AfterToolUse { event } => Some(&event.tool_name),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -168,13 +278,16 @@ mod tests {
     use pretty_assertions::assert_eq;
     use serde_json::json;
 
+    use super::CommandHookConfig;
     use super::HookEvent;
     use super::HookEventAfterAgent;
     use super::HookEventAfterToolUse;
     use super::HookPayload;
+    use super::HookRuleConfig;
     use super::HookToolInput;
     use super::HookToolInputLocalShell;
     use super::HookToolKind;
+    use super::HooksToml;
 
     #[test]
     fn hook_payload_serializes_stable_wire_shape() {
@@ -248,6 +361,7 @@ mod tests {
                     mutating: true,
                     sandbox: "none".to_string(),
                     sandbox_policy: "danger-full-access".to_string(),
+                    access_mode: "full_access".to_string(),
                     output_preview: "ok".to_string(),
                 },
             },
@@ -281,10 +395,53 @@ mod tests {
                 "mutating": true,
                 "sandbox": "none",
                 "sandbox_policy": "danger-full-access",
+                "access_mode": "full_access",
                 "output_preview": "ok",
             },
         });
 
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn hooks_toml_defaults_to_empty_rules() {
+        assert_eq!(
+            HooksToml::default(),
+            HooksToml {
+                pre_tool_use: Vec::new(),
+                post_tool_use: Vec::new(),
+                user_prompt_submit: Vec::new(),
+                stop: Vec::new(),
+                session_end: Vec::new(),
+                subagent_start: Vec::new(),
+                subagent_stop: Vec::new(),
+            }
+        );
+    }
+
+    #[test]
+    fn hooks_toml_deserializes_rule_lists() {
+        let toml = r#"
+            [[pre_tool_use]]
+            matcher = "Bash"
+
+            [[pre_tool_use.commands]]
+            command = "/tmp/hook"
+            timeout_sec = 5
+        "#;
+        let actual: HooksToml = toml::from_str(toml).expect("deserialize hooks");
+        assert_eq!(
+            actual,
+            HooksToml {
+                pre_tool_use: vec![HookRuleConfig {
+                    matcher: Some("Bash".to_string()),
+                    commands: vec![CommandHookConfig {
+                        command: "/tmp/hook".to_string(),
+                        timeout_sec: Some(5),
+                    }],
+                }],
+                ..HooksToml::default()
+            }
+        );
     }
 }

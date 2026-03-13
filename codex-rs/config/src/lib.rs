@@ -1,6 +1,7 @@
 mod cloud_requirements;
 mod config_requirements;
 pub mod config_toml;
+pub mod hooks_toml;
 mod constraint;
 mod diagnostics;
 mod fingerprint;
@@ -59,6 +60,9 @@ pub use diagnostics::format_config_error;
 pub use diagnostics::format_config_error_with_source;
 pub use diagnostics::io_error_from_config_error;
 pub use fingerprint::version_for_toml;
+pub use hooks_toml::CommandHookConfig;
+pub use hooks_toml::HookRuleConfig;
+pub use hooks_toml::HooksToml;
 pub use marketplace_edit::MarketplaceConfigUpdate;
 pub use marketplace_edit::record_user_marketplace;
 pub use mcp_edit::ConfigEditsBuilder;

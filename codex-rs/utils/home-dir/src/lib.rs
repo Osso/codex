@@ -1,10 +1,11 @@
 use codex_utils_absolute_path::AbsolutePathBuf;
+use dirs::config_dir;
 use dirs::home_dir;
 use std::path::PathBuf;
 
 /// Returns the path to the Codex configuration directory, which can be
 /// specified by the `CODEX_HOME` environment variable. If not set, defaults to
-/// `~/.codex`.
+/// the preferred XDG config directory and falls back to `~/.codex`.
 ///
 /// - If `CODEX_HOME` is set, the value must exist and be a directory. The
 ///   value will be canonicalized and this function will Err otherwise.
@@ -50,14 +51,36 @@ fn find_codex_home_from_env(codex_home_env: Option<&str>) -> std::io::Result<Abs
             }
         }
         None => {
-            let mut p = home_dir().ok_or_else(|| {
-                std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    "Could not find home directory",
-                )
-            })?;
-            p.push(".codex");
-            AbsolutePathBuf::from_absolute_path(p)
+            let xdg_codex = config_dir().map(|mut path| {
+                path.push("codex");
+                path
+            });
+            let legacy_codex = home_dir().map(|mut path| {
+                path.push(".codex");
+                path
+            });
+
+            let path = match (xdg_codex, legacy_codex) {
+                (Some(xdg_codex), Some(legacy_codex)) => {
+                    if xdg_codex.exists() {
+                        xdg_codex
+                    } else if legacy_codex.exists() {
+                        legacy_codex
+                    } else {
+                        xdg_codex
+                    }
+                }
+                (Some(xdg_codex), None) => xdg_codex,
+                (None, Some(legacy_codex)) => legacy_codex,
+                (None, None) => {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        "Could not find home directory",
+                    ));
+                }
+            };
+
+            AbsolutePathBuf::from_absolute_path(path)
         }
     }
 }
@@ -66,6 +89,7 @@ fn find_codex_home_from_env(codex_home_env: Option<&str>) -> std::io::Result<Abs
 mod tests {
     use super::find_codex_home_from_env;
     use codex_utils_absolute_path::AbsolutePathBuf;
+    use dirs::config_dir;
     use dirs::home_dir;
     use pretty_assertions::assert_eq;
     use std::fs;
@@ -126,9 +150,44 @@ mod tests {
     fn find_codex_home_without_env_uses_default_home_dir() {
         let resolved =
             find_codex_home_from_env(/*codex_home_env*/ None).expect("default CODEX_HOME");
-        let mut expected = home_dir().expect("home dir");
-        expected.push(".codex");
+        let mut expected = config_dir().expect("config dir");
+        expected.push("codex");
         let expected = AbsolutePathBuf::from_absolute_path(expected).expect("absolute home");
         assert_eq!(resolved, expected);
+    }
+
+    #[test]
+    fn find_codex_home_without_env_prefers_existing_legacy_dir_when_xdg_missing() {
+        let tmp = TempDir::new().expect("tempdir");
+        let home = tmp.path().join("home");
+        let config = tmp.path().join("config");
+        let legacy = home.join(".codex");
+        fs::create_dir_all(&legacy).expect("create legacy codex dir");
+        fs::create_dir_all(&config).expect("create config dir");
+
+        let home_before = std::env::var_os("HOME");
+        let xdg_before = std::env::var_os("XDG_CONFIG_HOME");
+        unsafe {
+            std::env::set_var("HOME", &home);
+            std::env::set_var("XDG_CONFIG_HOME", &config);
+        }
+
+        let resolved = find_codex_home_from_env(None).expect("resolve codex home");
+
+        unsafe {
+            if let Some(value) = home_before {
+                std::env::set_var("HOME", value);
+            } else {
+                std::env::remove_var("HOME");
+            }
+            if let Some(value) = xdg_before {
+                std::env::set_var("XDG_CONFIG_HOME", value);
+            } else {
+                std::env::remove_var("XDG_CONFIG_HOME");
+            }
+        }
+
+        let legacy = AbsolutePathBuf::from_absolute_path(legacy).expect("absolute legacy");
+        assert_eq!(resolved, legacy);
     }
 }
