@@ -123,6 +123,7 @@ impl ToolHandler for UnifiedExecHandler {
             call_id,
             tool_name,
             payload,
+            pre_tool_hook_decision,
             ..
         } = invocation;
 
@@ -273,6 +274,7 @@ impl ToolHandler for UnifiedExecHandler {
                                 .permissions_preapproved,
                             justification,
                             prefix_rule,
+                            pre_tool_hook_decision,
                         },
                         &context,
                     )

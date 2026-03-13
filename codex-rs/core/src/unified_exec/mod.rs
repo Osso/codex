@@ -27,6 +27,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Weak;
 
+use codex_hooks::HookPermissionDecision;
 use codex_network_proxy::NetworkProxy;
 use codex_protocol::models::PermissionProfile;
 use rand::Rng;
@@ -97,6 +98,7 @@ pub(crate) struct ExecCommandRequest {
     pub additional_permissions_preapproved: bool,
     pub justification: Option<String>,
     pub prefix_rule: Option<Vec<String>>,
+    pub pre_tool_hook_decision: Option<HookPermissionDecision>,
 }
 
 #[derive(Debug)]

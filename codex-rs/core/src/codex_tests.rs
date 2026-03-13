@@ -4253,6 +4253,7 @@ async fn rejects_escalated_permissions_when_policy_not_on_request() {
                 })
                 .to_string(),
             },
+            pre_tool_hook_decision: None,
         })
         .await;
 
@@ -4297,6 +4298,7 @@ async fn rejects_escalated_permissions_when_policy_not_on_request() {
                 })
                 .to_string(),
             },
+            pre_tool_hook_decision: None,
         })
         .await;
 
@@ -4351,6 +4353,7 @@ async fn unified_exec_rejects_escalated_permissions_when_policy_not_on_request()
                 })
                 .to_string(),
             },
+            pre_tool_hook_decision: None,
         })
         .await;
 

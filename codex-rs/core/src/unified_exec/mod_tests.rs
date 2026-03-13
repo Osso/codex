@@ -58,6 +58,7 @@ async fn exec_command(
                 additional_permissions_preapproved: false,
                 justification: None,
                 prefix_rule: None,
+                pre_tool_hook_decision: None,
             },
             &context,
         )

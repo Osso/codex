@@ -45,6 +45,7 @@ fn invocation(
         tool_name: tool_name.to_string(),
         tool_namespace: None,
         payload,
+        pre_tool_hook_decision: None,
     }
 }
 

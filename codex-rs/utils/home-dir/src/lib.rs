@@ -1,9 +1,10 @@
+use dirs::config_dir;
 use dirs::home_dir;
 use std::path::PathBuf;
 
 /// Returns the path to the Codex configuration directory, which can be
 /// specified by the `CODEX_HOME` environment variable. If not set, defaults to
-/// `~/.codex`.
+/// the preferred XDG config directory and falls back to `~/.codex`.
 ///
 /// - If `CODEX_HOME` is set, the value must exist and be a directory. The
 ///   value will be canonicalized and this function will Err otherwise.
@@ -48,14 +49,32 @@ fn find_codex_home_from_env(codex_home_env: Option<&str>) -> std::io::Result<Pat
             }
         }
         None => {
-            let mut p = home_dir().ok_or_else(|| {
-                std::io::Error::new(
+            let xdg_codex = config_dir().map(|mut path| {
+                path.push("codex");
+                path
+            });
+            let legacy_codex = home_dir().map(|mut path| {
+                path.push(".codex");
+                path
+            });
+
+            match (xdg_codex, legacy_codex) {
+                (Some(xdg_codex), Some(legacy_codex)) => {
+                    if xdg_codex.exists() {
+                        Ok(xdg_codex)
+                    } else if legacy_codex.exists() {
+                        Ok(legacy_codex)
+                    } else {
+                        Ok(xdg_codex)
+                    }
+                }
+                (Some(xdg_codex), None) => Ok(xdg_codex),
+                (None, Some(legacy_codex)) => Ok(legacy_codex),
+                (None, None) => Err(std::io::Error::new(
                     std::io::ErrorKind::NotFound,
                     "Could not find home directory",
-                )
-            })?;
-            p.push(".codex");
-            Ok(p)
+                )),
+            }
         }
     }
 }
@@ -63,7 +82,7 @@ fn find_codex_home_from_env(codex_home_env: Option<&str>) -> std::io::Result<Pat
 #[cfg(test)]
 mod tests {
     use super::find_codex_home_from_env;
-    use dirs::home_dir;
+    use dirs::config_dir;
     use pretty_assertions::assert_eq;
     use std::fs;
     use std::io::ErrorKind;
@@ -121,8 +140,42 @@ mod tests {
     #[test]
     fn find_codex_home_without_env_uses_default_home_dir() {
         let resolved = find_codex_home_from_env(None).expect("default CODEX_HOME");
-        let mut expected = home_dir().expect("home dir");
-        expected.push(".codex");
+        let mut expected = config_dir().expect("config dir");
+        expected.push("codex");
         assert_eq!(resolved, expected);
+    }
+
+    #[test]
+    fn find_codex_home_without_env_prefers_existing_legacy_dir_when_xdg_missing() {
+        let tmp = TempDir::new().expect("tempdir");
+        let home = tmp.path().join("home");
+        let config = tmp.path().join("config");
+        let legacy = home.join(".codex");
+        fs::create_dir_all(&legacy).expect("create legacy codex dir");
+        fs::create_dir_all(&config).expect("create config dir");
+
+        let home_before = std::env::var_os("HOME");
+        let xdg_before = std::env::var_os("XDG_CONFIG_HOME");
+        unsafe {
+            std::env::set_var("HOME", &home);
+            std::env::set_var("XDG_CONFIG_HOME", &config);
+        }
+
+        let resolved = find_codex_home_from_env(None).expect("resolve codex home");
+
+        unsafe {
+            if let Some(value) = home_before {
+                std::env::set_var("HOME", value);
+            } else {
+                std::env::remove_var("HOME");
+            }
+            if let Some(value) = xdg_before {
+                std::env::set_var("XDG_CONFIG_HOME", value);
+            } else {
+                std::env::remove_var("XDG_CONFIG_HOME");
+            }
+        }
+
+        assert_eq!(resolved, legacy);
     }
 }

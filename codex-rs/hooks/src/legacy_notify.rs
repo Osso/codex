@@ -5,6 +5,7 @@ use serde::Serialize;
 
 use crate::Hook;
 use crate::HookEvent;
+use crate::HookExecutionOutcome;
 use crate::HookPayload;
 use crate::HookResult;
 use crate::command_from_argv;
@@ -40,6 +41,13 @@ pub fn legacy_notify_json(payload: &HookPayload) -> Result<String, serde_json::E
         HookEvent::AfterToolUse { .. } => Err(serde_json::Error::io(std::io::Error::other(
             "legacy notify payload is only supported for after_agent",
         ))),
+        HookEvent::PreToolUse { .. }
+        | HookEvent::UserPromptSubmit { .. }
+        | HookEvent::SessionEnd { .. }
+        | HookEvent::SubagentStart { .. }
+        | HookEvent::SubagentStop { .. } => Err(serde_json::Error::io(std::io::Error::other(
+            "legacy notify payload is only supported for after_agent",
+        ))),
     }
 }
 
@@ -52,7 +60,7 @@ pub fn notify_hook(argv: Vec<String>) -> Hook {
             Box::pin(async move {
                 let mut command = match command_from_argv(&argv) {
                     Some(command) => command,
-                    None => return HookResult::Success,
+                    None => return HookExecutionOutcome::success(),
                 };
                 if let Ok(notify_payload) = legacy_notify_json(payload) {
                     command.arg(notify_payload);
@@ -64,8 +72,12 @@ pub fn notify_hook(argv: Vec<String>) -> Hook {
                     .stderr(Stdio::null());
 
                 match command.spawn() {
-                    Ok(_) => HookResult::Success,
-                    Err(err) => HookResult::FailedContinue(err.into()),
+                    Ok(_) => HookExecutionOutcome::success(),
+                    Err(err) => HookExecutionOutcome {
+                        result: HookResult::FailedContinue(err.into()),
+                        permission_decision: None,
+                        updated_input: None,
+                    },
                 }
             })
         }),

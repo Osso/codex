@@ -15,11 +15,13 @@ use async_trait::async_trait;
 use codex_hooks::HookEvent;
 use codex_hooks::HookEventAfterToolUse;
 use codex_hooks::HookPayload;
+use codex_hooks::HookPermissionDecision;
 use codex_hooks::HookResult;
 use codex_hooks::HookToolInput;
 use codex_hooks::HookToolInputLocalShell;
 use codex_hooks::HookToolKind;
 use codex_protocol::models::ResponseInputItem;
+use codex_protocol::protocol::AskForApproval;
 use codex_utils_readiness::Readiness;
 use tracing::warn;
 
@@ -161,6 +163,8 @@ impl ToolRegistry {
         &self,
         invocation: ToolInvocation,
     ) -> Result<AnyToolResult, FunctionCallError> {
+        let invocation = invocation;
+        let mut invocation = invocation;
         let tool_name = invocation.tool_name.clone();
         let tool_namespace = invocation.tool_namespace.clone();
         let call_id_owned = invocation.call_id.clone();
@@ -244,6 +248,17 @@ impl ToolRegistry {
         }
 
         let is_mutating = handler.is_mutating(&invocation).await;
+        match dispatch_pre_tool_use_hook(&invocation, is_mutating).await {
+            Ok(hook_result) => {
+                invocation.pre_tool_hook_decision = hook_result.permission_decision;
+                if let Some(updated) = hook_result.updated_input {
+                    apply_updated_input(&mut invocation.payload, &updated);
+                }
+            }
+            Err(err) => return Err(err),
+        }
+        let payload_for_response = invocation.payload.clone();
+        let log_payload = payload_for_response.log_payload();
         let response_cell = tokio::sync::Mutex::new(None);
         let invocation_for_tool = invocation.clone();
 
@@ -413,6 +428,18 @@ fn sandbox_policy_tag(policy: &SandboxPolicy) -> &'static str {
     }
 }
 
+fn hook_access_mode_tag(
+    approval_policy: AskForApproval,
+    sandbox_policy: &SandboxPolicy,
+) -> &'static str {
+    match (approval_policy, sandbox_policy) {
+        (_, SandboxPolicy::DangerFullAccess) => "full_access",
+        (AskForApproval::OnRequest, SandboxPolicy::WorkspaceWrite { .. }) => "supervised",
+        (AskForApproval::OnRequest, SandboxPolicy::ReadOnly { .. }) => "read_only",
+        _ => "custom",
+    }
+}
+
 // Hooks use a separate wire-facing input type so hook payload JSON stays stable
 // and decoupled from core's internal tool runtime representation.
 impl From<&ToolPayload> for HookToolInput {
@@ -472,6 +499,99 @@ struct AfterToolUseHookDispatch<'a> {
     mutating: bool,
 }
 
+fn apply_updated_input(payload: &mut ToolPayload, updated: &serde_json::Value) {
+    if let ToolPayload::LocalShell { params } = payload
+        && let Some(command_str) = updated.get("command").and_then(serde_json::Value::as_str) {
+            params.command = shlex::split(command_str).unwrap_or_else(|| {
+                vec!["sh".to_string(), "-c".to_string(), command_str.to_string()]
+            });
+        }
+}
+
+struct PreToolUseHookResult {
+    permission_decision: Option<HookPermissionDecision>,
+    updated_input: Option<serde_json::Value>,
+}
+
+async fn dispatch_pre_tool_use_hook(
+    invocation: &ToolInvocation,
+    mutating: bool,
+) -> Result<PreToolUseHookResult, FunctionCallError> {
+    let session = invocation.session.as_ref();
+    let turn = invocation.turn.as_ref();
+    let tool_input = HookToolInput::from(&invocation.payload);
+    let hook_outcomes = session
+        .hooks()
+        .dispatch(HookPayload {
+            session_id: session.conversation_id,
+            cwd: turn.cwd.clone(),
+            client: turn.app_server_client_name.clone(),
+            triggered_at: chrono::Utc::now(),
+            hook_event: HookEvent::PreToolUse {
+                event: HookEventAfterToolUse {
+                    turn_id: turn.sub_id.clone(),
+                    call_id: invocation.call_id.clone(),
+                    tool_name: invocation.tool_name.clone(),
+                    tool_kind: hook_tool_kind(&tool_input),
+                    tool_input,
+                    executed: false,
+                    success: false,
+                    duration_ms: 0,
+                    mutating,
+                    sandbox: sandbox_tag(&turn.sandbox_policy, turn.windows_sandbox_level)
+                        .to_string(),
+                    sandbox_policy: sandbox_policy_tag(&turn.sandbox_policy).to_string(),
+                    access_mode: hook_access_mode_tag(
+                        turn.approval_policy.value(),
+                        &turn.sandbox_policy,
+                    )
+                    .to_string(),
+                    output_preview: String::new(),
+                },
+            },
+        })
+        .await;
+
+    let mut permission_decision = None;
+    let mut updated_input = None;
+    for hook_outcome in hook_outcomes {
+        let hook_name = hook_outcome.hook_name;
+        if permission_decision.is_none() {
+            permission_decision = hook_outcome.permission_decision.clone();
+        }
+        if updated_input.is_none() {
+            updated_input = hook_outcome.updated_input;
+        }
+        match hook_outcome.result {
+            HookResult::Success => {}
+            HookResult::FailedContinue(error) => {
+                warn!(
+                    call_id = %invocation.call_id,
+                    tool_name = %invocation.tool_name,
+                    hook_name = %hook_name,
+                    error = %error,
+                    "pre_tool_use hook failed; continuing"
+                );
+            }
+            HookResult::FailedAbort(error) => {
+                warn!(
+                    call_id = %invocation.call_id,
+                    tool_name = %invocation.tool_name,
+                    hook_name = %hook_name,
+                    error = %error,
+                    "pre_tool_use hook denied operation"
+                );
+                return Err(FunctionCallError::RespondToModel(error.to_string()));
+            }
+        }
+    }
+
+    Ok(PreToolUseHookResult {
+        permission_decision,
+        updated_input,
+    })
+}
+
 async fn dispatch_after_tool_use_hook(
     dispatch: AfterToolUseHookDispatch<'_>,
 ) -> Option<FunctionCallError> {
@@ -500,6 +620,11 @@ async fn dispatch_after_tool_use_hook(
                     sandbox: sandbox_tag(&turn.sandbox_policy, turn.windows_sandbox_level)
                         .to_string(),
                     sandbox_policy: sandbox_policy_tag(&turn.sandbox_policy).to_string(),
+                    access_mode: hook_access_mode_tag(
+                        turn.approval_policy.value(),
+                        &turn.sandbox_policy,
+                    )
+                    .to_string(),
                     output_preview: dispatch.output_preview.clone(),
                 },
             },

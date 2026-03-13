@@ -1,6 +1,6 @@
 {
   "name": "@openai/codex-shell-tool-mcp",
-  "version": "0.0.0-dev",
+  "version": "0.37.0",
   "description": "Patched Bash and Zsh binaries for Codex shell execution.",
   "license": "Apache-2.0",
   "engines": {

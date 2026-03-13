@@ -245,6 +245,7 @@ impl ToolRouter {
             tool_name,
             tool_namespace,
             payload,
+            pre_tool_hook_decision: None,
         };
 
         match self.registry.dispatch_any(invocation).await {

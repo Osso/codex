@@ -30,6 +30,7 @@ codex-config = { workspace = true }
 codex-core = { workspace = true }
 codex-exec = { workspace = true }
 codex-execpolicy = { workspace = true }
+codex-hooks = { workspace = true }
 codex-login = { workspace = true }
 codex-mcp-server = { workspace = true }
 codex-protocol = { workspace = true }
@@ -41,6 +42,7 @@ codex-tui = { workspace = true }
 libc = { workspace = true }
 owo-colors = { workspace = true }
 regex-lite = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
 supports-color = { workspace = true }
 tempfile = { workspace = true }
@@ -52,6 +54,7 @@ tokio = { workspace = true, features = [
     "signal",
 ] }
 toml = { workspace = true }
+toml_edit = { workspace = true }
 tracing = { workspace = true }
 tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }

@@ -8,6 +8,7 @@ use crate::truncate::TruncationPolicy;
 use crate::truncate::formatted_truncate_text;
 use crate::turn_diff_tracker::TurnDiffTracker;
 use crate::unified_exec::resolve_max_tokens;
+use codex_hooks::HookPermissionDecision;
 use codex_protocol::mcp::CallToolResult;
 use codex_protocol::models::FunctionCallOutputBody;
 use codex_protocol::models::FunctionCallOutputContentItem;
@@ -42,6 +43,7 @@ pub struct ToolInvocation {
     pub tool_name: String,
     pub tool_namespace: Option<String>,
     pub payload: ToolPayload,
+    pub pre_tool_hook_decision: Option<HookPermissionDecision>,
 }
 
 #[derive(Clone, Debug)]

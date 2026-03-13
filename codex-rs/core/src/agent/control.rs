@@ -12,6 +12,11 @@ use crate::session_prefix::format_subagent_notification_message;
 use crate::shell_snapshot::ShellSnapshot;
 use crate::state_db;
 use crate::thread_manager::ThreadManagerState;
+use codex_hooks::HookEvent;
+use codex_hooks::HookEventSubagentStart;
+use codex_hooks::HookEventSubagentStop;
+use codex_hooks::HookPayload;
+use codex_hooks::HookResult;
 use codex_protocol::ThreadId;
 use codex_protocol::models::FunctionCallOutputPayload;
 use codex_protocol::models::ResponseItem;
@@ -211,6 +216,8 @@ impl AgentControl {
         // to subscribe or drain this newly created thread.
         // TODO(jif) add helper for drain
         state.notify_thread_created(new_thread.thread_id);
+        self.dispatch_subagent_start_hook(new_thread.thread_id, &new_thread.thread)
+            .await;
 
         self.send_input(new_thread.thread_id, items).await?;
         self.maybe_start_completion_watcher(new_thread.thread_id, notification_source);
@@ -288,6 +295,8 @@ impl AgentControl {
         // Resumed threads are re-registered in-memory and need the same listener
         // attachment path as freshly spawned threads.
         state.notify_thread_created(resumed_thread.thread_id);
+        self.dispatch_subagent_start_hook(resumed_thread.thread_id, &resumed_thread.thread)
+            .await;
         self.maybe_start_completion_watcher(resumed_thread.thread_id, Some(notification_source));
 
         Ok(resumed_thread.thread_id)
@@ -449,6 +458,14 @@ impl AgentControl {
                 return;
             }
 
+            if let Ok(state) = control.upgrade()
+                && let Ok(child_thread) = state.get_thread(child_thread_id).await
+            {
+                control
+                    .dispatch_subagent_stop_hook(child_thread_id, &child_thread)
+                    .await;
+            }
+
             let Ok(state) = control.upgrade() else {
                 return;
             };
@@ -462,6 +479,70 @@ impl AgentControl {
                 ))
                 .await;
         });
+    }
+
+    async fn dispatch_subagent_start_hook(
+        &self,
+        thread_id: ThreadId,
+        thread: &Arc<crate::codex_thread::CodexThread>,
+    ) {
+        self.dispatch_subagent_hook(
+            thread_id,
+            thread,
+            HookEvent::SubagentStart {
+                event: HookEventSubagentStart { thread_id },
+            },
+        )
+        .await;
+    }
+
+    async fn dispatch_subagent_stop_hook(
+        &self,
+        thread_id: ThreadId,
+        thread: &Arc<crate::codex_thread::CodexThread>,
+    ) {
+        self.dispatch_subagent_hook(
+            thread_id,
+            thread,
+            HookEvent::SubagentStop {
+                event: HookEventSubagentStop { thread_id },
+            },
+        )
+        .await;
+    }
+
+    async fn dispatch_subagent_hook(
+        &self,
+        thread_id: ThreadId,
+        thread: &Arc<crate::codex_thread::CodexThread>,
+        hook_event: HookEvent,
+    ) {
+        let session = &thread.codex.session;
+        let session_config = thread.config_snapshot().await;
+        let hook_outcomes = session
+            .hooks()
+            .dispatch(HookPayload {
+                session_id: session.conversation_id,
+                cwd: session_config.cwd,
+                client: None,
+                triggered_at: chrono::Utc::now(),
+                hook_event,
+            })
+            .await;
+        for hook_outcome in hook_outcomes {
+            let hook_name = hook_outcome.hook_name;
+            match hook_outcome.result {
+                HookResult::Success => {}
+                HookResult::FailedContinue(error) | HookResult::FailedAbort(error) => {
+                    tracing::warn!(
+                        thread_id = %thread_id,
+                        hook_name = %hook_name,
+                        error = %error,
+                        "subagent hook failed; continuing"
+                    );
+                }
+            }
+        }
     }
 
     fn upgrade(&self) -> CodexResult<Arc<ThreadManagerState>> {
