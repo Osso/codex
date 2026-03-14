@@ -56,6 +56,7 @@ use tracing_appender::non_blocking;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::prelude::*;
 use uuid::Uuid;
+use version::CODEX_CLI_VERSION;
 
 mod additional_dirs;
 mod app;
@@ -481,7 +482,7 @@ pub async fn run_main(mut cli: Cli, arg0_paths: Arg0DispatchPaths) -> std::io::R
     }
 
     let otel = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        codex_core::otel_init::build_provider(&config, env!("CARGO_PKG_VERSION"), None, true)
+        codex_core::otel_init::build_provider(&config, CODEX_CLI_VERSION, None, true)
     })) {
         Ok(Ok(otel)) => otel,
         Ok(Err(e)) => {
