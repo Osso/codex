@@ -74,6 +74,7 @@ use tracing_subscriber::EnvFilter;
 use tracing_subscriber::prelude::*;
 use url::Url;
 use uuid::Uuid;
+use version::CODEX_CLI_VERSION;
 
 pub(crate) use codex_app_server_client::legacy_core;
 
@@ -943,7 +944,7 @@ pub async fn run_main(
     let otel = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         crate::legacy_core::otel_init::build_provider(
             &config,
-            env!("CARGO_PKG_VERSION"),
+            CODEX_CLI_VERSION,
             /*service_name_override*/ None,
             /*default_analytics_enabled*/ true,
         )

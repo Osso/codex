@@ -596,11 +596,11 @@ struct AfterToolUseHookDispatch<'a> {
 
 fn apply_updated_input(payload: &mut ToolPayload, updated: &serde_json::Value) {
     if let ToolPayload::LocalShell { params } = payload
-        && let Some(command_str) = updated.get("command").and_then(serde_json::Value::as_str) {
-            params.command = shlex::split(command_str).unwrap_or_else(|| {
-                vec!["sh".to_string(), "-c".to_string(), command_str.to_string()]
-            });
-        }
+        && let Some(command_str) = updated.get("command").and_then(serde_json::Value::as_str)
+    {
+        params.command = shlex::split(command_str)
+            .unwrap_or_else(|| vec!["sh".to_string(), "-c".to_string(), command_str.to_string()]);
+    }
 }
 
 struct PreToolUseHookResult {
