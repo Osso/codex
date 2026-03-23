@@ -3,6 +3,8 @@ use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 
+use codex_apply_patch::ApplyPatchFileChange;
+use codex_apply_patch::MaybeApplyPatchVerified;
 use codex_config::ConfigLayerStack;
 use codex_protocol::models::ShellCommandToolCallParams;
 use codex_protocol::models::ShellToolCallParams;
@@ -503,7 +505,7 @@ fn command_hook_input(payload: &HookPayload) -> Value {
         obj.insert("tool_name".to_string(), Value::String(tool_name));
     }
 
-    if let Some(tool_input) = claude_tool_input(&payload.hook_event) {
+    if let Some(tool_input) = claude_tool_input(payload) {
         obj.insert("tool_input".to_string(), tool_input);
     }
 
@@ -536,8 +538,8 @@ fn claude_tool_name(event: &HookEvent) -> Option<String> {
     }
 }
 
-fn claude_tool_input(event: &HookEvent) -> Option<Value> {
-    let after_tool_use = match event {
+fn claude_tool_input(payload: &HookPayload) -> Option<Value> {
+    let after_tool_use = match &payload.hook_event {
         HookEvent::PreToolUse { event } | HookEvent::AfterToolUse { event } => event,
         _ => return None,
     };
@@ -548,9 +550,15 @@ fn claude_tool_input(event: &HookEvent) -> Option<Value> {
             "command": shell_join(&params.command),
             "cwd": params.workdir,
         })),
-        HookToolInput::Custom { input } => Some(serde_json::json!({
-            "file_path": input,
-        })),
+        HookToolInput::Custom { input } => {
+            if after_tool_use.tool_name == "apply_patch" {
+                apply_patch_tool_input(input, &payload.cwd)
+            } else {
+                Some(serde_json::json!({
+                    "file_path": input,
+                }))
+            }
+        }
         HookToolInput::Mcp {
             server,
             tool,
@@ -571,6 +579,41 @@ fn claude_tool_input(event: &HookEvent) -> Option<Value> {
         HookToolInput::Function { arguments } => {
             function_tool_input(&after_tool_use.tool_name, arguments)
         }
+    }
+}
+
+fn apply_patch_tool_input(input: &str, cwd: &std::path::Path) -> Option<Value> {
+    let argv = vec!["apply_patch".to_string(), input.to_string()];
+    match codex_apply_patch::maybe_parse_apply_patch_verified(&argv, cwd) {
+        MaybeApplyPatchVerified::Body(action) => {
+            let mut changes = action.changes().iter();
+            let (path, change) = changes.next()?;
+            if changes.next().is_some() {
+                return None;
+            }
+
+            match change {
+                ApplyPatchFileChange::Add { content } => Some(serde_json::json!({
+                    "file_path": path.display().to_string(),
+                    "content": content,
+                })),
+                ApplyPatchFileChange::Delete { .. } => None,
+                ApplyPatchFileChange::Update {
+                    unified_diff: _,
+                    move_path,
+                    new_content,
+                } => {
+                    let file_path = move_path.as_deref().unwrap_or(path);
+                    Some(serde_json::json!({
+                        "file_path": file_path.display().to_string(),
+                        "content": new_content,
+                    }))
+                }
+            }
+        }
+        MaybeApplyPatchVerified::CorrectnessError(_)
+        | MaybeApplyPatchVerified::ShellParseError(_)
+        | MaybeApplyPatchVerified::NotApplyPatch => None,
     }
 }
 
@@ -1253,6 +1296,55 @@ mod tests {
         assert_eq!(
             input["tool_input"]["cwd"],
             Value::String("/tmp".to_string())
+        );
+    }
+
+    #[test]
+    fn command_hook_input_translates_single_file_apply_patch_for_claude_write_hooks() {
+        let dir = tempdir().expect("create temp dir");
+        let file_path = dir.path().join("main.rs");
+        fs::write(&file_path, "fn keep() {\n    println!(\"before\");\n}\n")
+            .expect("write original file");
+
+        let payload = HookPayload {
+            session_id: ThreadId::new(),
+            cwd: dir.path().to_path_buf(),
+            client: None,
+            triggered_at: Utc
+                .with_ymd_and_hms(2025, 1, 1, 0, 0, 0)
+                .single()
+                .expect("valid timestamp"),
+            hook_event: HookEvent::PreToolUse {
+                event: HookEventAfterToolUse {
+                    turn_id: "turn-apply-patch".to_string(),
+                    call_id: "call-apply-patch".to_string(),
+                    tool_name: "apply_patch".to_string(),
+                    tool_kind: HookToolKind::Custom,
+                    tool_input: HookToolInput::Custom {
+                        input: "*** Begin Patch\n*** Update File: main.rs\n@@\n-fn keep() {\n-    println!(\"before\");\n-}\n+fn keep() {\n+    println!(\"after\");\n+}\n*** End Patch\n"
+                            .to_string(),
+                    },
+                    executed: false,
+                    success: false,
+                    duration_ms: 0,
+                    mutating: true,
+                    sandbox: "danger-full-access".to_string(),
+                    sandbox_policy: "danger-full-access".to_string(),
+                    access_mode: "full_access".to_string(),
+                    output_preview: String::new(),
+                },
+            },
+        };
+
+        let input = command_hook_input(&payload);
+        assert_eq!(input["tool_name"], Value::String("Write".to_string()));
+        assert_eq!(
+            input["tool_input"]["file_path"],
+            Value::String(file_path.display().to_string())
+        );
+        assert_eq!(
+            input["tool_input"]["content"],
+            Value::String("fn keep() {\n    println!(\"after\");\n}\n".to_string())
         );
     }
 }
