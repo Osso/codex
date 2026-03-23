@@ -3,8 +3,8 @@ use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 
-use codex_apply_patch::ApplyPatchFileChange;
-use codex_apply_patch::MaybeApplyPatchVerified;
+use codex_apply_patch::Hunk;
+use codex_apply_patch::MaybeApplyPatch;
 use codex_config::ConfigLayerStack;
 use codex_protocol::models::ShellCommandToolCallParams;
 use codex_protocol::models::ShellToolCallParams;
@@ -584,36 +584,26 @@ fn claude_tool_input(payload: &HookPayload) -> Option<Value> {
 
 fn apply_patch_tool_input(input: &str, cwd: &std::path::Path) -> Option<Value> {
     let argv = vec!["apply_patch".to_string(), input.to_string()];
-    match codex_apply_patch::maybe_parse_apply_patch_verified(&argv, cwd) {
-        MaybeApplyPatchVerified::Body(action) => {
-            let mut changes = action.changes().iter();
-            let (path, change) = changes.next()?;
-            if changes.next().is_some() {
+    match codex_apply_patch::maybe_parse_apply_patch(&argv) {
+        MaybeApplyPatch::Body(action) => {
+            let mut hunks = action.hunks.iter();
+            let hunk = hunks.next()?;
+            if hunks.next().is_some() {
                 return None;
             }
 
-            match change {
-                ApplyPatchFileChange::Add { content } => Some(serde_json::json!({
-                    "file_path": path.display().to_string(),
-                    "content": content,
+            match hunk {
+                Hunk::AddFile { contents, .. } => Some(serde_json::json!({
+                    "file_path": cwd.join(hunk.path()).display().to_string(),
+                    "content": contents,
                 })),
-                ApplyPatchFileChange::Delete { .. } => None,
-                ApplyPatchFileChange::Update {
-                    unified_diff: _,
-                    move_path,
-                    new_content,
-                } => {
-                    let file_path = move_path.as_deref().unwrap_or(path);
-                    Some(serde_json::json!({
-                        "file_path": file_path.display().to_string(),
-                        "content": new_content,
-                    }))
-                }
+                Hunk::DeleteFile { .. } => None,
+                Hunk::UpdateFile { .. } => None,
             }
         }
-        MaybeApplyPatchVerified::CorrectnessError(_)
-        | MaybeApplyPatchVerified::ShellParseError(_)
-        | MaybeApplyPatchVerified::NotApplyPatch => None,
+        MaybeApplyPatch::ShellParseError(_)
+        | MaybeApplyPatch::PatchParseError(_)
+        | MaybeApplyPatch::NotApplyPatch => None,
     }
 }
 
