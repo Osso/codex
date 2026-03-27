@@ -85,16 +85,12 @@ impl Overlay {
 
 const KEY_UP: KeyBinding = key_hint::plain(KeyCode::Up);
 const KEY_DOWN: KeyBinding = key_hint::plain(KeyCode::Down);
-const KEY_K: KeyBinding = key_hint::plain(KeyCode::Char('k'));
-const KEY_J: KeyBinding = key_hint::plain(KeyCode::Char('j'));
 const KEY_PAGE_UP: KeyBinding = key_hint::plain(KeyCode::PageUp);
 const KEY_PAGE_DOWN: KeyBinding = key_hint::plain(KeyCode::PageDown);
 const KEY_SPACE: KeyBinding = key_hint::plain(KeyCode::Char(' '));
 const KEY_SHIFT_SPACE: KeyBinding = key_hint::shift(KeyCode::Char(' '));
 const KEY_HOME: KeyBinding = key_hint::plain(KeyCode::Home);
 const KEY_END: KeyBinding = key_hint::plain(KeyCode::End);
-const KEY_LEFT: KeyBinding = key_hint::plain(KeyCode::Left);
-const KEY_RIGHT: KeyBinding = key_hint::plain(KeyCode::Right);
 const KEY_CTRL_F: KeyBinding = key_hint::ctrl(KeyCode::Char('f'));
 const KEY_CTRL_D: KeyBinding = key_hint::ctrl(KeyCode::Char('d'));
 const KEY_CTRL_B: KeyBinding = key_hint::ctrl(KeyCode::Char('b'));
@@ -107,7 +103,6 @@ const KEY_CTRL_C: KeyBinding = key_hint::ctrl(KeyCode::Char('c'));
 
 // Common pager navigation hints rendered on the first line
 const PAGER_KEY_HINTS: &[(&[KeyBinding], &str)] = &[
-    (&[KEY_UP, KEY_DOWN], "to scroll"),
     (&[KEY_PAGE_UP, KEY_PAGE_DOWN], "to page"),
     (&[KEY_HOME, KEY_END], "to jump"),
 ];
@@ -262,12 +257,6 @@ impl PagerView {
 
     fn handle_key_event(&mut self, tui: &mut tui::Tui, key_event: KeyEvent) -> Result<()> {
         match key_event {
-            e if KEY_UP.is_press(e) || KEY_K.is_press(e) => {
-                self.scroll_offset = self.scroll_offset.saturating_sub(1);
-            }
-            e if KEY_DOWN.is_press(e) || KEY_J.is_press(e) => {
-                self.scroll_offset = self.scroll_offset.saturating_add(1);
-            }
             e if KEY_PAGE_UP.is_press(e)
                 || KEY_SHIFT_SPACE.is_press(e)
                 || KEY_CTRL_B.is_press(e) =>
@@ -678,13 +667,13 @@ impl TranscriptOverlay {
         let line2 = Rect::new(area.x, area.y.saturating_add(1), area.width, 1);
         render_key_hints(line1, buf, PAGER_KEY_HINTS);
 
-        let mut pairs: Vec<(&[KeyBinding], &str)> = vec![(&[KEY_Q], "to quit")];
+        let mut pairs: Vec<(&[KeyBinding], &str)> = vec![(&[KEY_Q, KEY_ESC], "to quit")];
         if self.highlight_cell.get().is_some() {
-            pairs.push((&[KEY_ESC, KEY_LEFT], "to edit prev"));
-            pairs.push((&[KEY_RIGHT], "to edit next"));
+            pairs.push((&[KEY_UP], "to edit prev"));
+            pairs.push((&[KEY_DOWN], "to edit next"));
             pairs.push((&[KEY_ENTER], "to edit message"));
         } else {
-            pairs.push((&[KEY_ESC], "to edit prev"));
+            pairs.push((&[KEY_UP], "to edit prev"));
         }
         render_key_hints(line2, buf, &pairs);
     }
@@ -702,7 +691,11 @@ impl TranscriptOverlay {
     pub(crate) fn handle_event(&mut self, tui: &mut tui::Tui, event: TuiEvent) -> Result<()> {
         match event {
             TuiEvent::Key(key_event) => match key_event {
-                e if KEY_Q.is_press(e) || KEY_CTRL_C.is_press(e) || KEY_CTRL_T.is_press(e) => {
+                e if KEY_Q.is_press(e)
+                    || KEY_ESC.is_press(e)
+                    || KEY_CTRL_C.is_press(e)
+                    || KEY_CTRL_T.is_press(e) =>
+                {
                     self.is_done = true;
                     Ok(())
                 }
@@ -925,6 +918,10 @@ mod tests {
         assert!(
             s.contains("edit next"),
             "expected 'edit next' hint in overlay footer, got: {s:?}"
+        );
+        assert!(
+            s.contains("q/esc to quit"),
+            "expected 'q/esc to quit' hint in overlay footer, got: {s:?}"
         );
     }
 
