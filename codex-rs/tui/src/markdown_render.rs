@@ -27,7 +27,23 @@ use regex_lite::Regex;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::LazyLock;
+use std::sync::OnceLock;
 use url::Url;
+
+static STRONG_COLOR: OnceLock<Option<ratatui::style::Color>> = OnceLock::new();
+
+/// Set the foreground color for bold/strong markdown text.
+pub fn set_strong_color(hex: Option<&str>) {
+    let color = hex.and_then(|s| {
+        let s = s.strip_prefix('#').unwrap_or(s);
+        if s.len() != 6 { return None; }
+        let r = u8::from_str_radix(&s[0..2], 16).ok()?;
+        let g = u8::from_str_radix(&s[2..4], 16).ok()?;
+        let b = u8::from_str_radix(&s[4..6], 16).ok()?;
+        Some(ratatui::style::Color::Rgb(r, g, b))
+    });
+    let _ = STRONG_COLOR.set(color);
+}
 
 struct MarkdownStyles {
     h1: Style,
@@ -59,7 +75,10 @@ impl Default for MarkdownStyles {
             h6: Style::new().italic(),
             code: Style::new().cyan(),
             emphasis: Style::new().italic(),
-            strong: Style::new().bold(),
+            strong: match STRONG_COLOR.get().and_then(|c| *c) {
+                Some(color) => Style::new().bold().fg(color),
+                None => Style::new().bold(),
+            },
             strikethrough: Style::new().crossed_out(),
             ordered_list_marker: Style::new().light_blue(),
             unordered_list_marker: Style::new(),
