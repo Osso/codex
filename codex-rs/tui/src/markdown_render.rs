@@ -31,18 +31,25 @@ use std::sync::OnceLock;
 use url::Url;
 
 static STRONG_COLOR: OnceLock<Option<ratatui::style::Color>> = OnceLock::new();
+static CODE_COLOR: OnceLock<Option<ratatui::style::Color>> = OnceLock::new();
+
+fn parse_hex_color(s: &str) -> Option<ratatui::style::Color> {
+    let s = s.strip_prefix('#').unwrap_or(s);
+    if s.len() != 6 { return None; }
+    let r = u8::from_str_radix(&s[0..2], 16).ok()?;
+    let g = u8::from_str_radix(&s[2..4], 16).ok()?;
+    let b = u8::from_str_radix(&s[4..6], 16).ok()?;
+    Some(ratatui::style::Color::Rgb(r, g, b))
+}
 
 /// Set the foreground color for bold/strong markdown text.
 pub fn set_strong_color(hex: Option<&str>) {
-    let color = hex.and_then(|s| {
-        let s = s.strip_prefix('#').unwrap_or(s);
-        if s.len() != 6 { return None; }
-        let r = u8::from_str_radix(&s[0..2], 16).ok()?;
-        let g = u8::from_str_radix(&s[2..4], 16).ok()?;
-        let b = u8::from_str_radix(&s[4..6], 16).ok()?;
-        Some(ratatui::style::Color::Rgb(r, g, b))
-    });
-    let _ = STRONG_COLOR.set(color);
+    let _ = STRONG_COLOR.set(hex.and_then(parse_hex_color));
+}
+
+/// Set the foreground color for inline code in markdown text.
+pub fn set_code_color(hex: Option<&str>) {
+    let _ = CODE_COLOR.set(hex.and_then(parse_hex_color));
 }
 
 struct MarkdownStyles {
@@ -73,7 +80,10 @@ impl Default for MarkdownStyles {
             h4: Style::new().italic(),
             h5: Style::new().italic(),
             h6: Style::new().italic(),
-            code: Style::new().cyan(),
+            code: match CODE_COLOR.get().and_then(|c| *c) {
+                Some(color) => Style::new().fg(color),
+                None => Style::new().cyan(),
+            },
             emphasis: Style::new().italic(),
             strong: match STRONG_COLOR.get().and_then(|c| *c) {
                 Some(color) => Style::new().bold().fg(color),
