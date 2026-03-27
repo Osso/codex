@@ -404,6 +404,7 @@ pub async fn run_main(mut cli: Cli, arg0_paths: Arg0DispatchPaths) -> std::io::R
     }
 
     crate::markdown_render::set_strong_color(config.tui_strong_color.as_deref());
+    crate::markdown_render::set_code_color(config.tui_code_color.as_deref());
 
     set_default_client_residency_requirement(config.enforce_residency.value());
 
@@ -907,6 +908,7 @@ async fn run_ratatui_app(
     }
 
     crate::markdown_render::set_strong_color(config.tui_strong_color.as_deref());
+    crate::markdown_render::set_code_color(config.tui_code_color.as_deref());
 
     set_default_client_residency_requirement(config.enforce_residency.value());
     let active_profile = config.active_profile.clone();
