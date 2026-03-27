@@ -102,68 +102,105 @@ pub(crate) struct PendingBacktrackRollback {
 impl App {
     /// Route overlay events while the transcript overlay is active.
     ///
-    /// If backtrack preview is active, Esc / Left steps selection, Right steps forward, Enter
-    /// confirms. Otherwise, Esc begins preview mode and all other events are forwarded to the
-    /// overlay.
+    /// If backtrack preview is active, Esc closes the overlay, Up steps selection, Down steps
+    /// forward, and Enter confirms. Otherwise, Esc closes the overlay, Up begins preview mode, and
+    /// all other events are forwarded to the overlay.
     pub(crate) async fn handle_backtrack_overlay_event(
         &mut self,
         tui: &mut tui::Tui,
         event: TuiEvent,
     ) -> Result<bool> {
         if self.backtrack.overlay_preview_active {
-            match event {
-                TuiEvent::Key(KeyEvent {
-                    code: KeyCode::Esc,
-                    kind: KeyEventKind::Press | KeyEventKind::Repeat,
-                    ..
-                }) => {
-                    self.overlay_step_backtrack(tui, event)?;
-                    Ok(true)
-                }
-                TuiEvent::Key(KeyEvent {
-                    code: KeyCode::Left,
-                    kind: KeyEventKind::Press | KeyEventKind::Repeat,
-                    ..
-                }) => {
-                    self.overlay_step_backtrack(tui, event)?;
-                    Ok(true)
-                }
-                TuiEvent::Key(KeyEvent {
-                    code: KeyCode::Right,
-                    kind: KeyEventKind::Press | KeyEventKind::Repeat,
-                    ..
-                }) => {
-                    self.overlay_step_backtrack_forward(tui, event)?;
-                    Ok(true)
-                }
-                TuiEvent::Key(KeyEvent {
-                    code: KeyCode::Enter,
-                    kind: KeyEventKind::Press,
-                    ..
-                }) => {
-                    self.overlay_confirm_backtrack(tui);
-                    Ok(true)
-                }
-                // Catchall: forward any other events to the overlay widget.
-                _ => {
-                    self.overlay_forward_event(tui, event)?;
-                    Ok(true)
-                }
-            }
-        } else if let TuiEvent::Key(KeyEvent {
-            code: KeyCode::Esc,
-            kind: KeyEventKind::Press | KeyEventKind::Repeat,
-            ..
-        }) = event
-        {
-            // First Esc in transcript overlay: begin backtrack preview at latest user message.
-            self.begin_overlay_backtrack_preview(tui);
-            Ok(true)
+            self.handle_preview_backtrack_overlay_event(tui, event)
         } else {
-            // Not in backtrack mode: forward events to the overlay widget.
-            self.overlay_forward_event(tui, event)?;
-            Ok(true)
+            self.handle_idle_backtrack_overlay_event(tui, event)
         }
+    }
+
+    fn handle_preview_backtrack_overlay_event(
+        &mut self,
+        tui: &mut tui::Tui,
+        event: TuiEvent,
+    ) -> Result<bool> {
+        match event {
+            TuiEvent::Key(KeyEvent {
+                code: KeyCode::Esc,
+                kind: KeyEventKind::Press | KeyEventKind::Repeat,
+                ..
+            }) => self.dismiss_transcript_overlay(tui),
+            TuiEvent::Key(KeyEvent {
+                code: KeyCode::Up,
+                kind: KeyEventKind::Press | KeyEventKind::Repeat,
+                ..
+            }) => self.step_backtrack_overlay_selection(tui, event),
+            TuiEvent::Key(KeyEvent {
+                code: KeyCode::Down,
+                kind: KeyEventKind::Press | KeyEventKind::Repeat,
+                ..
+            }) => self.step_backtrack_overlay_selection_forward(tui, event),
+            TuiEvent::Key(KeyEvent {
+                code: KeyCode::Enter,
+                kind: KeyEventKind::Press,
+                ..
+            }) => {
+                self.overlay_confirm_backtrack(tui);
+                Ok(true)
+            }
+            _ => {
+                self.overlay_forward_event(tui, event)?;
+                Ok(true)
+            }
+        }
+    }
+
+    fn handle_idle_backtrack_overlay_event(
+        &mut self,
+        tui: &mut tui::Tui,
+        event: TuiEvent,
+    ) -> Result<bool> {
+        match event {
+            TuiEvent::Key(KeyEvent {
+                code: KeyCode::Esc,
+                kind: KeyEventKind::Press | KeyEventKind::Repeat,
+                ..
+            }) => self.dismiss_transcript_overlay(tui),
+            TuiEvent::Key(KeyEvent {
+                code: KeyCode::Up,
+                kind: KeyEventKind::Press | KeyEventKind::Repeat,
+                ..
+            }) => {
+                self.begin_overlay_backtrack_preview(tui);
+                Ok(true)
+            }
+            _ => {
+                self.overlay_forward_event(tui, event)?;
+                Ok(true)
+            }
+        }
+    }
+
+    fn dismiss_transcript_overlay(&mut self, tui: &mut tui::Tui) -> Result<bool> {
+        self.close_transcript_overlay(tui);
+        tui.frame_requester().schedule_frame();
+        Ok(true)
+    }
+
+    fn step_backtrack_overlay_selection(
+        &mut self,
+        tui: &mut tui::Tui,
+        event: TuiEvent,
+    ) -> Result<bool> {
+        self.overlay_step_backtrack(tui, event)?;
+        Ok(true)
+    }
+
+    fn step_backtrack_overlay_selection_forward(
+        &mut self,
+        tui: &mut tui::Tui,
+        event: TuiEvent,
+    ) -> Result<bool> {
+        self.overlay_step_backtrack_forward(tui, event)?;
+        Ok(true)
     }
 
     /// Handle global Esc presses for backtracking when no overlay is present.
