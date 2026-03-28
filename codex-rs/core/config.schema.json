@@ -787,6 +787,13 @@
           },
           "type": "array"
         },
+        "session_start": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/HookRuleConfig"
+          },
+          "type": "array"
+        },
         "stop": {
           "default": [],
           "items": {
@@ -1638,6 +1645,11 @@
           "description": "Enable animations (welcome screen, shimmer effects, spinners). Defaults to `true`.",
           "type": "boolean"
         },
+        "code_color": {
+          "default": null,
+          "description": "Foreground color for inline code in markdown text (e.g. \"#E6B450\").",
+          "type": "string"
+        },
         "model_availability_nux": {
           "allOf": [
             {
@@ -1677,6 +1689,11 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "strong_color": {
+          "default": null,
+          "description": "Foreground color for bold/strong markdown text (e.g. \"#E6B450\").",
+          "type": "string"
         },
         "theme": {
           "default": null,
@@ -2167,6 +2184,7 @@
         "post_tool_use": [],
         "pre_tool_use": [],
         "session_end": [],
+        "session_start": [],
         "stop": [],
         "subagent_start": [],
         "subagent_stop": [],

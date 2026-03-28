@@ -132,6 +132,8 @@ pub struct HooksToml {
     #[serde(default)]
     pub user_prompt_submit: Vec<HookRuleConfig>,
     #[serde(default)]
+    pub session_start: Vec<HookRuleConfig>,
+    #[serde(default)]
     pub stop: Vec<HookRuleConfig>,
     #[serde(default)]
     pub session_end: Vec<HookRuleConfig>,
@@ -446,6 +448,7 @@ mod tests {
                 pre_tool_use: Vec::new(),
                 post_tool_use: Vec::new(),
                 user_prompt_submit: Vec::new(),
+                session_start: Vec::new(),
                 stop: Vec::new(),
                 session_end: Vec::new(),
                 subagent_start: Vec::new(),
@@ -457,10 +460,10 @@ mod tests {
     #[test]
     fn hooks_toml_deserializes_rule_lists() {
         let toml = r#"
-            [[pre_tool_use]]
-            matcher = "Bash"
+            [[session_start]]
+            matcher = "startup|resume"
 
-            [[pre_tool_use.commands]]
+            [[session_start.commands]]
             command = "/tmp/hook"
             timeout_sec = 5
         "#;
@@ -468,8 +471,8 @@ mod tests {
         assert_eq!(
             actual,
             HooksToml {
-                pre_tool_use: vec![HookRuleConfig {
-                    matcher: Some("Bash".to_string()),
+                session_start: vec![HookRuleConfig {
+                    matcher: Some("startup|resume".to_string()),
                     commands: vec![CommandHookConfig {
                         command: "/tmp/hook".to_string(),
                         timeout_sec: Some(5),

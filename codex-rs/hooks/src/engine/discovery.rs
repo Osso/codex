@@ -8,6 +8,7 @@ use regex::Regex;
 use super::ConfiguredHandler;
 use super::config::HookHandlerConfig;
 use super::config::HooksFile;
+use crate::types::HookRuleConfig;
 
 pub(crate) struct DiscoveryResult {
     pub handlers: Vec<ConfiguredHandler>,
@@ -90,6 +91,49 @@ pub(crate) fn discover_handlers(config_layer_stack: Option<&ConfigLayerStack>) -
                 None,
                 group.hooks,
             );
+        }
+    }
+
+    DiscoveryResult { handlers, warnings }
+}
+
+pub(crate) fn discover_toml_session_start_handlers(
+    source_path: &Path,
+    rules: &[HookRuleConfig],
+) -> DiscoveryResult {
+    let mut handlers = Vec::new();
+    let mut warnings = Vec::new();
+    let mut display_order = 0_i64;
+
+    for rule in rules {
+        if let Some(matcher) = rule.matcher.as_deref()
+            && let Err(err) = Regex::new(matcher)
+        {
+            warnings.push(format!(
+                "invalid matcher {matcher:?} in {}: {err}",
+                source_path.display()
+            ));
+            continue;
+        }
+
+        for command in &rule.commands {
+            if command.command.trim().is_empty() {
+                warnings.push(format!(
+                    "skipping empty hook command in {}",
+                    source_path.display()
+                ));
+                continue;
+            }
+            handlers.push(ConfiguredHandler {
+                event_name: codex_protocol::protocol::HookEventName::SessionStart,
+                matcher: rule.matcher.clone(),
+                command: command.command.clone(),
+                timeout_sec: command.timeout_sec.unwrap_or(600).max(1),
+                status_message: None,
+                source_path: source_path.to_path_buf(),
+                display_order,
+            });
+            display_order += 1;
         }
     }
 

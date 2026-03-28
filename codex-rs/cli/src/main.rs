@@ -908,6 +908,8 @@ struct ClaudeHooks {
     post_tool_use: Vec<ClaudeHookMatcher>,
     #[serde(default, rename = "UserPromptSubmit")]
     user_prompt_submit: Vec<ClaudeHookMatcher>,
+    #[serde(default, rename = "SessionStart")]
+    session_start: Vec<ClaudeHookMatcher>,
     #[serde(default, rename = "Stop")]
     stop: Vec<ClaudeHookMatcher>,
     #[serde(default, rename = "SessionEnd")]
@@ -974,6 +976,7 @@ fn map_claude_hooks(hooks: ClaudeHooks) -> (HooksToml, ClaudeHookImportSummary) 
     let pre_tool_use = map_claude_rule_list(hooks.pre_tool_use, &mut summary);
     let post_tool_use = map_claude_rule_list(hooks.post_tool_use, &mut summary);
     let user_prompt_submit = map_claude_rule_list(hooks.user_prompt_submit, &mut summary);
+    let session_start = map_claude_rule_list(hooks.session_start, &mut summary);
     let stop = map_claude_rule_list(hooks.stop, &mut summary);
     let session_end = map_claude_rule_list(hooks.session_end, &mut summary);
     let subagent_start = map_claude_rule_list(hooks.subagent_start, &mut summary);
@@ -984,6 +987,7 @@ fn map_claude_hooks(hooks: ClaudeHooks) -> (HooksToml, ClaudeHookImportSummary) 
             pre_tool_use,
             post_tool_use,
             user_prompt_submit,
+            session_start,
             stop,
             session_end,
             subagent_start,
@@ -1034,6 +1038,7 @@ fn hooks_to_item(hooks: &HooksToml) -> toml_edit::Item {
         "user_prompt_submit",
         &hooks.user_prompt_submit,
     );
+    set_hook_rule_array(&mut hooks_table, "session_start", &hooks.session_start);
     set_hook_rule_array(&mut hooks_table, "stop", &hooks.stop);
     set_hook_rule_array(&mut hooks_table, "session_end", &hooks.session_end);
     set_hook_rule_array(&mut hooks_table, "subagent_start", &hooks.subagent_start);
@@ -1386,6 +1391,14 @@ mod tests {
                     timeout: None,
                 }],
             }],
+            session_start: vec![ClaudeHookMatcher {
+                matcher: Some("startup".to_string()),
+                hooks: vec![ClaudeCommandHook {
+                    hook_type: "command".to_string(),
+                    command: "/tmp/start".to_string(),
+                    timeout: Some(15),
+                }],
+            }],
             ..Default::default()
         });
 
@@ -1397,6 +1410,13 @@ mod tests {
                     commands: vec![CommandHookConfig {
                         command: "/tmp/pre".to_string(),
                         timeout_sec: Some(30),
+                    }],
+                }],
+                session_start: vec![HookRuleConfig {
+                    matcher: Some("startup".to_string()),
+                    commands: vec![CommandHookConfig {
+                        command: "/tmp/start".to_string(),
+                        timeout_sec: Some(15),
                     }],
                 }],
                 stop: vec![HookRuleConfig {
@@ -1412,7 +1432,7 @@ mod tests {
         assert_eq!(
             summary,
             ClaudeHookImportSummary {
-                imported_rules: 2,
+                imported_rules: 3,
                 skipped_rules: 0,
                 skipped_hooks: 1,
             }
@@ -1422,10 +1442,10 @@ mod tests {
     #[test]
     fn hooks_to_item_writes_expected_toml_shape() {
         let hooks = HooksToml {
-            user_prompt_submit: vec![HookRuleConfig {
-                matcher: Some(String::new()),
+            session_start: vec![HookRuleConfig {
+                matcher: Some("startup".to_string()),
                 commands: vec![CommandHookConfig {
-                    command: "/tmp/prompt".to_string(),
+                    command: "/tmp/start".to_string(),
                     timeout_sec: Some(10),
                 }],
             }],
@@ -1436,10 +1456,10 @@ mod tests {
         doc["hooks"] = hooks_to_item(&hooks);
 
         let rendered = doc.to_string();
-        assert!(rendered.contains("[[hooks.user_prompt_submit]]"));
-        assert!(rendered.contains("matcher = \"\""));
-        assert!(rendered.contains("[[hooks.user_prompt_submit.commands]]"));
-        assert!(rendered.contains("command = \"/tmp/prompt\""));
+        assert!(rendered.contains("[[hooks.session_start]]"));
+        assert!(rendered.contains("matcher = \"startup\""));
+        assert!(rendered.contains("[[hooks.session_start.commands]]"));
+        assert!(rendered.contains("command = \"/tmp/start\""));
         assert!(rendered.contains("timeout_sec = 10"));
     }
 

@@ -236,6 +236,8 @@ fn config_toml_deserializes_model_availability_nux() {
             alternate_screen: AltScreenMode::default(),
             status_line: None,
             theme: None,
+            strong_color: None,
+            code_color: None,
             model_availability_nux: ModelAvailabilityNuxConfig {
                 shown_count: HashMap::from([
                     ("gpt-bar".to_string(), 4),
@@ -920,6 +922,8 @@ fn tui_config_missing_notifications_field_defaults_to_enabled() {
             alternate_screen: AltScreenMode::Auto,
             status_line: None,
             theme: None,
+            strong_color: None,
+            code_color: None,
             model_availability_nux: ModelAvailabilityNuxConfig::default(),
         }
     );

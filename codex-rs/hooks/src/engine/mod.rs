@@ -62,20 +62,24 @@ impl ClaudeHooksEngine {
         enabled: bool,
         config_layer_stack: Option<&ConfigLayerStack>,
         shell: CommandShell,
+        additional_handlers: Vec<ConfiguredHandler>,
+        additional_warnings: Vec<String>,
     ) -> Self {
-        if !enabled {
-            return Self {
-                handlers: Vec::new(),
-                warnings: Vec::new(),
-                shell,
-            };
+        let mut handlers = additional_handlers;
+        let mut warnings = additional_warnings;
+
+        if enabled || !handlers.is_empty() {
+            let _ = schema_loader::generated_hook_schemas();
+        }
+        if enabled {
+            let discovered = discovery::discover_handlers(config_layer_stack);
+            handlers.extend(discovered.handlers);
+            warnings.extend(discovered.warnings);
         }
 
-        let _ = schema_loader::generated_hook_schemas();
-        let discovered = discovery::discover_handlers(config_layer_stack);
         Self {
-            handlers: discovered.handlers,
-            warnings: discovered.warnings,
+            handlers,
+            warnings,
             shell,
         }
     }

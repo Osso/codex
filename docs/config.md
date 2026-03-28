@@ -25,6 +25,8 @@ Codex can run a notification hook when the agent finishes a turn. See the config
 - https://developers.openai.com/codex/config-reference
 
 Codex also supports native lifecycle hooks in `config.toml` under the top-level `hooks` table.
+Supported native hook groups are `pre_tool_use`, `post_tool_use`, `user_prompt_submit`,
+`session_start`, `stop`, `session_end`, `subagent_start`, and `subagent_stop`.
 
 When Codex knows which client started the turn, the legacy notify JSON payload also includes a top-level `client` field. The TUI reports `codex-tui`, and the app server reports the `clientInfo.name` value from `initialize`.
 
