@@ -1,13 +1,17 @@
 use std::io;
+use std::path::Path;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 
 use codex_apply_patch::Hunk;
 use codex_apply_patch::MaybeApplyPatch;
+use codex_config::CONFIG_TOML_FILE;
 use codex_config::ConfigLayerStack;
 use codex_protocol::models::ShellCommandToolCallParams;
 use codex_protocol::models::ShellToolCallParams;
+#[cfg(test)]
+use codex_protocol::protocol::HookEventName;
 use serde_json::Value;
 use tokio::process::Command;
 use tokio::time::timeout;
@@ -87,6 +91,10 @@ impl Default for Hooks {
 
 impl Hooks {
     pub fn new(config: HooksConfig) -> Self {
+        let toml_session_start = crate::engine::discovery::discover_toml_session_start_handlers(
+            Path::new(CONFIG_TOML_FILE),
+            &config.hooks.session_start,
+        );
         let after_agent = config
             .legacy_notify_argv
             .filter(|argv| !argv.is_empty() && !argv[0].is_empty())
@@ -101,6 +109,8 @@ impl Hooks {
                 program: config.shell_program.unwrap_or_default(),
                 args: config.shell_args,
             },
+            toml_session_start.handlers,
+            toml_session_start.warnings,
         );
         Self {
             pre_tool_use: build_command_hooks("pre_tool_use", &config.hooks.pre_tool_use),
@@ -1081,6 +1091,70 @@ mod tests {
             ..HooksConfig::default()
         });
         assert_eq!(hooks.pre_tool_use.len(), 1);
+    }
+
+    #[test]
+    fn hooks_new_builds_session_start_handlers_from_toml_config() {
+        let hooks = Hooks::new(HooksConfig {
+            hooks: HooksToml {
+                session_start: vec![HookRuleConfig {
+                    matcher: Some("startup|resume".to_string()),
+                    commands: vec![CommandHookConfig {
+                        command: "true".to_string(),
+                        timeout_sec: Some(5),
+                    }],
+                }],
+                ..HooksToml::default()
+            },
+            ..HooksConfig::default()
+        });
+
+        let summaries = hooks.preview_session_start(&SessionStartRequest {
+            session_id: ThreadId::new(),
+            cwd: PathBuf::from(CWD),
+            transcript_path: None,
+            model: "gpt-5.4".to_string(),
+            permission_mode: "default".to_string(),
+            source: crate::events::session_start::SessionStartSource::Startup,
+        });
+
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].event_name, HookEventName::SessionStart);
+        assert_eq!(summaries[0].source_path, PathBuf::from(CONFIG_TOML_FILE));
+    }
+
+    #[test]
+    fn hooks_new_reports_invalid_session_start_matcher_warning() {
+        let hooks = Hooks::new(HooksConfig {
+            hooks: HooksToml {
+                session_start: vec![HookRuleConfig {
+                    matcher: Some("[".to_string()),
+                    commands: vec![CommandHookConfig {
+                        command: "true".to_string(),
+                        timeout_sec: None,
+                    }],
+                }],
+                ..HooksToml::default()
+            },
+            ..HooksConfig::default()
+        });
+
+        let summaries = hooks.preview_session_start(&SessionStartRequest {
+            session_id: ThreadId::new(),
+            cwd: PathBuf::from(CWD),
+            transcript_path: None,
+            model: "gpt-5.4".to_string(),
+            permission_mode: "default".to_string(),
+            source: crate::events::session_start::SessionStartSource::Startup,
+        });
+
+        assert!(summaries.is_empty());
+        assert_eq!(
+            hooks.startup_warnings(),
+            &[String::from(
+                "invalid matcher \"[\" in config.toml: regex parse error:\n    [\n    ^\nerror: unclosed character class"
+            )]
+        );
     }
 
     #[test]

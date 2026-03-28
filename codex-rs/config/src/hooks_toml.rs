@@ -29,6 +29,8 @@ pub struct HooksToml {
     #[serde(default)]
     pub user_prompt_submit: Vec<HookRuleConfig>,
     #[serde(default)]
+    pub session_start: Vec<HookRuleConfig>,
+    #[serde(default)]
     pub stop: Vec<HookRuleConfig>,
     #[serde(default)]
     pub session_end: Vec<HookRuleConfig>,
