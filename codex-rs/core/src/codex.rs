@@ -468,7 +468,10 @@ pub(crate) fn apply_user_prompt_hook_updated_input(input: &mut Vec<UserInput>, u
     }
 
     if let Ok(updated_input) = serde_json::from_value::<UserInput>(updated.clone()) {
-        *input = vec![updated_input];
+        match updated_input {
+            UserInput::Text { .. } => input.insert(0, updated_input),
+            _ => *input = vec![updated_input],
+        }
         return;
     }
 
