@@ -98,6 +98,17 @@ pub(crate) struct StopCommandOutputWire {
     pub decision: Option<StopDecisionWire>,
     #[serde(default)]
     pub reason: Option<String>,
+    #[serde(default)]
+    pub hook_specific_output: Option<StopHookSpecificOutputWire>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub(crate) struct StopHookSpecificOutputWire {
+    pub hook_event_name: HookEventNameWire,
+    #[serde(default)]
+    pub additional_context: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]

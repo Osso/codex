@@ -2,11 +2,34 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
   "definitions": {
+    "HookEventNameWire": {
+      "enum": [
+        "SessionStart",
+        "Stop"
+      ],
+      "type": "string"
+    },
     "StopDecisionWire": {
       "enum": [
         "block"
       ],
       "type": "string"
+    },
+    "StopHookSpecificOutputWire": {
+      "additionalProperties": false,
+      "properties": {
+        "additionalContext": {
+          "default": null,
+          "type": "string"
+        },
+        "hookEventName": {
+          "$ref": "#/definitions/HookEventNameWire"
+        }
+      },
+      "required": [
+        "hookEventName"
+      ],
+      "type": "object"
     }
   },
   "properties": {
@@ -18,6 +41,14 @@
       "allOf": [
         {
           "$ref": "#/definitions/StopDecisionWire"
+        }
+      ],
+      "default": null
+    },
+    "hookSpecificOutput": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/StopHookSpecificOutputWire"
         }
       ],
       "default": null

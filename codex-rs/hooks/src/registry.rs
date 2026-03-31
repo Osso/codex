@@ -53,6 +53,8 @@ use crate::types::HookEventAfterAgent;
 #[cfg(test)]
 use crate::types::HookEventAfterToolUse;
 #[cfg(test)]
+use crate::types::HookEventUserPromptSubmit;
+#[cfg(test)]
 use crate::types::HookToolKind;
 
 #[derive(Default, Clone)]
@@ -405,9 +407,18 @@ fn parse_command_output(stdout: &[u8]) -> HookExecutionOutcome {
     let maybe_permission = hook_specific
         .and_then(parse_permission_decision)
         .or_else(|| json.as_object().and_then(parse_permission_decision));
-    let updated_input = hook_specific
+    let mut updated_input = hook_specific
         .and_then(|obj| obj.get("updatedInput"))
         .cloned();
+    if updated_input.is_none()
+        && let Some(additional_context) = hook_specific
+            .and_then(|obj| obj.get("additionalContext"))
+            .and_then(Value::as_str)
+    {
+        updated_input = Some(serde_json::json!({
+            "additional_context": additional_context
+        }));
+    }
     if let Some(permission_decision) = maybe_permission {
         let result = match &permission_decision {
             HookPermissionDecision::Deny { reason } => {
@@ -475,6 +486,13 @@ fn command_hook_input(payload: &HookPayload) -> Value {
 
     if let Some(tool_input) = claude_tool_input(payload) {
         obj.insert("tool_input".to_string(), tool_input);
+    }
+
+    if let HookEvent::UserPromptSubmit { event } = &payload.hook_event {
+        obj.insert(
+            "prompt".to_string(),
+            Value::String(event.input_messages.join("\n\n")),
+        );
     }
 
     value
@@ -672,6 +690,24 @@ mod tests {
                     turn_id: format!("turn-{label}"),
                     input_messages: vec![INPUT_MESSAGE.to_string()],
                     last_assistant_message: Some("hi".to_string()),
+                },
+            },
+        }
+    }
+
+    fn user_prompt_submit_payload(messages: Vec<&str>) -> HookPayload {
+        HookPayload {
+            session_id: ThreadId::new(),
+            cwd: PathBuf::from(CWD),
+            client: None,
+            triggered_at: Utc
+                .with_ymd_and_hms(2025, 1, 1, 0, 0, 0)
+                .single()
+                .expect("valid timestamp"),
+            hook_event: HookEvent::UserPromptSubmit {
+                event: HookEventUserPromptSubmit {
+                    turn_id: "turn-user".to_string(),
+                    input_messages: messages.into_iter().map(str::to_string).collect(),
                 },
             },
         }
@@ -1200,6 +1236,31 @@ mod tests {
         assert!(result.permission_decision.is_none());
         assert!(result.updated_input.is_some());
         assert_eq!(result.updated_input.unwrap()["command"], "rtk git log");
+    }
+
+    #[test]
+    fn parse_command_output_extracts_additional_context_as_updated_input() {
+        let result = parse_command_output(
+            br#"{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"Relevant memories:\n- one"}} "#,
+        );
+        assert!(matches!(result.result, HookResult::Success));
+        assert!(result.permission_decision.is_none());
+        assert_eq!(
+            result.updated_input,
+            Some(serde_json::json!({
+                "additional_context": "Relevant memories:\n- one"
+            }))
+        );
+    }
+
+    #[test]
+    fn command_hook_input_adds_prompt_for_user_prompt_submit() {
+        let payload = user_prompt_submit_payload(vec!["first", "second"]);
+
+        let actual = command_hook_input(&payload);
+
+        assert_eq!(actual["hook_event_name"], "UserPromptSubmit");
+        assert_eq!(actual["prompt"], "first\n\nsecond");
     }
 
     #[test]

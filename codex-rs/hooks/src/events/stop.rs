@@ -35,6 +35,7 @@ pub struct StopOutcome {
     pub should_block: bool,
     pub block_reason: Option<String>,
     pub block_message_for_model: Option<String>,
+    pub additional_context: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -44,6 +45,7 @@ struct StopHandlerData {
     should_block: bool,
     block_reason: Option<String>,
     block_message_for_model: Option<String>,
+    additional_context: Option<String>,
 }
 
 pub(crate) fn preview(
@@ -70,6 +72,7 @@ pub(crate) async fn run(
             should_block: false,
             block_reason: None,
             block_message_for_model: None,
+            additional_context: None,
         };
     }
 
@@ -122,6 +125,9 @@ pub(crate) async fn run(
     } else {
         None
     };
+    let additional_context = results
+        .iter()
+        .find_map(|result| result.data.additional_context.clone());
 
     StopOutcome {
         hook_events: results.into_iter().map(|result| result.completed).collect(),
@@ -130,6 +136,7 @@ pub(crate) async fn run(
         should_block,
         block_reason,
         block_message_for_model,
+        additional_context,
     }
 }
 
@@ -145,6 +152,7 @@ fn parse_completed(
     let mut should_block = false;
     let mut block_reason = None;
     let mut block_message_for_model = None;
+    let mut additional_context = None;
 
     match run_result.error.as_deref() {
         Some(error) => {
@@ -159,6 +167,7 @@ fn parse_completed(
                 let trimmed_stdout = run_result.stdout.trim();
                 if trimmed_stdout.is_empty() {
                 } else if let Some(parsed) = output_parser::parse_stop(&run_result.stdout) {
+                    additional_context = parsed.additional_context.clone();
                     if let Some(system_message) = parsed.universal.system_message {
                         entries.push(HookOutputEntry {
                             kind: HookOutputEntryKind::Warning,
@@ -182,6 +191,9 @@ fn parse_completed(
                             should_block = true;
                             block_reason = Some(reason.clone());
                             block_message_for_model = Some(reason.clone());
+                            if additional_context.is_none() {
+                                additional_context = Some(reason.clone());
+                            }
                             entries.push(HookOutputEntry {
                                 kind: HookOutputEntryKind::Feedback,
                                 text: reason,
@@ -251,6 +263,7 @@ fn parse_completed(
             should_block,
             block_reason,
             block_message_for_model,
+            additional_context,
         },
     }
 }
@@ -293,6 +306,7 @@ fn serialization_failure_outcome(
         should_block: false,
         block_reason: None,
         block_message_for_model: None,
+        additional_context: None,
     }
 }
 
@@ -331,6 +345,7 @@ mod tests {
                 should_block: false,
                 block_reason: None,
                 block_message_for_model: None,
+                additional_context: None,
             }
         );
         assert_eq!(parsed.completed.run.status, HookRunStatus::Stopped);
@@ -352,6 +367,7 @@ mod tests {
                 should_block: true,
                 block_reason: Some("retry with tests".to_string()),
                 block_message_for_model: Some("retry with tests".to_string()),
+                additional_context: None,
             }
         );
         assert_eq!(parsed.completed.run.status, HookRunStatus::Blocked);
@@ -373,6 +389,7 @@ mod tests {
                 should_block: false,
                 block_reason: None,
                 block_message_for_model: None,
+                additional_context: None,
             }
         );
         assert_eq!(parsed.completed.run.status, HookRunStatus::Failed);
@@ -383,6 +400,58 @@ mod tests {
                 text: "hook returned decision \"block\" without a non-empty reason".to_string(),
             }]
         );
+    }
+
+    #[test]
+    fn parse_completed_extracts_additional_context() {
+        let parsed = parse_completed(
+            &handler(),
+            run_result(
+                Some(0),
+                r#"{"continue":true,"hookSpecificOutput":{"hookEventName":"Stop","additionalContext":"Review PLAN.md before the next turn."}}"#,
+                "",
+            ),
+            Some("turn-1".to_string()),
+        );
+
+        assert_eq!(
+            parsed.data,
+            StopHandlerData {
+                should_stop: false,
+                stop_reason: None,
+                should_block: false,
+                block_reason: None,
+                block_message_for_model: None,
+                additional_context: Some("Review PLAN.md before the next turn.".to_string()),
+            }
+        );
+        assert_eq!(parsed.completed.run.status, HookRunStatus::Completed);
+    }
+
+    #[test]
+    fn block_reason_becomes_additional_context_when_hook_specific_output_is_absent() {
+        let parsed = parse_completed(
+            &handler(),
+            run_result(
+                Some(0),
+                r#"{"decision":"block","reason":"PLAN.md has remaining work:\n- item"}"#,
+                "",
+            ),
+            Some("turn-1".to_string()),
+        );
+
+        assert_eq!(
+            parsed.data,
+            StopHandlerData {
+                should_stop: false,
+                stop_reason: None,
+                should_block: true,
+                block_reason: Some("PLAN.md has remaining work:\n- item".to_string()),
+                block_message_for_model: Some("PLAN.md has remaining work:\n- item".to_string()),
+                additional_context: Some("PLAN.md has remaining work:\n- item".to_string()),
+            }
+        );
+        assert_eq!(parsed.completed.run.status, HookRunStatus::Blocked);
     }
 
     #[test]
@@ -401,6 +470,7 @@ mod tests {
                 should_block: false,
                 block_reason: None,
                 block_message_for_model: None,
+                additional_context: None,
             }
         );
         assert_eq!(parsed.completed.run.status, HookRunStatus::Failed);
@@ -429,6 +499,7 @@ mod tests {
                 should_block: false,
                 block_reason: None,
                 block_message_for_model: None,
+                additional_context: None,
             }
         );
         assert_eq!(parsed.completed.run.status, HookRunStatus::Failed);
@@ -457,6 +528,7 @@ mod tests {
                 should_block: false,
                 block_reason: None,
                 block_message_for_model: None,
+                additional_context: None,
             }
         );
         assert_eq!(parsed.completed.run.status, HookRunStatus::Failed);

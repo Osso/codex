@@ -388,6 +388,36 @@ fn hook_input_messages(input: &[UserInput]) -> Vec<String> {
         .collect()
 }
 
+pub(crate) fn apply_user_prompt_hook_updated_input(input: &mut Vec<UserInput>, updated: &Value) {
+    if let Ok(updated_input) = serde_json::from_value::<Vec<UserInput>>(updated.clone()) {
+        *input = updated_input;
+        return;
+    }
+
+    if let Ok(updated_input) = serde_json::from_value::<UserInput>(updated.clone()) {
+        *input = vec![updated_input];
+        return;
+    }
+
+    let additional_context = updated
+        .get("additional_context")
+        .and_then(Value::as_str)
+        .or_else(|| updated.as_str());
+    if let Some(additional_context) = additional_context {
+        prepend_user_text_input(input, additional_context.to_string());
+    }
+}
+
+pub(crate) fn prepend_user_text_input(input: &mut Vec<UserInput>, text: String) {
+    input.insert(
+        0,
+        UserInput::Text {
+            text,
+            text_elements: Vec::new(),
+        },
+    );
+}
+
 impl Codex {
     /// Spawn a new [`Codex`] and initialize the session.
     pub(crate) async fn spawn(args: CodexSpawnArgs) -> CodexResult<CodexSpawnOk> {
@@ -4302,7 +4332,9 @@ mod handlers {
     use crate::codex::Session;
     use crate::codex::SessionSettingsUpdate;
     use crate::codex::SteerInputError;
+    use crate::codex::apply_user_prompt_hook_updated_input;
     use crate::codex::hook_input_messages;
+    use crate::codex::prepend_user_text_input;
 
     use crate::codex::spawn_review_thread;
     use crate::config::Config;
@@ -4447,6 +4479,14 @@ mod handlers {
         };
         sess.maybe_emit_unknown_model_warning_for_turn(current_context.as_ref())
             .await;
+        let pending_stop_hook_additional_context = {
+            let mut state = sess.state.lock().await;
+            state.take_pending_stop_hook_additional_context()
+        };
+        let mut items = items;
+        if let Some(additional_context) = pending_stop_hook_additional_context {
+            prepend_user_text_input(&mut items, additional_context);
+        }
         let hook_outcomes = sess
             .hooks()
             .dispatch(HookPayload {
@@ -4464,6 +4504,9 @@ mod handlers {
             .await;
         for hook_outcome in hook_outcomes {
             let hook_name = hook_outcome.hook_name;
+            if let Some(updated_input) = hook_outcome.updated_input.as_ref() {
+                apply_user_prompt_hook_updated_input(&mut items, updated_input);
+            }
             match hook_outcome.result {
                 HookResult::Success => {}
                 HookResult::FailedContinue(error) => {
@@ -5851,6 +5894,12 @@ pub(crate) async fn run_turn(
                     for completed in stop_outcome.hook_events {
                         sess.send_event(&turn_context, EventMsg::HookCompleted(completed))
                             .await;
+                    }
+                    if stop_outcome.additional_context.is_some() {
+                        let mut state = sess.state.lock().await;
+                        state.set_pending_stop_hook_additional_context(
+                            stop_outcome.additional_context.clone(),
+                        );
                     }
                     if stop_outcome.should_block {
                         if stop_hook_active {

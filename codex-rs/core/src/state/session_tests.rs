@@ -153,3 +153,17 @@ async fn set_rate_limits_carries_credits_and_plan_type_from_codex_to_codex_other
         })
     );
 }
+
+#[tokio::test]
+async fn pending_stop_hook_additional_context_is_taken_once() {
+    let session_configuration = make_session_configuration_for_tests().await;
+    let mut state = SessionState::new(session_configuration);
+
+    state.set_pending_stop_hook_additional_context(Some("review plan".to_string()));
+
+    assert_eq!(
+        state.take_pending_stop_hook_additional_context(),
+        Some("review plan".to_string())
+    );
+    assert_eq!(state.take_pending_stop_hook_additional_context(), None);
+}

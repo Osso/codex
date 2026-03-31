@@ -3874,6 +3874,59 @@ async fn steer_input_returns_active_turn_id() {
     assert!(sess.has_pending_input().await);
 }
 
+#[test]
+fn user_prompt_hook_additional_context_is_prepended_to_input() {
+    let mut input = vec![UserInput::Text {
+        text: "fix the failing test".to_string(),
+        text_elements: Vec::new(),
+    }];
+
+    apply_user_prompt_hook_updated_input(
+        &mut input,
+        &json!({
+            "additional_context": "Relevant memories:\n- Prefer repo-owned helpers"
+        }),
+    );
+
+    assert_eq!(
+        input,
+        vec![
+            UserInput::Text {
+                text: "Relevant memories:\n- Prefer repo-owned helpers".to_string(),
+                text_elements: Vec::new(),
+            },
+            UserInput::Text {
+                text: "fix the failing test".to_string(),
+                text_elements: Vec::new(),
+            },
+        ]
+    );
+}
+
+#[test]
+fn prepend_user_text_input_adds_context_before_existing_items() {
+    let mut input = vec![UserInput::Text {
+        text: "continue implementation".to_string(),
+        text_elements: Vec::new(),
+    }];
+
+    prepend_user_text_input(&mut input, "Review PLAN.md before responding.".to_string());
+
+    assert_eq!(
+        input,
+        vec![
+            UserInput::Text {
+                text: "Review PLAN.md before responding.".to_string(),
+                text_elements: Vec::new(),
+            },
+            UserInput::Text {
+                text: "continue implementation".to_string(),
+                text_elements: Vec::new(),
+            },
+        ]
+    );
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn abort_review_task_emits_exited_then_aborted_and_records_history() {
     let (sess, tc, rx) = make_session_and_context_with_rx().await;

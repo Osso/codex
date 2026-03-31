@@ -34,6 +34,7 @@ pub(crate) struct SessionState {
     pub(crate) startup_regular_task: Option<JoinHandle<CodexResult<RegularTask>>>,
     pub(crate) active_connector_selection: HashSet<String>,
     pub(crate) pending_session_start_source: Option<codex_hooks::SessionStartSource>,
+    pending_stop_hook_additional_context: Option<String>,
     granted_permissions: Option<PermissionProfile>,
 }
 
@@ -52,6 +53,7 @@ impl SessionState {
             startup_regular_task: None,
             active_connector_selection: HashSet::new(),
             pending_session_start_source: None,
+            pending_stop_hook_additional_context: None,
             granted_permissions: None,
         }
     }
@@ -173,6 +175,17 @@ impl SessionState {
         &mut self,
     ) -> Option<JoinHandle<CodexResult<RegularTask>>> {
         self.startup_regular_task.take()
+    }
+
+    pub(crate) fn set_pending_stop_hook_additional_context(
+        &mut self,
+        additional_context: Option<String>,
+    ) {
+        self.pending_stop_hook_additional_context = additional_context;
+    }
+
+    pub(crate) fn take_pending_stop_hook_additional_context(&mut self) -> Option<String> {
+        self.pending_stop_hook_additional_context.take()
     }
 
     // Adds connector IDs to the active set and returns the merged selection.

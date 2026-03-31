@@ -17,6 +17,7 @@ pub(crate) struct StopOutput {
     pub universal: UniversalOutput,
     pub should_block: bool,
     pub reason: Option<String>,
+    pub additional_context: Option<String>,
 }
 
 use crate::schema::HookUniversalOutputWire;
@@ -41,6 +42,9 @@ pub(crate) fn parse_stop(stdout: &str) -> Option<StopOutput> {
         universal: UniversalOutput::from(wire.universal),
         should_block: matches!(wire.decision, Some(StopDecisionWire::Block)),
         reason: wire.reason,
+        additional_context: wire
+            .hook_specific_output
+            .and_then(|output| output.additional_context),
     })
 }
 
