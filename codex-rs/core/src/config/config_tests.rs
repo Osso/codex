@@ -4822,8 +4822,8 @@ fn test_precedence_fixture_with_gpt3_profile() -> std::io::Result<()> {
         tui_status_line: None,
         tui_terminal_title: None,
         tui_theme: None,
-            tui_strong_color: None,
-            tui_code_color: None,
+        tui_strong_color: None,
+        tui_code_color: None,
         otel: OtelConfig::default(),
     };
 
@@ -4972,8 +4972,8 @@ fn test_precedence_fixture_with_zdr_profile() -> std::io::Result<()> {
         tui_status_line: None,
         tui_terminal_title: None,
         tui_theme: None,
-            tui_strong_color: None,
-            tui_code_color: None,
+        tui_strong_color: None,
+        tui_code_color: None,
         otel: OtelConfig::default(),
     };
 
@@ -5108,8 +5108,8 @@ fn test_precedence_fixture_with_gpt5_profile() -> std::io::Result<()> {
         tui_status_line: None,
         tui_terminal_title: None,
         tui_theme: None,
-            tui_strong_color: None,
-            tui_code_color: None,
+        tui_strong_color: None,
+        tui_code_color: None,
         otel: OtelConfig::default(),
     };
 

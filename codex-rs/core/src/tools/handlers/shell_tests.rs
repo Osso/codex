@@ -227,6 +227,7 @@ async fn shell_pre_tool_use_payload_uses_joined_command() {
             call_id: "call-41".to_string(),
             tool_name: codex_tools::ToolName::plain("shell"),
             payload,
+            pre_tool_hook_decision: None,
         }),
         Some(crate::tools::registry::PreToolUsePayload {
             command: "bash -lc 'printf hi'".to_string(),
@@ -252,6 +253,7 @@ async fn shell_command_pre_tool_use_payload_uses_raw_command() {
             call_id: "call-42".to_string(),
             tool_name: codex_tools::ToolName::plain("shell_command"),
             payload,
+            pre_tool_hook_decision: None,
         }),
         Some(crate::tools::registry::PreToolUsePayload {
             command: "printf shell command".to_string(),

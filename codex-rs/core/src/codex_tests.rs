@@ -4904,7 +4904,6 @@ async fn steer_input_returns_active_turn_id() {
     assert_eq!(turn_id, tc.sub_id);
     assert!(sess.has_pending_input().await);
 }
-
 #[tokio::test]
 async fn prepend_pending_input_keeps_older_tail_ahead_of_newer_input() {
     let (sess, tc, _rx) = make_session_and_context_with_rx().await;
@@ -5197,6 +5196,58 @@ async fn tool_calls_reopen_mailbox_delivery_for_current_turn() {
     );
 }
 
+#[test]
+fn user_prompt_hook_additional_context_is_prepended_to_input() {
+    let mut input = vec![UserInput::Text {
+        text: "fix the failing test".to_string(),
+        text_elements: Vec::new(),
+    }];
+
+    apply_user_prompt_hook_updated_input(
+        &mut input,
+        &json!({
+            "additional_context": "Relevant memories:\n- Prefer repo-owned helpers"
+        }),
+    );
+
+    assert_eq!(
+        input,
+        vec![
+            UserInput::Text {
+                text: "Relevant memories:\n- Prefer repo-owned helpers".to_string(),
+                text_elements: Vec::new(),
+            },
+            UserInput::Text {
+                text: "fix the failing test".to_string(),
+                text_elements: Vec::new(),
+            },
+        ]
+    );
+}
+
+#[test]
+fn prepend_user_text_input_adds_context_before_existing_items() {
+    let mut input = vec![UserInput::Text {
+        text: "continue implementation".to_string(),
+        text_elements: Vec::new(),
+    }];
+
+    prepend_user_text_input(&mut input, "Review PLAN.md before responding.".to_string());
+
+    assert_eq!(
+        input,
+        vec![
+            UserInput::Text {
+                text: "Review PLAN.md before responding.".to_string(),
+                text_elements: Vec::new(),
+            },
+            UserInput::Text {
+                text: "continue implementation".to_string(),
+                text_elements: Vec::new(),
+            },
+        ]
+    );
+}
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn abort_review_task_emits_exited_then_aborted_and_records_history() {
     let (sess, tc, rx) = make_session_and_context_with_rx().await;
@@ -5567,6 +5618,7 @@ async fn rejects_escalated_permissions_when_policy_not_on_request() {
                 })
                 .to_string(),
             },
+            pre_tool_hook_decision: None,
         })
         .await;
 
@@ -5643,6 +5695,7 @@ async fn unified_exec_rejects_escalated_permissions_when_policy_not_on_request()
                 })
                 .to_string(),
             },
+            pre_tool_hook_decision: None,
         })
         .await;
 
