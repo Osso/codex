@@ -961,12 +961,24 @@ impl EventProcessorWithHumanOutput {
 
         let event_name = Self::hook_event_name(event.run.event_name);
         let status = Self::hook_status_name(event.run.status);
-        ts_msg!(
-            self,
-            "{} {} ({status})",
-            "hook".style(self.magenta),
-            event_name
-        );
+        if let Some(status_message) = event.run.status_message
+            && !status_message.trim().is_empty()
+        {
+            ts_msg!(
+                self,
+                "{} {} ({status}): {}",
+                "hook".style(self.magenta),
+                event_name,
+                status_message
+            );
+        } else {
+            ts_msg!(
+                self,
+                "{} {} ({status})",
+                "hook".style(self.magenta),
+                event_name
+            );
+        }
 
         for entry in event.run.entries {
             let prefix = Self::hook_entry_prefix(entry.kind);

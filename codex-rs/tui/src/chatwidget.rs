@@ -2605,7 +2605,13 @@ impl ChatWidget {
 
     fn on_hook_completed(&mut self, event: codex_protocol::protocol::HookCompletedEvent) {
         let status = format!("{:?}", event.run.status).to_lowercase();
-        let header = format!("{} hook ({status})", hook_event_label(event.run.event_name));
+        let mut header = format!("{} hook ({status})", hook_event_label(event.run.event_name));
+        if let Some(status_message) = event.run.status_message
+            && !status_message.is_empty()
+        {
+            header.push_str(": ");
+            header.push_str(&status_message);
+        }
         let mut lines: Vec<ratatui::text::Line<'static>> = vec![header.into()];
         for entry in event.run.entries {
             let prefix = match entry.kind {
