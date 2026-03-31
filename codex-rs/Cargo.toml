@@ -365,7 +365,7 @@ ignored = [
 ]
 
 [profile.release]
-lto = "thin"
+lto = false
 incremental = true
 split-debuginfo = "off"
 # Because we bundle some of these executables with the TypeScript CLI, we
