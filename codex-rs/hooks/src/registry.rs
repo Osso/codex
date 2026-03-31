@@ -102,7 +102,6 @@ impl Hooks {
             .filter(|argv| !argv.is_empty() && !argv[0].is_empty())
             .map(crate::notify_hook)
             .into_iter()
-            .chain(build_command_hooks("stop", &config.hooks.stop))
             .collect();
         let engine = ClaudeHooksEngine::new(
             config.feature_enabled,
@@ -1127,6 +1126,25 @@ mod tests {
             ..HooksConfig::default()
         });
         assert_eq!(hooks.pre_tool_use.len(), 1);
+    }
+
+    #[test]
+    fn hooks_stop_does_not_register_after_agent_hooks() {
+        let hooks = Hooks::new(HooksConfig {
+            hooks: HooksToml {
+                stop: vec![HookRuleConfig {
+                    matcher: Some(String::new()),
+                    commands: vec![CommandHookConfig {
+                        command: "true".to_string(),
+                        timeout_sec: Some(5),
+                    }],
+                }],
+                ..HooksToml::default()
+            },
+            ..HooksConfig::default()
+        });
+
+        assert!(hooks.after_agent.is_empty());
     }
 
     #[test]
