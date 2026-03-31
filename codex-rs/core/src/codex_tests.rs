@@ -136,6 +136,62 @@ fn skill_message(text: &str) -> ResponseItem {
     }
 }
 
+#[test]
+fn single_text_user_prompt_hook_update_is_prepended_instead_of_replacing_input() {
+    let mut input = vec![UserInput::Text {
+        text: "run deploy.sh".to_string(),
+        text_elements: Vec::new(),
+    }];
+
+    apply_user_prompt_hook_updated_input(
+        &mut input,
+        &json!({
+            "type": "text",
+            "text": "Graph context:\n- deploy bot maintained_by user"
+        }),
+    );
+
+    assert_eq!(
+        input,
+        vec![
+            UserInput::Text {
+                text: "Graph context:\n- deploy bot maintained_by user".to_string(),
+                text_elements: Vec::new(),
+            },
+            UserInput::Text {
+                text: "run deploy.sh".to_string(),
+                text_elements: Vec::new(),
+            },
+        ]
+    );
+}
+
+#[test]
+fn array_user_prompt_hook_update_still_replaces_input() {
+    let mut input = vec![UserInput::Text {
+        text: "run deploy.sh".to_string(),
+        text_elements: Vec::new(),
+    }];
+
+    apply_user_prompt_hook_updated_input(
+        &mut input,
+        &json!([
+            {
+                "type": "text",
+                "text": "rewritten prompt"
+            }
+        ]),
+    );
+
+    assert_eq!(
+        input,
+        vec![UserInput::Text {
+            text: "rewritten prompt".to_string(),
+            text_elements: Vec::new(),
+        }]
+    );
+}
+
 fn developer_input_texts(items: &[ResponseItem]) -> Vec<&str> {
     items
         .iter()
