@@ -291,7 +291,7 @@ fn single_text_user_prompt_hook_update_is_prepended_instead_of_replacing_input()
         input,
         vec![
             UserInput::Text {
-                text: "Graph context:\n- deploy bot maintained_by user".to_string(),
+                text: "Graph context:\n- deploy bot maintained_by user\n\n".to_string(),
                 text_elements: Vec::new(),
             },
             UserInput::Text {
@@ -5269,7 +5269,7 @@ fn user_prompt_hook_additional_context_is_prepended_to_input() {
         input,
         vec![
             UserInput::Text {
-                text: "Relevant memories:\n- Prefer repo-owned helpers".to_string(),
+                text: "Relevant memories:\n- Prefer repo-owned helpers\n\n".to_string(),
                 text_elements: Vec::new(),
             },
             UserInput::Text {
@@ -5293,11 +5293,46 @@ fn prepend_user_text_input_adds_context_before_existing_items() {
         input,
         vec![
             UserInput::Text {
-                text: "Review PLAN.md before responding.".to_string(),
+                text: "Review PLAN.md before responding.\n\n".to_string(),
                 text_elements: Vec::new(),
             },
             UserInput::Text {
                 text: "continue implementation".to_string(),
+                text_elements: Vec::new(),
+            },
+        ]
+    );
+}
+
+#[test]
+fn prepend_user_text_input_separates_multiple_prepended_context_blocks() {
+    let mut input = vec![UserInput::Text {
+        text: "run tests".to_string(),
+        text_elements: Vec::new(),
+    }];
+
+    prepend_user_text_input(
+        &mut input,
+        "Graph context:\n- deploy bot maintained_by user".to_string(),
+    );
+    prepend_user_text_input(
+        &mut input,
+        "```sh\nclaude-plan-hook --fast\n```".to_string(),
+    );
+
+    assert_eq!(
+        input,
+        vec![
+            UserInput::Text {
+                text: "```sh\nclaude-plan-hook --fast\n```\n\n".to_string(),
+                text_elements: Vec::new(),
+            },
+            UserInput::Text {
+                text: "Graph context:\n- deploy bot maintained_by user\n\n".to_string(),
+                text_elements: Vec::new(),
+            },
+            UserInput::Text {
+                text: "run tests".to_string(),
                 text_elements: Vec::new(),
             },
         ]

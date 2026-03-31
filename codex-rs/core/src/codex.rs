@@ -469,7 +469,7 @@ pub(crate) fn apply_user_prompt_hook_updated_input(input: &mut Vec<UserInput>, u
 
     if let Ok(updated_input) = serde_json::from_value::<UserInput>(updated.clone()) {
         match updated_input {
-            UserInput::Text { .. } => input.insert(0, updated_input),
+            UserInput::Text { text, .. } => prepend_user_text_input(input, text),
             _ => *input = vec![updated_input],
         }
         return;
@@ -485,6 +485,12 @@ pub(crate) fn apply_user_prompt_hook_updated_input(input: &mut Vec<UserInput>, u
 }
 
 pub(crate) fn prepend_user_text_input(input: &mut Vec<UserInput>, text: String) {
+    let text = match input.first() {
+        Some(UserInput::Text { .. }) if !text.ends_with(char::is_whitespace) => {
+            format!("{text}\n\n")
+        }
+        _ => text,
+    };
     input.insert(
         0,
         UserInput::Text {
