@@ -148,6 +148,11 @@ impl Hooks {
         let hooks = self.hooks_for_event(&hook_payload.hook_event);
         let mut outcomes = Vec::with_capacity(hooks.len());
         for hook in hooks {
+            if matches!(hook_payload.hook_event, HookEvent::AfterAgent { .. })
+                && hook.name.starts_with("stop:")
+            {
+                continue;
+            }
             let outcome = hook.execute(&hook_payload).await;
             let should_abort_operation = outcome.result.should_abort_operation();
             outcomes.push(outcome);
@@ -935,6 +940,23 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["one", "two"]
         );
+    }
+
+    #[tokio::test]
+    async fn dispatch_skips_stop_hooks_for_after_agent_events() {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let hooks = Hooks {
+            after_agent: vec![
+                counting_success_hook(&calls, "stop:0:1"),
+                counting_success_hook(&calls, "tail"),
+            ],
+            ..Hooks::default()
+        };
+
+        let outcomes = hooks.dispatch(hook_payload("after-agent-stop")).await;
+        assert_eq!(outcomes.len(), 1);
+        assert_eq!(outcomes[0].hook_name, "tail");
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
     }
 
     #[tokio::test]
