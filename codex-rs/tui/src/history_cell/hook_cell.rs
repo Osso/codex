@@ -427,14 +427,14 @@ impl HookRunCell {
             HookRunState::Completed { status, entries } => {
                 let status_text = format!("{status:?}").to_lowercase();
                 let bullet = hook_completed_bullet(*status, entries);
-                lines.push(
-                    vec![
-                        bullet,
-                        " ".into(),
-                        format!("{label} hook ({status_text})").into(),
-                    ]
-                    .into(),
-                );
+                let mut header = format!("{label} hook ({status_text})");
+                if let Some(status_message) = self.status_message.as_deref()
+                    && !status_message.is_empty()
+                {
+                    header.push_str(": ");
+                    header.push_str(status_message);
+                }
+                lines.push(vec![bullet, " ".into(), header.into()].into());
                 for entry in entries {
                     // Output entries are already short hook-authored strings; keep their prefixes
                     // explicit so warnings/stops/errors remain easy to scan in history.
@@ -757,6 +757,28 @@ mod tests {
         cell.advance_time(Instant::now());
 
         assert_eq!(cell.transcript_animation_tick(), None);
+    }
+
+    #[test]
+    fn completed_hook_header_includes_status_message() {
+        let mut run = hook_run_summary("hook-1");
+        run.status = HookRunStatus::Completed;
+        run.entries = vec![HookOutputEntry {
+            kind: HookOutputEntryKind::Context,
+            text: "session context".to_string(),
+        }];
+
+        let cell = HookCell::new_completed(run, /*animations_enabled*/ false);
+        let rendered = cell
+            .display_lines(80)
+            .into_iter()
+            .map(|line| line.to_string())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            rendered[0],
+            "• PostToolUse hook (completed): checking output policy"
+        );
     }
 
     fn hook_run_summary(id: &str) -> HookRunSummary {

@@ -259,20 +259,37 @@ impl EventProcessor for EventProcessorWithHumanOutput {
                 CodexStatus::Running
             }
             ServerNotification::HookStarted(notification) => {
-                eprintln!(
-                    "{} {}",
-                    "hook:".style(self.bold),
-                    format!("{:?}", notification.run.event_name).style(self.dimmed)
-                );
+                if let Some(status_message) = notification.run.status_message.as_deref()
+                    && !status_message.trim().is_empty()
+                {
+                    eprintln!(
+                        "{} {}: {}",
+                        "hook:".style(self.bold),
+                        format!("{:?}", notification.run.event_name).style(self.dimmed),
+                        status_message
+                    );
+                }
                 CodexStatus::Running
             }
             ServerNotification::HookCompleted(notification) => {
-                eprintln!(
-                    "{} {} {:?}",
-                    "hook:".style(self.bold),
-                    format!("{:?}", notification.run.event_name).style(self.dimmed),
-                    notification.run.status
-                );
+                if let Some(status_message) = notification.run.status_message.as_deref()
+                    && !status_message.trim().is_empty()
+                {
+                    eprintln!(
+                        "{} {} {:?}: {}",
+                        "hook:".style(self.bold),
+                        format!("{:?}", notification.run.event_name).style(self.dimmed),
+                        notification.run.status,
+                        status_message
+                    );
+                } else {
+                    eprintln!(
+                        "{} {} {:?}",
+                        "hook:".style(self.bold),
+                        format!("{:?}", notification.run.event_name).style(self.dimmed),
+                        notification.run.status
+                    );
+                }
                 CodexStatus::Running
             }
             ServerNotification::ItemStarted(notification) => {
