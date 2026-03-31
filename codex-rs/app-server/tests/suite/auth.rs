@@ -8,6 +8,8 @@ use codex_app_server_protocol::JSONRPCError;
 use codex_app_server_protocol::JSONRPCResponse;
 use codex_app_server_protocol::LoginAccountResponse;
 use codex_app_server_protocol::RequestId;
+use codex_core::auth::AuthCredentialsStoreMode;
+use codex_login::login_with_api_key;
 use pretty_assertions::assert_eq;
 use std::path::Path;
 use tempfile::TempDir;
@@ -204,6 +206,42 @@ async fn get_auth_status_with_api_key_no_include_token() -> Result<()> {
     let status: GetAuthStatusResponse = to_response(resp)?;
     assert_eq!(status.auth_method, Some(AuthMode::ApiKey));
     assert!(status.auth_token.is_none(), "token must be omitted");
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn get_auth_status_reload_stale_auth_from_storage() -> Result<()> {
+    let codex_home = TempDir::new()?;
+    create_config_toml(codex_home.path())?;
+
+    let mut mcp = McpProcess::new_with_env(codex_home.path(), &[("OPENAI_API_KEY", None)]).await?;
+    timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
+
+    login_with_api_key(
+        codex_home.path(),
+        "sk-test-key",
+        AuthCredentialsStoreMode::File,
+    )?;
+
+    let request_id = mcp
+        .send_get_auth_status_request(GetAuthStatusParams {
+            include_token: Some(true),
+            refresh_token: Some(false),
+        })
+        .await?;
+
+    let resp: JSONRPCResponse = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_response_message(RequestId::Integer(request_id)),
+    )
+    .await??;
+    let status: GetAuthStatusResponse = to_response(resp)?;
+    let expected = GetAuthStatusResponse {
+        auth_method: Some(AuthMode::ApiKey),
+        auth_token: Some("sk-test-key".to_string()),
+        requires_openai_auth: Some(true),
+    };
+    assert_eq!(status, expected);
     Ok(())
 }
 

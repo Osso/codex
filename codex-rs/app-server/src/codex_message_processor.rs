@@ -1359,6 +1359,7 @@ impl CodexMessageProcessor {
         let include_token = params.include_token.unwrap_or(false);
         let do_refresh = params.refresh_token.unwrap_or(false);
 
+        self.auth_manager.reload();
         self.refresh_token_if_requested(do_refresh).await;
 
         // Determine whether auth is required based on the active model provider.
@@ -1407,6 +1408,7 @@ impl CodexMessageProcessor {
     async fn get_account(&self, request_id: ConnectionRequestId, params: GetAccountParams) {
         let do_refresh = params.refresh_token;
 
+        self.auth_manager.reload();
         self.refresh_token_if_requested(do_refresh).await;
 
         // Whether auth is required for the active model provider.
