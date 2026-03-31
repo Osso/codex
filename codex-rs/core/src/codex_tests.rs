@@ -291,7 +291,7 @@ fn single_text_user_prompt_hook_update_is_prepended_instead_of_replacing_input()
         input,
         vec![
             UserInput::Text {
-                text: "Graph context:\n- deploy bot maintained_by user\n\n".to_string(),
+                text: "Graph context:\n- deploy bot maintained_by user\r\n\r\n".to_string(),
                 text_elements: Vec::new(),
             },
             UserInput::Text {
@@ -5269,7 +5269,7 @@ fn user_prompt_hook_additional_context_is_prepended_to_input() {
         input,
         vec![
             UserInput::Text {
-                text: "Relevant memories:\n- Prefer repo-owned helpers\n\n".to_string(),
+                text: "Relevant memories:\n- Prefer repo-owned helpers\r\n\r\n".to_string(),
                 text_elements: Vec::new(),
             },
             UserInput::Text {
@@ -5293,7 +5293,7 @@ fn prepend_user_text_input_adds_context_before_existing_items() {
         input,
         vec![
             UserInput::Text {
-                text: "Review PLAN.md before responding.\n\n".to_string(),
+                text: "Review PLAN.md before responding.\r\n\r\n".to_string(),
                 text_elements: Vec::new(),
             },
             UserInput::Text {
@@ -5324,11 +5324,11 @@ fn prepend_user_text_input_separates_multiple_prepended_context_blocks() {
         input,
         vec![
             UserInput::Text {
-                text: "```sh\nclaude-plan-hook --fast\n```\n\n".to_string(),
+                text: "```sh\nclaude-plan-hook --fast\n```\r\n\r\n".to_string(),
                 text_elements: Vec::new(),
             },
             UserInput::Text {
-                text: "Graph context:\n- deploy bot maintained_by user\n\n".to_string(),
+                text: "Graph context:\n- deploy bot maintained_by user\r\n\r\n".to_string(),
                 text_elements: Vec::new(),
             },
             UserInput::Text {

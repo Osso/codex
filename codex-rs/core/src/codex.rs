@@ -487,7 +487,7 @@ pub(crate) fn apply_user_prompt_hook_updated_input(input: &mut Vec<UserInput>, u
 pub(crate) fn prepend_user_text_input(input: &mut Vec<UserInput>, text: String) {
     let text = match input.first() {
         Some(UserInput::Text { .. }) if !text.ends_with(char::is_whitespace) => {
-            format!("{text}\n\n")
+            format!("{text}\r\n\r\n")
         }
         _ => text,
     };
