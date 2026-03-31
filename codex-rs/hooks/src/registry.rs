@@ -91,12 +91,20 @@ impl Hooks {
             Path::new(CONFIG_TOML_FILE),
             &config.hooks.session_start,
         );
+        let toml_stop = crate::engine::discovery::discover_toml_stop_handlers(
+            Path::new(CONFIG_TOML_FILE),
+            &config.hooks.stop,
+        );
         let after_agent = config
             .legacy_notify_argv
             .filter(|argv| !argv.is_empty() && !argv[0].is_empty())
             .map(crate::notify_hook)
             .into_iter()
             .collect();
+        let mut engine_handlers = toml_session_start.handlers;
+        engine_handlers.extend(toml_stop.handlers);
+        let mut engine_warnings = toml_session_start.warnings;
+        engine_warnings.extend(toml_stop.warnings);
         let engine = ClaudeHooksEngine::new(
             config.feature_enabled,
             config.config_layer_stack.as_ref(),
@@ -104,8 +112,8 @@ impl Hooks {
                 program: config.shell_program.unwrap_or_default(),
                 args: config.shell_args,
             },
-            toml_session_start.handlers,
-            toml_session_start.warnings,
+            engine_handlers,
+            engine_warnings,
         );
         Self {
             pre_tool_use: build_command_hooks("pre_tool_use", &config.hooks.pre_tool_use),
@@ -1199,6 +1207,38 @@ mod tests {
                 "invalid matcher \"[\" in config.toml: regex parse error:\n    [\n    ^\nerror: unclosed character class"
             )]
         );
+    }
+
+    #[test]
+    fn hooks_new_builds_stop_handlers_from_toml_config() {
+        let hooks = Hooks::new(HooksConfig {
+            hooks: HooksToml {
+                stop: vec![HookRuleConfig {
+                    matcher: Some(String::new()),
+                    commands: vec![CommandHookConfig {
+                        command: "echo stop".to_string(),
+                        timeout_sec: Some(5),
+                    }],
+                }],
+                ..HooksToml::default()
+            },
+            ..HooksConfig::default()
+        });
+
+        let summaries = hooks.preview_stop(&StopRequest {
+            session_id: ThreadId::new(),
+            turn_id: "turn-123".to_string(),
+            cwd: PathBuf::from(CWD),
+            transcript_path: None,
+            model: "gpt-5.4".to_string(),
+            permission_mode: "default".to_string(),
+            stop_hook_active: false,
+            last_assistant_message: None,
+        });
+
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].event_name, HookEventName::Stop);
+        assert_eq!(summaries[0].source_path, PathBuf::from(CONFIG_TOML_FILE));
     }
 
     #[test]

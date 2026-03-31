@@ -101,6 +101,29 @@ pub(crate) fn discover_toml_session_start_handlers(
     source_path: &Path,
     rules: &[HookRuleConfig],
 ) -> DiscoveryResult {
+    discover_toml_handlers(
+        source_path,
+        rules,
+        codex_protocol::protocol::HookEventName::SessionStart,
+    )
+}
+
+pub(crate) fn discover_toml_stop_handlers(
+    source_path: &Path,
+    rules: &[HookRuleConfig],
+) -> DiscoveryResult {
+    discover_toml_handlers(
+        source_path,
+        rules,
+        codex_protocol::protocol::HookEventName::Stop,
+    )
+}
+
+fn discover_toml_handlers(
+    source_path: &Path,
+    rules: &[HookRuleConfig],
+    event_name: codex_protocol::protocol::HookEventName,
+) -> DiscoveryResult {
     let mut handlers = Vec::new();
     let mut warnings = Vec::new();
     let mut display_order = 0_i64;
@@ -125,7 +148,7 @@ pub(crate) fn discover_toml_session_start_handlers(
                 continue;
             }
             handlers.push(ConfiguredHandler {
-                event_name: codex_protocol::protocol::HookEventName::SessionStart,
+                event_name,
                 matcher: rule.matcher.clone(),
                 command: command.command.clone(),
                 timeout_sec: command.timeout_sec.unwrap_or(600).max(1),
