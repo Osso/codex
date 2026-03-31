@@ -10122,7 +10122,8 @@ async fn hook_events_render_snapshot() {
     let combined = cells
         .iter()
         .map(|lines| lines_to_single_string(lines))
-        .collect::<String>();
+        .collect::<Vec<_>>()
+        .join("\n");
     assert_snapshot!("hook_events_render_snapshot", combined);
 }
 
