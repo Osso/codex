@@ -191,9 +191,6 @@ fn parse_completed(
                             should_block = true;
                             block_reason = Some(reason.clone());
                             block_message_for_model = Some(reason.clone());
-                            if additional_context.is_none() {
-                                additional_context = Some(reason.clone());
-                            }
                             entries.push(HookOutputEntry {
                                 kind: HookOutputEntryKind::Feedback,
                                 text: reason,
@@ -429,7 +426,7 @@ mod tests {
     }
 
     #[test]
-    fn block_reason_becomes_additional_context_when_hook_specific_output_is_absent() {
+    fn block_reason_does_not_become_additional_context_when_hook_specific_output_is_absent() {
         let parsed = parse_completed(
             &handler(),
             run_result(
@@ -448,7 +445,7 @@ mod tests {
                 should_block: true,
                 block_reason: Some("PLAN.md has remaining work:\n- item".to_string()),
                 block_message_for_model: Some("PLAN.md has remaining work:\n- item".to_string()),
-                additional_context: Some("PLAN.md has remaining work:\n- item".to_string()),
+                additional_context: None,
             }
         );
         assert_eq!(parsed.completed.run.status, HookRunStatus::Blocked);
