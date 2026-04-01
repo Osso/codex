@@ -182,9 +182,6 @@ fn parse_completed(
                             status = HookRunStatus::Blocked;
                             should_block = true;
                             block_reason = Some(reason.clone());
-                            if additional_context.is_none() {
-                                additional_context = Some(reason.clone());
-                            }
                             continuation_prompt = Some(reason.clone());
                             entries.push(HookOutputEntry {
                                 kind: HookOutputEntryKind::Feedback,
@@ -362,7 +359,7 @@ mod tests {
                 stop_reason: None,
                 should_block: true,
                 block_reason: Some("retry with tests".to_string()),
-                additional_context: Some("retry with tests".to_string()),
+                additional_context: None,
                 continuation_fragments: vec![HookPromptFragment {
                     text: "retry with tests".to_string(),
                     hook_run_id: parsed.completed.run.id.clone(),
@@ -500,7 +497,7 @@ mod tests {
     }
 
     #[test]
-    fn block_reason_becomes_additional_context_when_hook_specific_output_is_absent() {
+    fn block_reason_does_not_become_additional_context_when_hook_specific_output_is_absent() {
         let parsed = parse_completed(
             &handler(),
             run_result(
@@ -518,7 +515,7 @@ mod tests {
                 stop_reason: None,
                 should_block: true,
                 block_reason: Some("PLAN.md has remaining work:\n- item".to_string()),
-                additional_context: Some("PLAN.md has remaining work:\n- item".to_string()),
+                additional_context: None,
                 continuation_fragments: vec![HookPromptFragment::from_single_hook(
                     "PLAN.md has remaining work:\n- item",
                     parsed.completed.run.id.as_str(),
