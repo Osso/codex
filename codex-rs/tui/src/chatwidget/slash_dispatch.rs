@@ -7,6 +7,18 @@
 
 use super::*;
 
+/// Return the text of the first unchecked item in a PLAN.md file, or `None`.
+fn find_next_plan_item(plan_path: &std::path::Path) -> Option<String> {
+    let contents = std::fs::read_to_string(plan_path).ok()?;
+    contents
+        .lines()
+        .find(|line| {
+            let trimmed = line.trim();
+            trimmed.starts_with("- [ ]") || trimmed.starts_with("* [ ]")
+        })
+        .map(|line| line.trim().to_string())
+}
+
 impl ChatWidget {
     /// Dispatch a bare slash command and record its staged local-history entry.
     ///
@@ -50,6 +62,47 @@ impl ChatWidget {
                 /*hint*/ None,
             );
             false
+        }
+    }
+
+    fn dispatch_run_plan(&mut self) {
+        // Set env so child processes such as hooks inherit RUN_PLAN=1.
+        unsafe { std::env::set_var("RUN_PLAN", "1") };
+
+        let cwd = self
+            .current_cwd
+            .as_deref()
+            .unwrap_or(self.config.cwd.as_path());
+        let plan_path = cwd.join("PLAN.md");
+        let next_item = find_next_plan_item(&plan_path);
+
+        match next_item {
+            Some(item) => {
+                let text = format!(
+                    "Work on the next task from PLAN.md:\n{item}\n\n\
+                     Commit after completing this item. \
+                     Check it off (change `- [ ]` to `- [x]`). \
+                     Do not delete existing items from PLAN.md."
+                );
+                let user_message = UserMessage {
+                    text,
+                    local_images: Vec::new(),
+                    remote_image_urls: Vec::new(),
+                    text_elements: Vec::new(),
+                    mention_bindings: Vec::new(),
+                };
+                if self.is_session_configured() {
+                    self.reasoning_buffer.clear();
+                    self.full_reasoning_buffer.clear();
+                    self.set_status_header(String::from("Working"));
+                    self.submit_user_message(user_message);
+                } else {
+                    self.queue_user_message(user_message);
+                }
+            }
+            None => {
+                self.add_info_message("No pending tasks in PLAN.md.".to_string(), None);
+            }
         }
     }
 
@@ -150,6 +203,9 @@ impl ChatWidget {
             }
             SlashCommand::Plan => {
                 self.apply_plan_slash_command();
+            }
+            SlashCommand::RunPlan => {
+                self.dispatch_run_plan();
             }
             SlashCommand::Collab => {
                 if !self.collaboration_modes_enabled() {
@@ -515,5 +571,38 @@ impl ChatWidget {
             }
             _ => self.dispatch_command(cmd),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::find_next_plan_item;
+    use pretty_assertions::assert_eq;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn finds_first_unchecked_plan_item() {
+        let temp = tempdir().expect("tempdir");
+        let plan_path = temp.path().join("PLAN.md");
+        fs::write(
+            &plan_path,
+            "# Plan\n- [x] done\n- [ ] next item\n* [ ] later item\n",
+        )
+        .expect("write plan");
+
+        assert_eq!(
+            find_next_plan_item(&plan_path),
+            Some("- [ ] next item".to_string())
+        );
+    }
+
+    #[test]
+    fn returns_none_without_unchecked_plan_item() {
+        let temp = tempdir().expect("tempdir");
+        let plan_path = temp.path().join("PLAN.md");
+        fs::write(&plan_path, "# Plan\n- [x] done\n").expect("write plan");
+
+        assert_eq!(find_next_plan_item(&plan_path), None);
     }
 }

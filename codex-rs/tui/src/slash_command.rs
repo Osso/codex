@@ -22,6 +22,8 @@ pub enum SlashCommand {
     SandboxReadRoot,
     Experimental,
     Skills,
+    #[strum(serialize = "run-plan")]
+    RunPlan,
     Review,
     Rename,
     New,
@@ -74,6 +76,7 @@ impl SlashCommand {
             SlashCommand::New => "start a new chat during a conversation",
             SlashCommand::Init => "create an AGENTS.md file with instructions for Codex",
             SlashCommand::Compact => "summarize conversation to prevent hitting the context limit",
+            SlashCommand::RunPlan => "set RUN_PLAN=1 and work on next PLAN.md item",
             SlashCommand::Review => "review my current changes and find issues",
             SlashCommand::Rename => "rename the current thread",
             SlashCommand::Resume => "resume a saved chat",
@@ -155,6 +158,7 @@ impl SlashCommand {
             | SlashCommand::SandboxReadRoot
             | SlashCommand::Experimental
             | SlashCommand::Review
+            | SlashCommand::RunPlan
             | SlashCommand::Plan
             | SlashCommand::Clear
             | SlashCommand::Logout
@@ -207,6 +211,7 @@ pub fn built_in_slash_commands() -> Vec<(&'static str, SlashCommand)> {
 
 #[cfg(test)]
 mod tests {
+    use super::built_in_slash_commands;
     use pretty_assertions::assert_eq;
     use std::str::FromStr;
 
@@ -220,5 +225,19 @@ mod tests {
     #[test]
     fn clean_alias_parses_to_stop_command() {
         assert_eq!(SlashCommand::from_str("clean"), Ok(SlashCommand::Stop));
+    }
+
+    #[test]
+    fn run_plan_command_is_registered() {
+        assert!(built_in_slash_commands().contains(&("run-plan", SlashCommand::RunPlan)));
+        assert_eq!(
+            SlashCommand::RunPlan.description(),
+            "set RUN_PLAN=1 and work on next PLAN.md item"
+        );
+    }
+
+    #[test]
+    fn run_plan_is_blocked_while_task_is_running() {
+        assert!(!SlashCommand::RunPlan.available_during_task());
     }
 }
