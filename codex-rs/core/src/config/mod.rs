@@ -105,6 +105,7 @@ mod managed_features;
 mod network_proxy_spec;
 mod permissions;
 pub mod profile;
+pub(crate) mod rules;
 pub mod schema;
 pub mod service;
 pub mod types;
