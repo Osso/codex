@@ -28,7 +28,6 @@ cargo install \
 echo "Deployed codex to $codex_bin_path"
 "$codex_bin_path" --version
 echo "Deployed codex-mcp-server to $mcp_bin_path"
-"$mcp_bin_path" --version
 
 cat <<EOF
 
