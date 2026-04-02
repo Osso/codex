@@ -22,6 +22,8 @@ pub enum SlashCommand {
     SandboxReadRoot,
     Experimental,
     Skills,
+    #[strum(serialize = "run-plan")]
+    RunPlan,
     Review,
     Rename,
     New,
@@ -70,6 +72,7 @@ impl SlashCommand {
             SlashCommand::New => "start a new chat during a conversation",
             SlashCommand::Init => "create an AGENTS.md file with instructions for Codex",
             SlashCommand::Compact => "summarize conversation to prevent hitting the context limit",
+            SlashCommand::RunPlan => "set RUN_PLAN=1 and work on next PLAN.md item",
             SlashCommand::Review => "review my current changes and find issues",
             SlashCommand::Rename => "rename the current thread",
             SlashCommand::Resume => "resume a saved chat",
@@ -132,13 +135,18 @@ impl SlashCommand {
 
     /// Whether this command can be run while a task is in progress.
     pub fn available_during_task(self) -> bool {
-        match self {
+        !self.blocked_during_task()
+    }
+
+    fn blocked_during_task(self) -> bool {
+        matches!(
+            self,
             SlashCommand::New
             | SlashCommand::Resume
             | SlashCommand::Fork
             | SlashCommand::Init
             | SlashCommand::Compact
-            // | SlashCommand::Undo
+            // SlashCommand::Undo
             | SlashCommand::Model
             | SlashCommand::Fast
             | SlashCommand::Personality
@@ -148,34 +156,15 @@ impl SlashCommand {
             | SlashCommand::SandboxReadRoot
             | SlashCommand::Experimental
             | SlashCommand::Review
+            | SlashCommand::RunPlan
             | SlashCommand::Plan
             | SlashCommand::Clear
             | SlashCommand::Logout
+            | SlashCommand::Statusline
+            | SlashCommand::Theme
             | SlashCommand::MemoryDrop
-            | SlashCommand::MemoryUpdate => false,
-            SlashCommand::Diff
-            | SlashCommand::Copy
-            | SlashCommand::Rename
-            | SlashCommand::Mention
-            | SlashCommand::Skills
-            | SlashCommand::Status
-            | SlashCommand::DebugConfig
-            | SlashCommand::Ps
-            | SlashCommand::Clean
-            | SlashCommand::Mcp
-            | SlashCommand::Apps
-            | SlashCommand::Feedback
-            | SlashCommand::Quit
-            | SlashCommand::Exit => true,
-            SlashCommand::Rollout => true,
-            SlashCommand::TestApproval => true,
-            SlashCommand::Realtime => true,
-            SlashCommand::Settings => true,
-            SlashCommand::Collab => true,
-            SlashCommand::Agent | SlashCommand::MultiAgents => true,
-            SlashCommand::Statusline => false,
-            SlashCommand::Theme => false,
-        }
+            | SlashCommand::MemoryUpdate
+        )
     }
 
     fn is_visible(self) -> bool {
@@ -194,4 +183,25 @@ pub fn built_in_slash_commands() -> Vec<(&'static str, SlashCommand)> {
         .filter(|command| command.is_visible())
         .map(|c| (c.command(), c))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SlashCommand;
+    use super::built_in_slash_commands;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn run_plan_command_is_registered() {
+        assert!(built_in_slash_commands().contains(&("run-plan", SlashCommand::RunPlan)));
+        assert_eq!(
+            SlashCommand::RunPlan.description(),
+            "set RUN_PLAN=1 and work on next PLAN.md item"
+        );
+    }
+
+    #[test]
+    fn run_plan_is_blocked_while_task_is_running() {
+        assert!(!SlashCommand::RunPlan.available_during_task());
+    }
 }
