@@ -5911,19 +5911,9 @@ pub(crate) async fn run_turn(
                         );
                     }
                     if stop_outcome.should_block {
-                        if stop_hook_active {
-                            sess.send_event(
-                                &turn_context,
-                                EventMsg::Warning(WarningEvent {
-                                    message: "Stop hook blocked twice in the same turn; ignoring the second block to avoid an infinite loop.".to_string(),
-                                }),
-                            )
-                            .await;
-                        } else {
-                            stop_hook_active = true;
-                            pending_stop_hook_message = stop_outcome.block_message_for_model;
-                            continue;
-                        }
+                        stop_hook_active = true;
+                        pending_stop_hook_message = stop_outcome.block_message_for_model;
+                        continue;
                     }
                     if stop_outcome.should_stop {
                         break;
