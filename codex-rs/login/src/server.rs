@@ -479,7 +479,7 @@ fn build_authorize_url(
         ("redirect_uri".to_string(), redirect_uri.to_string()),
         (
             "scope".to_string(),
-            "openid profile email offline_access api.connectors.read api.connectors.invoke"
+            "openid profile email offline_access api.connectors.read api.connectors.invoke api.model.images.request"
                 .to_string(),
         ),
         (
