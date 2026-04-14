@@ -14,7 +14,6 @@ use crate::tui::TuiEvent;
 use crate::update_action::UpdateAction;
 use crate::updates;
 use crate::version::CODEX_CLI_VERSION;
-use codex_core::config::Config;
 use color_eyre::Result;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
