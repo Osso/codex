@@ -74,7 +74,6 @@ use tracing_subscriber::EnvFilter;
 use tracing_subscriber::prelude::*;
 use url::Url;
 use uuid::Uuid;
-use version::CODEX_CLI_VERSION;
 
 pub(crate) use codex_app_server_client::legacy_core;
 
@@ -164,6 +163,8 @@ pub use update_action::UpdateAction;
 mod update_prompt;
 mod updates;
 mod version;
+pub use version::CODEX_CLI_DISPLAY_VERSION;
+pub use version::CODEX_CLI_VERSION;
 #[cfg(not(target_os = "linux"))]
 mod voice;
 #[cfg(target_os = "linux")]

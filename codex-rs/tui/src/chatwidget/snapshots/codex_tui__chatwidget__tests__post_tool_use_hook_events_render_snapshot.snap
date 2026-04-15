@@ -2,6 +2,6 @@
 source: tui/src/chatwidget/tests/helpers.rs
 expression: combined
 ---
-• PostToolUse hook (completed)
+• PostToolUse hook (completed): warming the shell
   warning: Heads up from the hook
   hook context: Remember the startup checklist.
