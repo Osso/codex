@@ -201,7 +201,7 @@ mod tests {
                     "description": "desc",
                     "default_reasoning_level": "medium",
                     "supported_reasoning_levels": [{"effort": "low", "description": "low"}, {"effort": "medium", "description": "medium"}, {"effort": "high", "description": "high"}],
-                    "shell_type": "shell_command",
+                    "shell_type": "unified_exec",
                     "visibility": "list",
                     "minimal_client_version": [0, 99, 0],
                     "supported_in_api": true,

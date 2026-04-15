@@ -517,7 +517,7 @@ async fn conversation_webrtc_start_posts_generated_session() -> Result<()> {
         Some("multipart/form-data; boundary=codex-realtime-call-boundary")
     );
     let body = String::from_utf8(request.body).context("multipart body should be utf-8")?;
-    let session = r#"{"audio":{"input":{"format":{"type":"audio/pcm","rate":24000}},"output":{"voice":"cove"}},"type":"quicksilver","model":"realtime-test-model","instructions":"backend prompt\n\nstartup context"}"#;
+    let session = r#"{"audio":{"input":{"format":{"rate":24000,"type":"audio/pcm"}},"output":{"voice":"cove"}},"instructions":"backend prompt\n\nstartup context","model":"realtime-test-model","type":"quicksilver"}"#;
     assert_eq!(
         body,
         format!(

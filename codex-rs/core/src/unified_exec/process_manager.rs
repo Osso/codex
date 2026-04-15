@@ -235,6 +235,17 @@ impl UnifiedExecProcessManager {
         }
     }
 
+    pub(crate) async fn terminate_process(&self, process_id: i32) {
+        let removed = {
+            let mut store = self.process_store.lock().await;
+            store.remove(process_id)
+        };
+        if let Some(entry) = removed {
+            entry.process.terminate();
+            Self::unregister_network_approval_for_entry(&entry).await;
+        }
+    }
+
     async fn unregister_network_approval_for_entry(entry: &ProcessEntry) {
         if let Some(network_approval_id) = entry.network_approval_id.as_deref()
             && let Some(session) = entry.session.upgrade()
@@ -418,6 +429,7 @@ impl UnifiedExecProcessManager {
             exit_code,
             original_token_count: Some(original_token_count),
             session_command: Some(request.command.clone()),
+            legacy_structured_output: false,
         };
 
         Ok(response)
@@ -537,6 +549,7 @@ impl UnifiedExecProcessManager {
             exit_code,
             original_token_count: Some(original_token_count),
             session_command: Some(session_command.clone()),
+            legacy_structured_output: false,
         };
 
         Ok(response)

@@ -1,6 +1,5 @@
 use crate::CommandToolOptions;
 use crate::REQUEST_USER_INPUT_TOOL_NAME;
-use crate::ShellToolOptions;
 use crate::SpawnAgentToolOptions;
 use crate::TOOL_SEARCH_DEFAULT_LIMIT;
 use crate::TOOL_SEARCH_TOOL_NAME;
@@ -31,7 +30,6 @@ use crate::create_list_agents_tool;
 use crate::create_list_dir_tool;
 use crate::create_list_mcp_resource_templates_tool;
 use crate::create_list_mcp_resources_tool;
-use crate::create_local_shell_tool;
 use crate::create_read_mcp_resource_tool;
 use crate::create_report_agent_job_result_tool;
 use crate::create_request_permissions_tool;
@@ -39,8 +37,6 @@ use crate::create_request_user_input_tool;
 use crate::create_resume_agent_tool;
 use crate::create_send_input_tool_v1;
 use crate::create_send_message_tool;
-use crate::create_shell_command_tool;
-use crate::create_shell_tool;
 use crate::create_spawn_agent_tool_v1;
 use crate::create_spawn_agent_tool_v2;
 use crate::create_spawn_agents_on_csv_tool;
@@ -127,56 +123,23 @@ pub fn build_tool_registry_plan(
         );
     }
 
-    if config.has_environment {
-        match &config.shell_type {
-            ConfigShellToolType::Default => {
-                plan.push_spec(
-                    create_shell_tool(ShellToolOptions {
-                        exec_permission_approvals_enabled,
-                    }),
-                    /*supports_parallel_tool_calls*/ true,
-                    config.code_mode_enabled,
-                );
-            }
-            ConfigShellToolType::Local => {
-                plan.push_spec(
-                    create_local_shell_tool(),
-                    /*supports_parallel_tool_calls*/ true,
-                    config.code_mode_enabled,
-                );
-            }
-            ConfigShellToolType::UnifiedExec => {
-                plan.push_spec(
-                    create_exec_command_tool(CommandToolOptions {
-                        allow_login_shell: config.allow_login_shell,
-                        exec_permission_approvals_enabled,
-                    }),
-                    /*supports_parallel_tool_calls*/ true,
-                    config.code_mode_enabled,
-                );
-                plan.push_spec(
-                    create_write_stdin_tool(),
-                    /*supports_parallel_tool_calls*/ false,
-                    config.code_mode_enabled,
-                );
-                plan.register_handler("exec_command", ToolHandlerKind::UnifiedExec);
-                plan.register_handler("write_stdin", ToolHandlerKind::UnifiedExec);
-            }
-            ConfigShellToolType::Disabled => {}
-            ConfigShellToolType::ShellCommand => {
-                plan.push_spec(
-                    create_shell_command_tool(CommandToolOptions {
-                        allow_login_shell: config.allow_login_shell,
-                        exec_permission_approvals_enabled,
-                    }),
-                    /*supports_parallel_tool_calls*/ true,
-                    config.code_mode_enabled,
-                );
-            }
-        }
-    }
-
     if config.has_environment && config.shell_type != ConfigShellToolType::Disabled {
+        plan.push_spec(
+            create_exec_command_tool(CommandToolOptions {
+                allow_login_shell: config.allow_login_shell,
+                exec_permission_approvals_enabled,
+            }),
+            /*supports_parallel_tool_calls*/ true,
+            config.code_mode_enabled,
+        );
+        plan.push_spec(
+            create_write_stdin_tool(),
+            /*supports_parallel_tool_calls*/ false,
+            config.code_mode_enabled,
+        );
+
+        plan.register_handler("exec_command", ToolHandlerKind::UnifiedExec);
+        plan.register_handler("write_stdin", ToolHandlerKind::UnifiedExec);
         plan.register_handler("shell", ToolHandlerKind::Shell);
         plan.register_handler("container.exec", ToolHandlerKind::Shell);
         plan.register_handler("local_shell", ToolHandlerKind::Shell);

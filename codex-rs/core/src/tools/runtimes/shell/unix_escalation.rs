@@ -179,9 +179,6 @@ pub(super) async fn try_run_zsh_fork(
         login: Some(login),
     };
 
-    // Note that Stopwatch starts immediately upon creation, so currently we try
-    // to minimize the time between creating the Stopwatch and starting the
-    // escalation server.
     let stopwatch = Stopwatch::new(effective_timeout);
     let cancel_token = stopwatch.cancellation_token();
     let approval_sandbox_permissions = approval_sandbox_permissions(

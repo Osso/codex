@@ -3,9 +3,12 @@ use crate::codex::TurnContext;
 use crate::tools::TELEMETRY_PREVIEW_MAX_BYTES;
 use crate::tools::TELEMETRY_PREVIEW_MAX_LINES;
 use crate::tools::TELEMETRY_PREVIEW_TRUNCATION_NOTICE;
+use crate::tools::format_exec_output_for_model_structured;
 use crate::turn_diff_tracker::TurnDiffTracker;
 use crate::unified_exec::resolve_max_tokens;
 use codex_hooks::HookPermissionDecision;
+use codex_protocol::exec_output::ExecToolCallOutput;
+use codex_protocol::exec_output::StreamOutput;
 use codex_protocol::mcp::CallToolResult;
 use codex_protocol::models::FunctionCallOutputBody;
 use codex_protocol::models::FunctionCallOutputContentItem;
@@ -353,6 +356,7 @@ pub struct ExecCommandToolOutput {
     pub exit_code: Option<i32>,
     pub original_token_count: Option<usize>,
     pub session_command: Option<Vec<String>>,
+    pub legacy_structured_output: bool,
 }
 
 impl ToolOutput for ExecCommandToolOutput {
@@ -421,6 +425,25 @@ impl ExecCommandToolOutput {
     }
 
     fn response_text(&self) -> String {
+        if self.legacy_structured_output
+            && self.process_id.is_none()
+            && let Some(exit_code) = self.exit_code
+        {
+            let aggregated_output = self.truncated_output();
+            let exec_output = ExecToolCallOutput {
+                exit_code,
+                stdout: StreamOutput::new(aggregated_output.clone()),
+                stderr: StreamOutput::new(String::new()),
+                aggregated_output: StreamOutput::new(aggregated_output),
+                duration: self.wall_time,
+                timed_out: exit_code == 124,
+            };
+            return format_exec_output_for_model_structured(
+                &exec_output,
+                TruncationPolicy::Tokens(resolve_max_tokens(self.max_output_tokens)),
+            );
+        }
+
         let mut sections = Vec::new();
 
         if !self.chunk_id.is_empty() {

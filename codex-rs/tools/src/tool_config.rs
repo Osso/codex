@@ -172,21 +172,14 @@ impl ToolsConfig {
             sandbox_policy,
             *windows_sandbox_level,
         );
-        let shell_type = if !features.enabled(Feature::ShellTool) {
-            ConfigShellToolType::Disabled
-        } else if features.enabled(Feature::ShellZshFork) {
-            ConfigShellToolType::ShellCommand
-        } else if features.enabled(Feature::UnifiedExec) && unified_exec_allowed {
-            if codex_utils_pty::conpty_supported() {
-                ConfigShellToolType::UnifiedExec
-            } else {
-                ConfigShellToolType::ShellCommand
-            }
-        } else if model_info.shell_type == ConfigShellToolType::UnifiedExec && !unified_exec_allowed
+        let shell_type = if features.enabled(Feature::ShellTool)
+            && features.enabled(Feature::UnifiedExec)
+            && unified_exec_allowed
+            && codex_utils_pty::conpty_supported()
         {
-            ConfigShellToolType::ShellCommand
+            ConfigShellToolType::UnifiedExec
         } else {
-            model_info.shell_type
+            ConfigShellToolType::Disabled
         };
 
         let apply_patch_tool_type = match model_info.apply_patch_tool_type {

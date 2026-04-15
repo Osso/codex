@@ -3,12 +3,10 @@ use crate::compact::InitialContextInjection;
 use crate::config_loader::ConfigLayerEntry;
 use crate::config_loader::ConfigRequirements;
 use crate::config_loader::ConfigRequirementsToml;
-use crate::exec::ExecCapturePolicy;
-use crate::exec::ExecParams;
 use crate::exec_policy::ExecPolicyManager;
 use crate::guardian::GUARDIAN_REVIEWER_NAME;
 use crate::sandboxing::SandboxPermissions;
-use crate::tools::context::FunctionToolOutput;
+use crate::tools::context::ExecCommandToolOutput;
 use crate::turn_diff_tracker::TurnDiffTracker;
 use codex_app_server_protocol::ConfigLayerSource;
 use codex_exec_server::EnvironmentManager;
@@ -20,7 +18,6 @@ use codex_protocol::models::ContentItem;
 use codex_protocol::models::NetworkPermissions;
 use codex_protocol::models::PermissionProfile;
 use codex_protocol::models::ResponseItem;
-use codex_protocol::models::function_call_output_content_items_to_text;
 use codex_protocol::permissions::FileSystemSandboxPolicy;
 use codex_protocol::permissions::NetworkSandboxPolicy;
 use codex_protocol::protocol::AskForApproval;
@@ -34,18 +31,16 @@ use core_test_support::responses::mount_sse_once;
 use core_test_support::responses::sse;
 use core_test_support::responses::start_mock_server;
 use pretty_assertions::assert_eq;
-use serde::Deserialize;
-use std::collections::HashMap;
 use std::fs;
 use std::sync::Arc;
 use tempfile::tempdir;
 
-fn expect_text_output(output: &FunctionToolOutput) -> String {
-    function_call_output_content_items_to_text(&output.body).unwrap_or_default()
+fn expect_text_output(output: &ExecCommandToolOutput) -> String {
+    output.truncated_output()
 }
 
 #[tokio::test]
-async fn guardian_allows_shell_additional_permissions_requests_past_policy_validation() {
+async fn guardian_allows_unified_exec_additional_permissions_requests_to_execute_command() {
     let server = start_mock_server().await;
     let _request_log = mount_sse_once(
         &server,
@@ -104,60 +99,31 @@ async fn guardian_allows_shell_additional_permissions_requests_past_policy_valid
     turn_context_raw.provider = config.model_provider.clone();
     let session = Arc::new(session);
     let turn_context = Arc::new(turn_context_raw);
-    let expiration_ms: u64 = if cfg!(windows) { 2_500 } else { 1_000 };
-
-    let params = ExecParams {
-        command: if cfg!(windows) {
-            vec![
-                "cmd.exe".to_string(),
-                "/Q".to_string(),
-                "/D".to_string(),
-                "/C".to_string(),
-                "echo hi".to_string(),
-            ]
-        } else {
-            vec![
-                "/bin/sh".to_string(),
-                "-c".to_string(),
-                "echo hi".to_string(),
-            ]
-        },
-        cwd: turn_context.cwd.clone(),
-        expiration: expiration_ms.into(),
-        capture_policy: ExecCapturePolicy::ShellTool,
-        env: HashMap::new(),
-        network: None,
-        sandbox_permissions: SandboxPermissions::WithAdditionalPermissions,
-        windows_sandbox_level: turn_context.windows_sandbox_level,
-        windows_sandbox_private_desktop: turn_context
-            .config
-            .permissions
-            .windows_sandbox_private_desktop,
-        justification: Some("test".to_string()),
-        arg0: None,
-    };
-
-    let handler = ShellHandler;
+    let handler = UnifiedExecHandler;
     let resp = handler
         .handle(ToolInvocation {
             session: Arc::clone(&session),
             turn: Arc::clone(&turn_context),
             tracker: Arc::new(tokio::sync::Mutex::new(TurnDiffTracker::new())),
             call_id: "test-call".to_string(),
-            tool_name: codex_tools::ToolName::plain("shell"),
+            tool_name: codex_tools::ToolName::plain("exec_command"),
             payload: ToolPayload::Function {
                 arguments: serde_json::json!({
-                    "command": params.command.clone(),
+                    "cmd": if cfg!(windows) {
+                        "cmd.exe /Q /D /C \"echo hi\""
+                    } else {
+                        "echo hi"
+                    },
                     "workdir": Some(turn_context.cwd.to_string_lossy().to_string()),
-                    "timeout_ms": params.expiration.timeout_ms(),
-                    "sandbox_permissions": params.sandbox_permissions,
+                    "yield_time_ms": if cfg!(windows) { 2_500_u64 } else { 1_000_u64 },
+                    "sandbox_permissions": SandboxPermissions::WithAdditionalPermissions,
                     "additional_permissions": PermissionProfile {
                         network: Some(NetworkPermissions {
                             enabled: Some(true),
                         }),
                         file_system: None,
                     },
-                    "justification": params.justification.clone(),
+                    "justification": "test",
                 })
                 .to_string(),
             },
@@ -165,24 +131,11 @@ async fn guardian_allows_shell_additional_permissions_requests_past_policy_valid
         })
         .await;
 
-    let output = expect_text_output(&resp.expect("expected Ok result"));
+    let exec_output = resp.expect("expected Ok result");
+    let output = expect_text_output(&exec_output);
 
-    #[derive(Deserialize, PartialEq, Eq, Debug)]
-    struct ResponseExecMetadata {
-        exit_code: i32,
-    }
-
-    #[derive(Deserialize)]
-    struct ResponseExecOutput {
-        output: String,
-        metadata: ResponseExecMetadata,
-    }
-
-    let exec_output: ResponseExecOutput =
-        serde_json::from_str(&output).expect("valid exec output json");
-
-    assert_eq!(exec_output.metadata, ResponseExecMetadata { exit_code: 0 });
-    assert!(exec_output.output.contains("hi"));
+    assert_eq!(exec_output.exit_code, Some(0));
+    assert!(output.contains("hi"), "{output}");
 }
 
 #[tokio::test]
@@ -296,7 +249,7 @@ async fn process_compacted_history_preserves_separate_guardian_developer_message
 
 #[tokio::test]
 #[cfg(unix)]
-async fn shell_handler_allows_sticky_turn_permissions_without_inline_request_permissions_feature() {
+async fn unified_exec_allows_sticky_turn_permissions_without_inline_request_permissions_feature() {
     let (mut session, turn_context_raw) = make_session_and_context().await;
     session
         .features
@@ -318,22 +271,18 @@ async fn shell_handler_allows_sticky_turn_permissions_without_inline_request_per
     let session = Arc::new(session);
     let turn_context = Arc::new(turn_context_raw);
 
-    let handler = ShellHandler;
+    let handler = UnifiedExecHandler;
     let resp = handler
         .handle(ToolInvocation {
             session: Arc::clone(&session),
             turn: Arc::clone(&turn_context),
             tracker: Arc::new(tokio::sync::Mutex::new(TurnDiffTracker::new())),
             call_id: "sticky-turn-grant".to_string(),
-            tool_name: codex_tools::ToolName::plain("shell"),
+            tool_name: codex_tools::ToolName::plain("exec_command"),
             payload: ToolPayload::Function {
                 arguments: serde_json::json!({
-                    "command": [
-                        "/bin/sh",
-                        "-c",
-                        "echo hi",
-                    ],
-                    "timeout_ms": 1_000_u64,
+                    "cmd": "echo hi",
+                    "yield_time_ms": 1_000_u64,
                     "workdir": Some(turn_context.cwd.to_string_lossy().to_string()),
                 })
                 .to_string(),
@@ -344,24 +293,10 @@ async fn shell_handler_allows_sticky_turn_permissions_without_inline_request_per
 
     match resp {
         Ok(output) => {
-            let output = expect_text_output(&output);
+            let output_text = expect_text_output(&output);
 
-            #[derive(Deserialize, PartialEq, Eq, Debug)]
-            struct ResponseExecMetadata {
-                exit_code: i32,
-            }
-
-            #[derive(Deserialize)]
-            struct ResponseExecOutput {
-                output: String,
-                metadata: ResponseExecMetadata,
-            }
-
-            let exec_output: ResponseExecOutput =
-                serde_json::from_str(&output).expect("valid exec output json");
-
-            assert_eq!(exec_output.metadata, ResponseExecMetadata { exit_code: 0 });
-            assert!(exec_output.output.contains("hi"));
+            assert_eq!(output.exit_code, Some(0));
+            assert!(output_text.contains("hi"), "{output_text}");
         }
         Err(FunctionCallError::RespondToModel(output)) => {
             assert!(

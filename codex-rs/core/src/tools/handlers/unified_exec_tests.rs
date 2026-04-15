@@ -263,6 +263,7 @@ fn exec_command_post_tool_use_payload_uses_output_for_noninteractive_one_shot_co
             "-lc".to_string(),
             "echo three".to_string(),
         ]),
+        legacy_structured_output: false,
     };
 
     assert_eq!(
@@ -293,6 +294,7 @@ fn exec_command_post_tool_use_payload_skips_interactive_exec() {
             "-lc".to_string(),
             "echo three".to_string(),
         ]),
+        legacy_structured_output: false,
     };
 
     assert_eq!(
@@ -320,6 +322,7 @@ fn exec_command_post_tool_use_payload_skips_running_sessions() {
             "-lc".to_string(),
             "echo three".to_string(),
         ]),
+        legacy_structured_output: false,
     };
 
     assert_eq!(

@@ -8,7 +8,6 @@ use crate::config_loader::NetworkDomainPermissionToml;
 use crate::config_loader::NetworkDomainPermissionsToml;
 use crate::config_loader::RequirementSource;
 use crate::config_loader::Sourced;
-use crate::exec::ExecCapturePolicy;
 use crate::function_tool::FunctionCallError;
 use crate::mcp_tool_exposure::DIRECT_MCP_TOOL_EXPOSURE_THRESHOLD;
 use crate::mcp_tool_exposure::build_mcp_tool_exposure;
@@ -48,7 +47,6 @@ use crate::tasks::SessionTaskContext;
 use crate::tools::ToolRouter;
 use crate::tools::context::ToolInvocation;
 use crate::tools::context::ToolPayload;
-use crate::tools::handlers::ShellHandler;
 use crate::tools::handlers::UnifiedExecHandler;
 use crate::tools::registry::ToolHandler;
 use crate::tools::router::ToolCallSource;
@@ -5634,126 +5632,6 @@ async fn sample_rollout(
     )
 }
 
-#[tokio::test]
-async fn rejects_escalated_permissions_when_policy_not_on_request() {
-    use crate::exec::ExecParams;
-    use crate::exec_policy::ExecApprovalRequest;
-    use crate::sandboxing::SandboxPermissions;
-    use crate::tools::sandboxing::ExecApprovalRequirement;
-    use crate::turn_diff_tracker::TurnDiffTracker;
-    use codex_protocol::protocol::AskForApproval;
-    use codex_protocol::protocol::SandboxPolicy;
-    use std::collections::HashMap;
-
-    let (session, mut turn_context_raw) = make_session_and_context().await;
-    // Ensure policy is NOT OnRequest so the early rejection path triggers
-    turn_context_raw
-        .approval_policy
-        .set(AskForApproval::OnFailure)
-        .expect("test setup should allow updating approval policy");
-    let session = Arc::new(session);
-    let mut turn_context = Arc::new(turn_context_raw);
-
-    let timeout_ms = 1000;
-    let sandbox_permissions = SandboxPermissions::RequireEscalated;
-    let params = ExecParams {
-        command: if cfg!(windows) {
-            vec![
-                "cmd.exe".to_string(),
-                "/C".to_string(),
-                "echo hi".to_string(),
-            ]
-        } else {
-            vec![
-                "/bin/sh".to_string(),
-                "-c".to_string(),
-                "echo hi".to_string(),
-            ]
-        },
-        cwd: turn_context.cwd.clone(),
-        expiration: timeout_ms.into(),
-        capture_policy: ExecCapturePolicy::ShellTool,
-        env: HashMap::new(),
-        network: None,
-        sandbox_permissions,
-        windows_sandbox_level: turn_context.windows_sandbox_level,
-        windows_sandbox_private_desktop: turn_context
-            .config
-            .permissions
-            .windows_sandbox_private_desktop,
-        justification: Some("test".to_string()),
-        arg0: None,
-    };
-
-    let turn_diff_tracker = Arc::new(tokio::sync::Mutex::new(TurnDiffTracker::new()));
-
-    let tool_name = "shell";
-    let call_id = "test-call".to_string();
-
-    let handler = ShellHandler;
-    let resp = handler
-        .handle(ToolInvocation {
-            session: Arc::clone(&session),
-            turn: Arc::clone(&turn_context),
-            tracker: Arc::clone(&turn_diff_tracker),
-            call_id,
-            tool_name: codex_tools::ToolName::plain(tool_name),
-            payload: ToolPayload::Function {
-                arguments: serde_json::json!({
-                    "command": params.command.clone(),
-                    "workdir": Some(turn_context.cwd.to_string_lossy().to_string()),
-                    "timeout_ms": params.expiration.timeout_ms(),
-                    "sandbox_permissions": params.sandbox_permissions,
-                    "justification": params.justification.clone(),
-                })
-                .to_string(),
-            },
-            pre_tool_hook_decision: None,
-        })
-        .await;
-
-    let Err(FunctionCallError::RespondToModel(output)) = resp else {
-        panic!("expected error result");
-    };
-
-    let expected = format!(
-        "approval policy is {policy:?}; reject command — you should not ask for escalated permissions if the approval policy is {policy:?}",
-        policy = turn_context.approval_policy.value()
-    );
-
-    pretty_assertions::assert_eq!(output, expected);
-    pretty_assertions::assert_eq!(session.granted_turn_permissions().await, None);
-
-    // The rejection should not poison the non-escalated path for the same
-    // command. Force DangerFullAccess so this check stays focused on approval
-    // policy rather than platform-specific sandbox behavior.
-    let turn_context_mut = Arc::get_mut(&mut turn_context).expect("unique turn context Arc");
-    turn_context_mut
-        .sandbox_policy
-        .set(SandboxPolicy::DangerFullAccess)
-        .expect("test setup should allow updating sandbox policy");
-    turn_context_mut.file_system_sandbox_policy =
-        FileSystemSandboxPolicy::from(turn_context_mut.sandbox_policy.get());
-    turn_context_mut.network_sandbox_policy =
-        NetworkSandboxPolicy::from(turn_context_mut.sandbox_policy.get());
-
-    let exec_approval_requirement = session
-        .services
-        .exec_policy
-        .create_exec_approval_requirement_for_command(ExecApprovalRequest {
-            command: &params.command,
-            approval_policy: turn_context.approval_policy.value(),
-            sandbox_policy: turn_context.sandbox_policy.get(),
-            file_system_sandbox_policy: &turn_context.file_system_sandbox_policy,
-            sandbox_permissions: SandboxPermissions::UseDefault,
-            prefix_rule: None,
-        })
-        .await;
-    assert!(matches!(
-        exec_approval_requirement,
-        ExecApprovalRequirement::Skip { .. }
-    ));
-}
 #[tokio::test]
 async fn unified_exec_rejects_escalated_permissions_when_policy_not_on_request() {
     use crate::sandboxing::SandboxPermissions;

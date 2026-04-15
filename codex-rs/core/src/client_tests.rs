@@ -43,7 +43,7 @@ fn test_model_info() -> ModelInfo {
         "supported_reasoning_levels": [
             {"effort": "medium", "description": "medium"}
         ],
-        "shell_type": "shell_command",
+        "shell_type": "unified_exec",
         "visibility": "list",
         "supported_in_api": true,
         "priority": 1,
