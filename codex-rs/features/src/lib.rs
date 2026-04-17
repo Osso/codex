@@ -89,6 +89,8 @@ pub enum Feature {
     UnifiedExec,
     /// Route shell tool execution through the zsh exec bridge.
     ShellZshFork,
+    /// Expose legacy shell compatibility aliases and handlers.
+    LegacyShellCompat,
     /// Include the freeform apply_patch tool.
     ApplyPatchFreeform,
     /// Allow exec tools to request additional permissions while staying sandboxed.
@@ -140,6 +142,8 @@ pub enum Feature {
     Collab,
     /// Enable task-path-based multi-agent routing.
     MultiAgentV2,
+    /// Expose the legacy id-based multi-agent tool workflow.
+    LegacyMultiAgentV1,
     /// Enable CSV-backed agent job tools.
     SpawnCsv,
     /// Enable apps.
@@ -590,6 +594,12 @@ pub const FEATURES: &[FeatureSpec] = &[
         default_enabled: false,
     },
     FeatureSpec {
+        id: Feature::LegacyShellCompat,
+        key: "legacy_shell_compat",
+        stage: Stage::Deprecated,
+        default_enabled: false,
+    },
+    FeatureSpec {
         id: Feature::ShellSnapshot,
         key: "shell_snapshot",
         stage: Stage::Stable,
@@ -759,7 +769,13 @@ pub const FEATURES: &[FeatureSpec] = &[
     FeatureSpec {
         id: Feature::MultiAgentV2,
         key: "multi_agent_v2",
-        stage: Stage::UnderDevelopment,
+        stage: Stage::Stable,
+        default_enabled: true,
+    },
+    FeatureSpec {
+        id: Feature::LegacyMultiAgentV1,
+        key: "multi_agent_v1",
+        stage: Stage::Deprecated,
         default_enabled: false,
     },
     FeatureSpec {

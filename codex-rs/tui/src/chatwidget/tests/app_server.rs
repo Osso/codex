@@ -322,7 +322,7 @@ async fn live_app_server_collab_wait_items_render_history() {
             turn_id: "turn-1".to_string(),
             item: AppServerThreadItem::CollabAgentToolCall {
                 id: "wait-1".to_string(),
-                tool: AppServerCollabAgentTool::Wait,
+                tool: AppServerCollabAgentTool::WaitAgent,
                 status: AppServerCollabAgentToolCallStatus::InProgress,
                 sender_thread_id: sender_thread_id.to_string(),
                 receiver_thread_ids: vec![
@@ -344,7 +344,7 @@ async fn live_app_server_collab_wait_items_render_history() {
             turn_id: "turn-1".to_string(),
             item: AppServerThreadItem::CollabAgentToolCall {
                 id: "wait-1".to_string(),
-                tool: AppServerCollabAgentTool::Wait,
+                tool: AppServerCollabAgentTool::WaitAgent,
                 status: AppServerCollabAgentToolCallStatus::Completed,
                 sender_thread_id: sender_thread_id.to_string(),
                 receiver_thread_ids: vec![

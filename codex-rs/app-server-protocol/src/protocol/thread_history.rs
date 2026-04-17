@@ -637,7 +637,7 @@ impl ThreadHistoryBuilder {
     ) {
         let item = ThreadItem::CollabAgentToolCall {
             id: payload.call_id.clone(),
-            tool: CollabAgentTool::SendInput,
+            tool: payload.tool.clone().into(),
             status: CollabAgentToolCallStatus::InProgress,
             sender_thread_id: payload.sender_thread_id.to_string(),
             receiver_thread_ids: vec![payload.receiver_thread_id.to_string()],
@@ -661,7 +661,7 @@ impl ThreadHistoryBuilder {
         let received_status = CollabAgentState::from(payload.status.clone());
         self.upsert_item_in_current_turn(ThreadItem::CollabAgentToolCall {
             id: payload.call_id.clone(),
-            tool: CollabAgentTool::SendInput,
+            tool: payload.tool.clone().into(),
             status,
             sender_thread_id: payload.sender_thread_id.to_string(),
             receiver_thread_ids: vec![receiver_id.clone()],
@@ -678,7 +678,7 @@ impl ThreadHistoryBuilder {
     ) {
         let item = ThreadItem::CollabAgentToolCall {
             id: payload.call_id.clone(),
-            tool: CollabAgentTool::Wait,
+            tool: CollabAgentTool::WaitAgent,
             status: CollabAgentToolCallStatus::InProgress,
             sender_thread_id: payload.sender_thread_id.to_string(),
             receiver_thread_ids: payload
@@ -717,7 +717,7 @@ impl ThreadHistoryBuilder {
             .collect();
         self.upsert_item_in_current_turn(ThreadItem::CollabAgentToolCall {
             id: payload.call_id.clone(),
-            tool: CollabAgentTool::Wait,
+            tool: CollabAgentTool::WaitAgent,
             status,
             sender_thread_id: payload.sender_thread_id.to_string(),
             receiver_thread_ids,
@@ -2800,6 +2800,7 @@ mod tests {
                     call_id: "send-1".into(),
                     sender_thread_id: sender,
                     receiver_thread_id: receiver,
+                    tool: codex_protocol::protocol::CollabAgentInteractionTool::SendInput,
                     prompt: "new task".into(),
                 },
             ),
@@ -2808,6 +2809,7 @@ mod tests {
                     call_id: "send-1".into(),
                     sender_thread_id: sender,
                     receiver_thread_id: receiver,
+                    tool: codex_protocol::protocol::CollabAgentInteractionTool::SendInput,
                     receiver_agent_nickname: None,
                     receiver_agent_role: None,
                     prompt: "new task".into(),
@@ -2838,6 +2840,140 @@ mod tests {
                     receiver.to_string(),
                     CollabAgentState {
                         status: crate::protocol::v2::CollabAgentStatus::Interrupted,
+                        message: None,
+                    },
+                )]
+                .into_iter()
+                .collect(),
+            }
+        );
+    }
+
+    #[test]
+    fn reconstructs_send_message_as_completed_collab_call() {
+        let sender = ThreadId::try_from("00000000-0000-0000-0000-000000000001")
+            .expect("valid sender thread id");
+        let receiver = ThreadId::try_from("00000000-0000-0000-0000-000000000002")
+            .expect("valid receiver thread id");
+        let events = vec![
+            EventMsg::UserMessage(UserMessageEvent {
+                message: "queue a note".into(),
+                images: None,
+                text_elements: Vec::new(),
+                local_images: Vec::new(),
+            }),
+            EventMsg::CollabAgentInteractionBegin(
+                codex_protocol::protocol::CollabAgentInteractionBeginEvent {
+                    call_id: "send-message-1".into(),
+                    sender_thread_id: sender,
+                    receiver_thread_id: receiver,
+                    tool: codex_protocol::protocol::CollabAgentInteractionTool::SendMessage,
+                    prompt: "queued note".into(),
+                },
+            ),
+            EventMsg::CollabAgentInteractionEnd(
+                codex_protocol::protocol::CollabAgentInteractionEndEvent {
+                    call_id: "send-message-1".into(),
+                    sender_thread_id: sender,
+                    receiver_thread_id: receiver,
+                    tool: codex_protocol::protocol::CollabAgentInteractionTool::SendMessage,
+                    receiver_agent_nickname: None,
+                    receiver_agent_role: None,
+                    prompt: "queued note".into(),
+                    status: AgentStatus::Completed(None),
+                },
+            ),
+        ];
+
+        let items = events
+            .into_iter()
+            .map(RolloutItem::EventMsg)
+            .collect::<Vec<_>>();
+        let turns = build_turns_from_rollout_items(&items);
+        assert_eq!(turns.len(), 1);
+        assert_eq!(turns[0].items.len(), 2);
+        assert_eq!(
+            turns[0].items[1],
+            ThreadItem::CollabAgentToolCall {
+                id: "send-message-1".into(),
+                tool: CollabAgentTool::SendMessage,
+                status: CollabAgentToolCallStatus::Completed,
+                sender_thread_id: sender.to_string(),
+                receiver_thread_ids: vec![receiver.to_string()],
+                prompt: Some("queued note".into()),
+                model: None,
+                reasoning_effort: None,
+                agents_states: [(
+                    receiver.to_string(),
+                    CollabAgentState {
+                        status: crate::protocol::v2::CollabAgentStatus::Completed,
+                        message: None,
+                    },
+                )]
+                .into_iter()
+                .collect(),
+            }
+        );
+    }
+
+    #[test]
+    fn reconstructs_followup_task_as_completed_collab_call() {
+        let sender = ThreadId::try_from("00000000-0000-0000-0000-000000000001")
+            .expect("valid sender thread id");
+        let receiver = ThreadId::try_from("00000000-0000-0000-0000-000000000002")
+            .expect("valid receiver thread id");
+        let events = vec![
+            EventMsg::UserMessage(UserMessageEvent {
+                message: "assign work".into(),
+                images: None,
+                text_elements: Vec::new(),
+                local_images: Vec::new(),
+            }),
+            EventMsg::CollabAgentInteractionBegin(
+                codex_protocol::protocol::CollabAgentInteractionBeginEvent {
+                    call_id: "followup-1".into(),
+                    sender_thread_id: sender,
+                    receiver_thread_id: receiver,
+                    tool: codex_protocol::protocol::CollabAgentInteractionTool::FollowupTask,
+                    prompt: "do the task".into(),
+                },
+            ),
+            EventMsg::CollabAgentInteractionEnd(
+                codex_protocol::protocol::CollabAgentInteractionEndEvent {
+                    call_id: "followup-1".into(),
+                    sender_thread_id: sender,
+                    receiver_thread_id: receiver,
+                    tool: codex_protocol::protocol::CollabAgentInteractionTool::FollowupTask,
+                    receiver_agent_nickname: None,
+                    receiver_agent_role: None,
+                    prompt: "do the task".into(),
+                    status: AgentStatus::Running,
+                },
+            ),
+        ];
+
+        let items = events
+            .into_iter()
+            .map(RolloutItem::EventMsg)
+            .collect::<Vec<_>>();
+        let turns = build_turns_from_rollout_items(&items);
+        assert_eq!(turns.len(), 1);
+        assert_eq!(turns[0].items.len(), 2);
+        assert_eq!(
+            turns[0].items[1],
+            ThreadItem::CollabAgentToolCall {
+                id: "followup-1".into(),
+                tool: CollabAgentTool::FollowupTask,
+                status: CollabAgentToolCallStatus::Completed,
+                sender_thread_id: sender.to_string(),
+                receiver_thread_ids: vec![receiver.to_string()],
+                prompt: Some("do the task".into()),
+                model: None,
+                reasoning_effort: None,
+                agents_states: [(
+                    receiver.to_string(),
+                    CollabAgentState {
+                        status: crate::protocol::v2::CollabAgentStatus::Running,
                         message: None,
                     },
                 )]

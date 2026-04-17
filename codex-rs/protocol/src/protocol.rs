@@ -3681,6 +3681,15 @@ pub struct CollabAgentSpawnEndEvent {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(rename_all = "snake_case")]
+pub enum CollabAgentInteractionTool {
+    SendInput,
+    SendMessage,
+    FollowupTask,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
 pub struct CollabAgentInteractionBeginEvent {
     /// Identifier for the collab tool call.
     pub call_id: String,
@@ -3688,6 +3697,8 @@ pub struct CollabAgentInteractionBeginEvent {
     pub sender_thread_id: ThreadId,
     /// Thread ID of the receiver.
     pub receiver_thread_id: ThreadId,
+    /// The collab tool that initiated the interaction.
+    pub tool: CollabAgentInteractionTool,
     /// Prompt sent from the sender to the receiver. Can be empty to prevent CoT
     /// leaking at the beginning.
     pub prompt: String,
@@ -3701,6 +3712,8 @@ pub struct CollabAgentInteractionEndEvent {
     pub sender_thread_id: ThreadId,
     /// Thread ID of the receiver.
     pub receiver_thread_id: ThreadId,
+    /// The collab tool that initiated the interaction.
+    pub tool: CollabAgentInteractionTool,
     /// Optional nickname assigned to the receiver agent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub receiver_agent_nickname: Option<String>,

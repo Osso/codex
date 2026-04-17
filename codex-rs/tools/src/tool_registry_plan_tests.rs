@@ -104,8 +104,10 @@ fn test_full_toolset_specs_for_gpt5_codex_unified_exec_web_search() {
         vec![
             create_spawn_agent_tool_v2(spawn_agent_tool_options(&config)),
             create_send_message_tool(),
+            create_followup_task_tool(),
             create_wait_agent_tool_v2(wait_agent_timeout_options()),
             create_close_agent_tool_v2(),
+            create_list_agents_tool(),
         ]
     } else {
         vec![
@@ -168,18 +170,26 @@ fn test_build_specs_collab_tools_enabled() {
 
     assert_contains_tool_names(
         &tools,
-        &["spawn_agent", "send_input", "wait_agent", "close_agent"],
+        &[
+            "spawn_agent",
+            "send_message",
+            "followup_task",
+            "wait_agent",
+            "close_agent",
+            "list_agents",
+        ],
     );
     assert_lacks_tool_name(&tools, "spawn_agents_on_csv");
-    assert_lacks_tool_name(&tools, "list_agents");
+    assert_lacks_tool_name(&tools, "send_input");
+    assert_lacks_tool_name(&tools, "resume_agent");
 
     let spawn_agent = find_tool(&tools, "spawn_agent");
     let ToolSpec::Function(ResponsesApiTool { parameters, .. }) = &spawn_agent.spec else {
         panic!("spawn_agent should be a function tool");
     };
     let (properties, _) = expect_object_schema(parameters);
-    assert!(properties.contains_key("fork_context"));
-    assert!(!properties.contains_key("fork_turns"));
+    assert!(properties.contains_key("fork_turns"));
+    assert!(!properties.contains_key("fork_context"));
 }
 
 #[test]
@@ -326,6 +336,54 @@ fn test_build_specs_multi_agent_v2_uses_task_names_and_hides_resume() {
 }
 
 #[test]
+fn test_build_specs_legacy_multi_agent_v1_requires_explicit_feature_gate() {
+    let model_info = model_info();
+    let mut features = Features::with_defaults();
+    features.enable(Feature::Collab);
+    features.disable(Feature::MultiAgentV2);
+    features.enable(Feature::LegacyMultiAgentV1);
+    let available_models = Vec::new();
+    let tools_config = ToolsConfig::new(&ToolsConfigParams {
+        model_info: &model_info,
+        available_models: &available_models,
+        features: &features,
+        image_generation_tool_auth_allowed: true,
+        web_search_mode: Some(WebSearchMode::Cached),
+        session_source: SessionSource::Cli,
+        sandbox_policy: &SandboxPolicy::DangerFullAccess,
+        windows_sandbox_level: WindowsSandboxLevel::Disabled,
+    });
+    let (tools, _) = build_specs(
+        &tools_config,
+        /*mcp_tools*/ None,
+        /*deferred_mcp_tools*/ None,
+        &[],
+    );
+
+    assert_contains_tool_names(
+        &tools,
+        &[
+            "spawn_agent",
+            "send_input",
+            "resume_agent",
+            "wait_agent",
+            "close_agent",
+        ],
+    );
+    assert_lacks_tool_name(&tools, "send_message");
+    assert_lacks_tool_name(&tools, "followup_task");
+    assert_lacks_tool_name(&tools, "list_agents");
+
+    let spawn_agent = find_tool(&tools, "spawn_agent");
+    let ToolSpec::Function(ResponsesApiTool { parameters, .. }) = &spawn_agent.spec else {
+        panic!("spawn_agent should be a function tool");
+    };
+    let (properties, _) = expect_object_schema(parameters);
+    assert!(properties.contains_key("fork_context"));
+    assert!(!properties.contains_key("fork_turns"));
+}
+
+#[test]
 fn test_build_specs_enable_fanout_enables_agent_jobs_and_collab_tools() {
     let model_info = model_info();
     let mut features = Features::with_defaults();
@@ -353,9 +411,11 @@ fn test_build_specs_enable_fanout_enables_agent_jobs_and_collab_tools() {
         &tools,
         &[
             "spawn_agent",
-            "send_input",
+            "send_message",
+            "followup_task",
             "wait_agent",
             "close_agent",
+            "list_agents",
             "spawn_agents_on_csv",
         ],
     );
@@ -496,6 +556,49 @@ fn shell_zsh_fork_keeps_unified_exec_tool_surface() {
 }
 
 #[test]
+fn legacy_shell_compat_registers_hidden_handlers_only_when_enabled() {
+    let model_info = model_info();
+    let mut features = Features::with_defaults();
+    features.enable(Feature::UnifiedExec);
+    features.enable(Feature::LegacyShellCompat);
+    let available_models = Vec::new();
+    let tools_config = ToolsConfig::new(&ToolsConfigParams {
+        model_info: &model_info,
+        available_models: &available_models,
+        features: &features,
+        image_generation_tool_auth_allowed: true,
+        web_search_mode: Some(WebSearchMode::Cached),
+        session_source: SessionSource::Cli,
+        sandbox_policy: &SandboxPolicy::DangerFullAccess,
+        windows_sandbox_level: WindowsSandboxLevel::Disabled,
+    });
+    let (tools, handlers) = build_specs(
+        &tools_config,
+        /*mcp_tools*/ None,
+        /*deferred_mcp_tools*/ None,
+        &[],
+    );
+
+    assert_contains_tool_names(&tools, &["exec_command", "write_stdin"]);
+    assert!(handlers.contains(&ToolHandlerSpec {
+        name: ToolName::plain("shell"),
+        kind: ToolHandlerKind::Shell,
+    }));
+    assert!(handlers.contains(&ToolHandlerSpec {
+        name: ToolName::plain("container.exec"),
+        kind: ToolHandlerKind::Shell,
+    }));
+    assert!(handlers.contains(&ToolHandlerSpec {
+        name: ToolName::plain("local_shell"),
+        kind: ToolHandlerKind::Shell,
+    }));
+    assert!(handlers.contains(&ToolHandlerSpec {
+        name: ToolName::plain("shell_command"),
+        kind: ToolHandlerKind::ShellCommand,
+    }));
+}
+
+#[test]
 fn test_build_specs_agent_job_worker_tools_enabled() {
     let model_info = model_info();
     let mut features = Features::with_defaults();
@@ -526,10 +629,11 @@ fn test_build_specs_agent_job_worker_tools_enabled() {
         &tools,
         &[
             "spawn_agent",
-            "send_input",
-            "resume_agent",
+            "send_message",
+            "followup_task",
             "wait_agent",
             "close_agent",
+            "list_agents",
             "spawn_agents_on_csv",
             "report_agent_job_result",
             REQUEST_USER_INPUT_TOOL_NAME,

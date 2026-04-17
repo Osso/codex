@@ -91,7 +91,7 @@ async fn turn_start_shell_zsh_fork_executes_command_v2() -> Result<()> {
         "never",
         &BTreeMap::from([
             (Feature::ShellZshFork, true),
-            (Feature::UnifiedExec, false),
+            (Feature::UnifiedExec, true),
             (Feature::ShellSnapshot, false),
         ]),
         &zsh_path,
@@ -210,7 +210,7 @@ async fn turn_start_shell_zsh_fork_exec_approval_decline_v2() -> Result<()> {
         "untrusted",
         &BTreeMap::from([
             (Feature::ShellZshFork, true),
-            (Feature::UnifiedExec, false),
+            (Feature::UnifiedExec, true),
             (Feature::ShellSnapshot, false),
         ]),
         &zsh_path,
@@ -343,7 +343,7 @@ async fn turn_start_shell_zsh_fork_exec_approval_cancel_v2() -> Result<()> {
         "untrusted",
         &BTreeMap::from([
             (Feature::ShellZshFork, true),
-            (Feature::UnifiedExec, false),
+            (Feature::UnifiedExec, true),
             (Feature::ShellSnapshot, false),
         ]),
         &zsh_path,
@@ -473,15 +473,15 @@ async fn turn_start_shell_zsh_fork_subcommand_decline_marks_parent_declined_v2()
         second_file.display()
     );
     let tool_call_arguments = serde_json::to_string(&serde_json::json!({
-        "command": shell_command,
+        "cmd": shell_command,
         "workdir": serde_json::Value::Null,
-        "timeout_ms": 5000
+        "yield_time_ms": 5000
     }))?;
     let response = responses::sse(vec![
         responses::ev_response_created("resp-1"),
         responses::ev_function_call(
             "call-zsh-fork-subcommand-decline",
-            "shell_command",
+            "exec_command",
             &tool_call_arguments,
         ),
         responses::ev_completed("resp-1"),
@@ -502,7 +502,7 @@ async fn turn_start_shell_zsh_fork_subcommand_decline_marks_parent_declined_v2()
         "untrusted",
         &BTreeMap::from([
             (Feature::ShellZshFork, true),
-            (Feature::UnifiedExec, false),
+            (Feature::UnifiedExec, true),
             (Feature::ShellSnapshot, false),
         ]),
         &zsh_path,

@@ -23,9 +23,9 @@ pub use parser::parse_patch;
 use similar::TextDiff;
 use thiserror::Error;
 
-pub use invocation::maybe_parse_apply_patch_verified;
 pub use invocation::MaybeApplyPatch;
 pub use invocation::maybe_parse_apply_patch;
+pub use invocation::maybe_parse_apply_patch_verified;
 pub use standalone_executable::main;
 
 use crate::invocation::ExtractHeredocError;

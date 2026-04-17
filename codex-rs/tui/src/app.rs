@@ -10767,7 +10767,7 @@ guardian_approval = true
                         turn_id: "turn-1".to_string(),
                         item: ThreadItem::CollabAgentToolCall {
                             id: "wait-1".to_string(),
-                            tool: codex_app_server_protocol::CollabAgentTool::Wait,
+                            tool: codex_app_server_protocol::CollabAgentTool::WaitAgent,
                             status: codex_app_server_protocol::CollabAgentToolCallStatus::InProgress,
                             sender_thread_id: ThreadId::new().to_string(),
                             receiver_thread_ids: vec![receiver_thread_id.to_string()],

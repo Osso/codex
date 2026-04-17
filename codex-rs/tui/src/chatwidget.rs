@@ -3871,7 +3871,9 @@ impl ChatWidget {
                     ));
                 }
             }
-            CollabAgentTool::SendInput => {
+            CollabAgentTool::SendInput
+            | CollabAgentTool::SendMessage
+            | CollabAgentTool::FollowupTask => {
                 if let Some(receiver_thread_id) = first_receiver
                     && !matches!(status, CollabAgentToolCallStatus::InProgress)
                 {
@@ -3880,6 +3882,14 @@ impl ChatWidget {
                             call_id: id,
                             sender_thread_id,
                             receiver_thread_id,
+                            tool: match tool {
+                                CollabAgentTool::SendInput => {
+                                    codex_protocol::protocol::CollabAgentInteractionTool::SendInput
+                                }
+                                CollabAgentTool::SendMessage => codex_protocol::protocol::CollabAgentInteractionTool::SendMessage,
+                                CollabAgentTool::FollowupTask => codex_protocol::protocol::CollabAgentInteractionTool::FollowupTask,
+                                _ => unreachable!("match arm restricts collab interaction tools"),
+                            },
                             receiver_agent_nickname: first_receiver_metadata
                                 .as_ref()
                                 .and_then(|metadata| metadata.agent_nickname.clone()),
@@ -3938,7 +3948,7 @@ impl ChatWidget {
                     }
                 }
             }
-            CollabAgentTool::Wait => {
+            CollabAgentTool::WaitAgent => {
                 if matches!(status, CollabAgentToolCallStatus::InProgress) {
                     self.on_collab_event(multi_agents::waiting_begin(
                         codex_protocol::protocol::CollabWaitingBeginEvent {

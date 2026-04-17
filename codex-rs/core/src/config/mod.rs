@@ -101,9 +101,9 @@ pub mod edit;
 mod managed_features;
 mod network_proxy_spec;
 mod permissions;
+pub(crate) mod rules;
 #[cfg(test)]
 mod schema;
-pub(crate) mod rules;
 pub(crate) mod service;
 pub use codex_config::Constrained;
 pub use codex_config::ConstraintError;

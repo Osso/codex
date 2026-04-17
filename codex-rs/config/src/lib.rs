@@ -1,10 +1,10 @@
 mod cloud_requirements;
 mod config_requirements;
 pub mod config_toml;
-pub mod hooks_toml;
 mod constraint;
 mod diagnostics;
 mod fingerprint;
+pub mod hooks_toml;
 mod marketplace_edit;
 mod mcp_edit;
 mod mcp_types;

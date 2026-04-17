@@ -2484,9 +2484,11 @@
     "CollabAgentTool": {
       "enum": [
         "spawnAgent",
+        "sendMessage",
+        "followupTask",
         "sendInput",
         "resumeAgent",
-        "wait",
+        "waitAgent",
         "closeAgent"
       ],
       "type": "string"

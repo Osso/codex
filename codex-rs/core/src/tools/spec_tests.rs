@@ -358,10 +358,11 @@ fn test_build_specs_gpt5_codex_default() {
             "web_search",
             "view_image",
             "spawn_agent",
-            "send_input",
-            "resume_agent",
+            "send_message",
+            "followup_task",
             "wait_agent",
             "close_agent",
+            "list_agents",
         ],
     );
 }
@@ -381,10 +382,11 @@ fn test_build_specs_gpt51_codex_default() {
             "web_search",
             "view_image",
             "spawn_agent",
-            "send_input",
-            "resume_agent",
+            "send_message",
+            "followup_task",
             "wait_agent",
             "close_agent",
+            "list_agents",
         ],
     );
 }
@@ -406,10 +408,11 @@ fn test_build_specs_gpt5_codex_unified_exec_web_search() {
             "web_search",
             "view_image",
             "spawn_agent",
-            "send_input",
-            "resume_agent",
+            "send_message",
+            "followup_task",
             "wait_agent",
             "close_agent",
+            "list_agents",
         ],
     );
 }
@@ -431,10 +434,11 @@ fn test_build_specs_gpt51_codex_unified_exec_web_search() {
             "web_search",
             "view_image",
             "spawn_agent",
-            "send_input",
-            "resume_agent",
+            "send_message",
+            "followup_task",
             "wait_agent",
             "close_agent",
+            "list_agents",
         ],
     );
 }
@@ -454,10 +458,11 @@ fn test_gpt_5_1_codex_max_defaults() {
             "web_search",
             "view_image",
             "spawn_agent",
-            "send_input",
-            "resume_agent",
+            "send_message",
+            "followup_task",
             "wait_agent",
             "close_agent",
+            "list_agents",
         ],
     );
 }
@@ -477,10 +482,11 @@ fn test_codex_5_1_mini_defaults() {
             "web_search",
             "view_image",
             "spawn_agent",
-            "send_input",
-            "resume_agent",
+            "send_message",
+            "followup_task",
             "wait_agent",
             "close_agent",
+            "list_agents",
         ],
     );
 }
@@ -499,10 +505,11 @@ fn test_gpt_5_defaults() {
             "web_search",
             "view_image",
             "spawn_agent",
-            "send_input",
-            "resume_agent",
+            "send_message",
+            "followup_task",
             "wait_agent",
             "close_agent",
+            "list_agents",
         ],
     );
 }
@@ -522,10 +529,11 @@ fn test_gpt_5_1_defaults() {
             "web_search",
             "view_image",
             "spawn_agent",
-            "send_input",
-            "resume_agent",
+            "send_message",
+            "followup_task",
             "wait_agent",
             "close_agent",
+            "list_agents",
         ],
     );
 }
@@ -547,10 +555,11 @@ fn test_gpt_5_1_codex_max_unified_exec_web_search() {
             "web_search",
             "view_image",
             "spawn_agent",
-            "send_input",
-            "resume_agent",
+            "send_message",
+            "followup_task",
             "wait_agent",
             "close_agent",
+            "list_agents",
         ],
     );
 }
