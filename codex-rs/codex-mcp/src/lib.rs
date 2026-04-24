@@ -1,3 +1,5 @@
+pub mod permission_prompt;
+
 pub use connection_manager::McpConnectionManager;
 pub use elicitation::ElicitationReviewRequest;
 pub use elicitation::ElicitationReviewer;

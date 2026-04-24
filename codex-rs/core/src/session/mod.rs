@@ -34,6 +34,7 @@ use crate::environment_selection::ResolvedTurnEnvironments;
 use crate::exec_policy::ExecPolicyManager;
 use crate::parse_turn_item;
 use crate::path_utils::normalize_for_native_workdir;
+use crate::permission_prompt::maybe_decide_command_approval_with_permission_prompt_tool;
 use crate::realtime_conversation::RealtimeConversationManager;
 use crate::session_prefix::format_subagent_notification_message;
 use crate::skills::SkillRenderSideEffects;
@@ -615,6 +616,7 @@ impl Codex {
             base_instructions,
             compact_prompt: config.compact_prompt.clone(),
             approval_policy: config.permissions.approval_policy.clone(),
+            permission_prompt_tool: config.permission_prompt_tool.clone(),
             approvals_reviewer: config.approvals_reviewer,
             permission_profile: config.permissions.permission_profile.clone(),
             active_permission_profile: config.permissions.active_permission_profile(),
@@ -1898,6 +1900,23 @@ impl Session {
         additional_permissions: Option<AdditionalPermissionProfile>,
         available_decisions: Option<Vec<ReviewDecision>>,
     ) -> ReviewDecision {
+        if let Some(decision) = maybe_decide_command_approval_with_permission_prompt_tool(
+            turn_context.config.permission_prompt_tool.as_deref(),
+            &call_id,
+            &command,
+            cwd.as_path(),
+            reason.as_deref(),
+            &self.services.permission_prompt_session_rule_cache,
+            |server, tool, arguments| async move {
+                self.call_tool(&server, &tool, Some(arguments), /*meta*/ None)
+                    .await
+            },
+        )
+        .await
+        {
+            return decision;
+        }
+
         //  command-level approvals use `call_id`.
         // `approval_id` is only present for subcommand callbacks (execve intercept)
         let effective_approval_id = approval_id.clone().unwrap_or_else(|| call_id.clone());

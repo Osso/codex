@@ -32,6 +32,24 @@ Codex supports a rich set of configuration options. Note that the Rust CLI uses 
 
 Codex CLI functions as an MCP client that allows the Codex CLI and IDE extension to connect to MCP servers on startup. See the [`configuration documentation`](../docs/config.md#connecting-to-mcp-servers) for details.
 
+If Claude Code already uses an MCP approval server, point Codex at the same
+tool by setting `permission_prompt_tool` to the same `mcp__server__tool`
+identifier:
+
+```toml
+[mcp_servers.approval]
+command = "node"
+args = ["/path/to/approval-server.js"]
+
+permission_prompt_tool = "mcp__approval__permission_prompt"
+```
+
+You can also import this from Claude settings:
+
+```shell
+codex hooks import-claude --from ~/.claude/settings.json
+```
+
 #### MCP server (experimental)
 
 Codex can be launched as an MCP _server_ by running `codex mcp-server`. This allows _other_ MCP clients to use Codex as a tool for another agent.

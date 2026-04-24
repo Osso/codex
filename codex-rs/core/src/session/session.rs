@@ -62,6 +62,7 @@ pub(crate) struct SessionConfiguration {
 
     /// When to escalate for approval for execution
     pub(super) approval_policy: Constrained<AskForApproval>,
+    pub(super) permission_prompt_tool: Option<String>,
     pub(super) approvals_reviewer: ApprovalsReviewer,
     /// Canonical permission profile for the session.
     pub(super) permission_profile: Constrained<PermissionProfile>,
@@ -139,6 +140,7 @@ impl SessionConfiguration {
             model_provider_id: self.original_config_do_not_use.model_provider_id.clone(),
             service_tier: self.service_tier.clone(),
             approval_policy: self.approval_policy.value(),
+            permission_prompt_tool: self.permission_prompt_tool.clone(),
             approvals_reviewer: self.approvals_reviewer,
             permission_profile: self.permission_profile(),
             active_permission_profile: self.active_permission_profile(),
@@ -850,6 +852,11 @@ impl Session {
                 session_telemetry,
                 models_manager: Arc::clone(&models_manager),
                 tool_approvals: Mutex::new(ApprovalStore::default()),
+                permission_prompt_session_rule_cache: Mutex::new(
+                    crate::permission_prompt::PermissionPromptSessionRuleCache::from_config(
+                        config.as_ref(),
+                    ),
+                ),
                 guardian_rejections: Mutex::new(HashMap::new()),
                 guardian_rejection_circuit_breaker: Mutex::new(Default::default()),
                 runtime_handle: tokio::runtime::Handle::current(),

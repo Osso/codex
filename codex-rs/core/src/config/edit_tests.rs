@@ -279,6 +279,29 @@ submit = "shift-enter"
 }
 
 #[test]
+fn builder_with_config_toml_file_targets_custom_filename() {
+    let tmp = tempdir().expect("tmpdir");
+    let codex_home = tmp.path();
+
+    ConfigEditsBuilder::new(codex_home)
+        .with_config_toml_file("config.local.toml")
+        .with_edits([ConfigEdit::SetPath {
+            segments: vec!["enabled".to_string()],
+            value: value(true),
+        }])
+        .apply_blocking()
+        .expect("persist");
+
+    assert!(
+        !codex_home.join(CONFIG_TOML_FILE).exists(),
+        "default config.toml should not be created",
+    );
+    let contents =
+        std::fs::read_to_string(codex_home.join("config.local.toml")).expect("read local config");
+    assert_eq!(contents, "enabled = true\n");
+}
+
+#[test]
 fn set_model_availability_nux_count_writes_shown_count() {
     let tmp = tempdir().expect("tmpdir");
     let codex_home = tmp.path();

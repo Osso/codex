@@ -80,3 +80,17 @@ fn removed_full_auto_flag_reports_migration_path() {
         Some("warning: `--full-auto` is deprecated; use `--sandbox workspace-write` instead.")
     );
 }
+
+#[test]
+fn parses_permission_prompt_tool_flag() {
+    let cli = Cli::parse_from([
+        "codex-exec",
+        "--permission-prompt-tool",
+        "mcp__approval__prompt",
+    ]);
+
+    assert_eq!(
+        cli.permission_prompt_tool.as_deref(),
+        Some("mcp__approval__prompt")
+    );
+}

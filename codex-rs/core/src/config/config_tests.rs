@@ -194,6 +194,49 @@ async fn load_config_normalizes_relative_cwd_override() -> std::io::Result<()> {
     Ok(())
 }
 
+#[test]
+fn pop_string_cli_override_uses_last_value() -> std::io::Result<()> {
+    let mut overrides = vec![
+        (
+            "model".to_string(),
+            toml::Value::String("gpt-5".to_string()),
+        ),
+        (
+            "permission_prompt_tool".to_string(),
+            toml::Value::String("mcp__first__tool".to_string()),
+        ),
+        (
+            "permission_prompt_tool".to_string(),
+            toml::Value::String("mcp__second__tool".to_string()),
+        ),
+    ];
+
+    let permission_prompt_tool = pop_string_cli_override(&mut overrides, "permission_prompt_tool")?;
+
+    assert_eq!(permission_prompt_tool.as_deref(), Some("mcp__second__tool"));
+    assert_eq!(
+        overrides,
+        vec![(
+            "model".to_string(),
+            toml::Value::String("gpt-5".to_string())
+        )]
+    );
+    Ok(())
+}
+
+#[test]
+fn pop_string_cli_override_rejects_non_string_values() {
+    let mut overrides = vec![(
+        "permission_prompt_tool".to_string(),
+        toml::Value::Boolean(true),
+    )];
+
+    let error = pop_string_cli_override(&mut overrides, "permission_prompt_tool")
+        .expect_err("expected error");
+
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+}
+
 #[tokio::test]
 async fn load_config_loads_global_agents_instructions() -> std::io::Result<()> {
     let codex_home = tempdir()?;

@@ -9,6 +9,7 @@ use crate::legacy_core::config::ConfigBuilder;
 use crate::legacy_core::config::ConfigOverrides;
 use crate::legacy_core::config::find_codex_home;
 use crate::legacy_core::config::load_config_as_toml_with_cli_and_loader_overrides;
+use crate::legacy_core::config::pop_string_cli_override;
 use crate::legacy_core::config::resolve_oss_provider;
 use crate::legacy_core::format_exec_policy_error_with_source;
 use crate::legacy_core::windows_sandbox::WindowsSandboxLevelExt;
@@ -767,6 +768,14 @@ pub async fn run_main(
             std::process::exit(1);
         }
     };
+    let mut cli_kv_overrides = cli_kv_overrides;
+    let permission_prompt_tool = cli
+        .permission_prompt_tool
+        .clone()
+        .or(pop_string_cli_override(
+            &mut cli_kv_overrides,
+            "permission_prompt_tool",
+        )?);
 
     // we load config.toml here to determine project state.
     #[allow(clippy::print_stderr)]
@@ -874,6 +883,7 @@ pub async fn run_main(
     let overrides = ConfigOverrides {
         model,
         approval_policy,
+        permission_prompt_tool,
         sandbox_mode,
         cwd: if matches!(app_server_target, AppServerTarget::Remote { .. }) {
             None
