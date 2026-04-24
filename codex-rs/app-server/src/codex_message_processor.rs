@@ -422,6 +422,7 @@ struct ThreadListFilters {
 
 // Duration before a browser ChatGPT login attempt is abandoned.
 const LOGIN_CHATGPT_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+#[cfg(debug_assertions)]
 const LOGIN_ISSUER_OVERRIDE_ENV_VAR: &str = "CODEX_APP_SERVER_LOGIN_ISSUER";
 const APP_LIST_LOAD_TIMEOUT: Duration = Duration::from_secs(90);
 const THREAD_UNLOADING_DELAY: Duration = Duration::from_secs(30 * 60);
@@ -1789,6 +1790,7 @@ impl CodexMessageProcessor {
         let include_token = params.include_token.unwrap_or(false);
         let do_refresh = params.refresh_token.unwrap_or(false);
 
+        self.auth_manager.reload();
         self.refresh_token_if_requested(do_refresh).await;
 
         // Determine whether auth is required based on the active model provider.
@@ -1851,6 +1853,7 @@ impl CodexMessageProcessor {
     async fn get_account(&self, request_id: ConnectionRequestId, params: GetAccountParams) {
         let do_refresh = params.refresh_token;
 
+        self.auth_manager.reload();
         self.refresh_token_if_requested(do_refresh).await;
 
         let provider = create_model_provider(
