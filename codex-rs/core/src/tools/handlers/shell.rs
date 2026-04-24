@@ -201,7 +201,7 @@ impl ToolHandler for ShellHandler {
                     .unwrap_or(true)
             }
             ToolPayload::LocalShell { params } => !is_known_safe_command(&params.command),
-            _ => true, // unknown payloads => assume mutating
+            _ => true,
         }
     }
 
@@ -464,9 +464,6 @@ impl ShellHandler {
         )
         .map_err(FunctionCallError::RespondToModel)?;
 
-        // Approval policy guard for explicit escalation in non-OnRequest modes.
-        // Sticky turn permissions have already been approved, so they should
-        // continue through the normal exec approval flow for the command.
         if effective_additional_permissions
             .sandbox_permissions
             .requests_sandbox_override()
@@ -478,11 +475,10 @@ impl ShellHandler {
         {
             let approval_policy = turn.approval_policy.value();
             return Err(FunctionCallError::RespondToModel(format!(
-                "approval policy is {approval_policy:?}; reject command — you should not ask for escalated permissions if the approval policy is {approval_policy:?}"
+                "approval policy is {approval_policy:?}; reject command — you cannot ask for escalated permissions if the approval policy is {approval_policy:?}"
             )));
         }
 
-        // Intercept apply_patch if present.
         if let Some(output) = intercept_apply_patch(
             &exec_params.command,
             &exec_params.cwd,
@@ -505,12 +501,7 @@ impl ShellHandler {
             source,
             freeform,
         );
-        let event_ctx = ToolEventCtx::new(
-            session.as_ref(),
-            turn.as_ref(),
-            &call_id,
-            /*turn_diff_tracker*/ None,
-        );
+        let event_ctx = ToolEventCtx::new(session.as_ref(), turn.as_ref(), &call_id, None);
         emitter.begin(event_ctx).await;
 
         let exec_approval_requirement = session
@@ -572,12 +563,7 @@ impl ShellHandler {
             )
             .await
             .map(|result| result.output);
-        let event_ctx = ToolEventCtx::new(
-            session.as_ref(),
-            turn.as_ref(),
-            &call_id,
-            /*turn_diff_tracker*/ None,
-        );
+        let event_ctx = ToolEventCtx::new(session.as_ref(), turn.as_ref(), &call_id, None);
         let post_tool_use_response = out
             .as_ref()
             .ok()

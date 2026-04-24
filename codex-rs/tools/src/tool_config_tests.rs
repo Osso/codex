@@ -74,7 +74,7 @@ fn unified_exec_is_blocked_for_windows_sandboxed_policies_only() {
 }
 
 #[test]
-fn shell_zsh_fork_prefers_shell_command_over_unified_exec() {
+fn shell_zsh_fork_keeps_unified_exec_shell_type() {
     let model_info = model_info();
     let mut features = Features::with_defaults();
     features.enable(Feature::UnifiedExec);
@@ -92,7 +92,7 @@ fn shell_zsh_fork_prefers_shell_command_over_unified_exec() {
         windows_sandbox_level: WindowsSandboxLevel::Disabled,
     });
 
-    assert_eq!(tools_config.shell_type, ConfigShellToolType::ShellCommand);
+    assert_eq!(tools_config.shell_type, ConfigShellToolType::UnifiedExec);
     assert_eq!(
         tools_config.shell_command_backend,
         ShellCommandBackendConfig::ZshFork

@@ -182,11 +182,11 @@ fn assert_contains_tool_names(tools: &[ConfiguredToolSpec], expected_subset: &[&
 
 fn shell_tool_name(config: &ToolsConfig) -> Option<&'static str> {
     match config.shell_type {
-        ConfigShellToolType::Default => Some("shell"),
-        ConfigShellToolType::Local => Some("local_shell"),
         ConfigShellToolType::UnifiedExec => None,
         ConfigShellToolType::Disabled => None,
-        ConfigShellToolType::ShellCommand => Some("shell_command"),
+        ConfigShellToolType::Default
+        | ConfigShellToolType::Local
+        | ConfigShellToolType::ShellCommand => None,
     }
 }
 
@@ -313,7 +313,7 @@ async fn model_provided_unified_exec_is_blocked_for_windows_sandboxed_policies()
     });
 
     let expected_shell_type = if cfg!(target_os = "windows") {
-        ConfigShellToolType::ShellCommand
+        ConfigShellToolType::Disabled
     } else {
         ConfigShellToolType::UnifiedExec
     };
@@ -392,13 +392,13 @@ async fn assert_default_model_tools(
     model_slug: &str,
     features: &Features,
     web_search_mode: Option<WebSearchMode>,
-    shell_tool: &'static str,
+    _shell_tool: &'static str,
     expected_tail: &[&str],
 ) {
     let mut expected = if features.enabled(Feature::UnifiedExec) {
         vec!["exec_command", "write_stdin"]
     } else {
-        vec![shell_tool]
+        Vec::new()
     };
     expected.extend(expected_tail);
     assert_model_tools(model_slug, features, web_search_mode, &expected).await;
@@ -669,7 +669,7 @@ async fn test_build_specs_default_shell_present() {
 }
 
 #[tokio::test]
-async fn shell_zsh_fork_prefers_shell_command_over_unified_exec() {
+async fn shell_zsh_fork_keeps_unified_exec_shell_type() {
     let config = test_config().await;
     let model_info = construct_model_info_offline("o3", &config);
     let mut features = Features::with_defaults();
@@ -693,7 +693,7 @@ async fn shell_zsh_fork_prefers_shell_command_over_unified_exec() {
         shell_snapshot: crate::shell::empty_shell_snapshot_receiver(),
     };
 
-    assert_eq!(tools_config.shell_type, ConfigShellToolType::ShellCommand);
+    assert_eq!(tools_config.shell_type, ConfigShellToolType::UnifiedExec);
     assert_eq!(
         tools_config.shell_command_backend,
         ShellCommandBackendConfig::ZshFork

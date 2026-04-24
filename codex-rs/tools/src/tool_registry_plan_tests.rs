@@ -470,6 +470,36 @@ fn disabled_environment_omits_environment_backed_tools() {
 }
 
 #[test]
+fn shell_zsh_fork_keeps_unified_exec_tool_surface() {
+    let model_info = model_info();
+    let mut features = Features::with_defaults();
+    features.enable(Feature::UnifiedExec);
+    features.enable(Feature::ShellZshFork);
+    let available_models = Vec::new();
+    let tools_config = ToolsConfig::new(&ToolsConfigParams {
+        model_info: &model_info,
+        available_models: &available_models,
+        features: &features,
+        image_generation_tool_auth_allowed: true,
+        web_search_mode: Some(WebSearchMode::Cached),
+        session_source: SessionSource::Cli,
+        sandbox_policy: &SandboxPolicy::DangerFullAccess,
+        windows_sandbox_level: WindowsSandboxLevel::Disabled,
+    });
+    let (tools, _) = build_specs(
+        &tools_config,
+        /*mcp_tools*/ None,
+        /*deferred_mcp_tools*/ None,
+        &[],
+    );
+
+    assert_contains_tool_names(&tools, &["exec_command", "write_stdin"]);
+    assert_lacks_tool_name(&tools, "shell_command");
+    assert_lacks_tool_name(&tools, "shell");
+    assert_lacks_tool_name(&tools, "local_shell");
+}
+
+#[test]
 fn test_build_specs_agent_job_worker_tools_enabled() {
     let model_info = model_info();
     let mut features = Features::with_defaults();
@@ -1934,7 +1964,7 @@ fn model_info() -> ModelInfo {
         "display_name": "GPT-5 Codex",
         "description": null,
         "supported_reasoning_levels": [],
-        "shell_type": "shell_command",
+        "shell_type": "unified_exec",
         "visibility": "list",
         "supported_in_api": true,
         "priority": 1,

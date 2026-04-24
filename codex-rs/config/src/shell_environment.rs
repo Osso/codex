@@ -5,6 +5,17 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 pub const CODEX_THREAD_ID_ENV_VAR: &str = "CODEX_THREAD_ID";
+const EXCLUDED_EXPORT_VARS: &[&str] = &["PWD", "OLDPWD"];
+
+fn is_excluded_export_var(name: &str) -> bool {
+    if cfg!(target_os = "windows") {
+        EXCLUDED_EXPORT_VARS
+            .iter()
+            .any(|excluded| excluded.eq_ignore_ascii_case(name))
+    } else {
+        EXCLUDED_EXPORT_VARS.contains(&name)
+    }
+}
 
 /// Construct a shell environment from the supplied process environment and
 /// shell-environment policy.
@@ -110,6 +121,11 @@ where
     if let Some(thread_id) = thread_id {
         env_map.insert(CODEX_THREAD_ID_ENV_VAR.to_string(), thread_id.to_string());
     }
+
+    // Step 7 - Never export shell cwd state. Child shells should derive PWD
+    // and OLDPWD from the real current directory instead of inheriting stale
+    // values from the parent process.
+    env_map.retain(|key, _| !is_excluded_export_var(key));
 
     env_map
 }

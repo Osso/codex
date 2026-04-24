@@ -145,7 +145,6 @@ pub(crate) fn build_specs_with_discoverable_tools(
             },
         },
     );
-    let shell_handler = Arc::new(ShellHandler);
     let unified_exec_handler = Arc::new(UnifiedExecHandler);
     let plan_handler = Arc::new(PlanHandler);
     let apply_patch_handler = Arc::new(ApplyPatchHandler);
@@ -153,6 +152,7 @@ pub(crate) fn build_specs_with_discoverable_tools(
     let view_image_handler = Arc::new(ViewImageHandler);
     let mcp_handler = Arc::new(McpHandler);
     let mcp_resource_handler = Arc::new(McpResourceHandler);
+    let shell_handler = Arc::new(ShellHandler);
     let shell_command_handler = Arc::new(ShellCommandHandler::from(config.shell_command_backend));
     let request_permissions_handler = Arc::new(RequestPermissionsHandler);
     let request_user_input_handler = Arc::new(RequestUserInputHandler {

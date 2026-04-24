@@ -377,7 +377,7 @@ fn test_model_info(slug: &str, priority: i32, supports_fast_mode: bool) -> Model
         "description": format!("{slug} description"),
         "default_reasoning_level": "medium",
         "supported_reasoning_levels": [{"effort": "medium", "description": "medium"}],
-        "shell_type": "shell_command",
+        "shell_type": "unified_exec",
         "visibility": "list",
         "supported_in_api": true,
         "priority": priority,
