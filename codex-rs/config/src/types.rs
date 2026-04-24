@@ -581,6 +581,14 @@ pub struct Tui {
     #[serde(default)]
     pub theme: Option<String>,
 
+    /// Foreground color for bold/strong markdown text (e.g. "#E6B450").
+    #[serde(default)]
+    pub strong_color: Option<String>,
+
+    /// Foreground color for inline code in markdown text (e.g. "#E6B450").
+    #[serde(default)]
+    pub code_color: Option<String>,
+
     /// Startup tooltip availability NUX state persisted by the TUI.
     #[serde(default)]
     pub model_availability_nux: ModelAvailabilityNuxConfig,

@@ -378,6 +378,12 @@ pub struct Config {
     /// Syntax highlighting theme override (kebab-case name).
     pub tui_theme: Option<String>,
 
+    /// Foreground color override for bold/strong markdown text.
+    pub tui_strong_color: Option<String>,
+
+    /// Foreground color override for inline code in markdown text.
+    pub tui_code_color: Option<String>,
+
     /// The absolute directory that should be treated as the current working
     /// directory for the session. All relative paths inside the business-logic
     /// layer are resolved against this path.
@@ -2474,6 +2480,8 @@ impl Config {
             tui_status_line: cfg.tui.as_ref().and_then(|t| t.status_line.clone()),
             tui_terminal_title: cfg.tui.as_ref().and_then(|t| t.terminal_title.clone()),
             tui_theme: cfg.tui.as_ref().and_then(|t| t.theme.clone()),
+            tui_strong_color: cfg.tui.as_ref().and_then(|t| t.strong_color.clone()),
+            tui_code_color: cfg.tui.as_ref().and_then(|t| t.code_color.clone()),
             otel: {
                 let t: OtelConfigToml = cfg.otel.unwrap_or_default();
                 let log_user_prompt = t.log_user_prompt.unwrap_or(false);
