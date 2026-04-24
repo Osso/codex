@@ -15,6 +15,7 @@ workspace = true
 [dependencies]
 anyhow = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
+codex-apply-patch = { workspace = true }
 codex-config = { workspace = true }
 codex-plugin = { workspace = true }
 codex-protocol = { workspace = true }
@@ -25,6 +26,7 @@ regex = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+shlex = { workspace = true }
 tokio = { workspace = true, features = ["fs", "io-util", "process", "time"] }
 tracing = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }

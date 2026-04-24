@@ -72,7 +72,9 @@ static CODE_COLOR: OnceLock<Option<ratatui::style::Color>> = OnceLock::new();
 
 fn parse_hex_color(s: &str) -> Option<ratatui::style::Color> {
     let s = s.strip_prefix('#').unwrap_or(s);
-    if s.len() != 6 { return None; }
+    if s.len() != 6 {
+        return None;
+    }
     let r = u8::from_str_radix(&s[0..2], 16).ok()?;
     let g = u8::from_str_radix(&s[2..4], 16).ok()?;
     let b = u8::from_str_radix(&s[4..6], 16).ok()?;

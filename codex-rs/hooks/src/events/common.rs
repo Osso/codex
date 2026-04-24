@@ -1,9 +1,14 @@
+use std::path::Path;
+
+use codex_apply_patch::ApplyPatchFileChange;
+use codex_apply_patch::MaybeApplyPatchVerified;
 use codex_protocol::protocol::HookCompletedEvent;
 use codex_protocol::protocol::HookEventName;
 use codex_protocol::protocol::HookOutputEntry;
 use codex_protocol::protocol::HookOutputEntryKind;
 use codex_protocol::protocol::HookRunStatus;
 use codex_protocol::protocol::HookRunSummary;
+use serde_json::Value;
 
 use crate::engine::ConfiguredHandler;
 use crate::engine::dispatcher;
@@ -143,6 +148,56 @@ pub(crate) fn matcher_inputs<'a>(
     std::iter::once(tool_name)
         .chain(matcher_aliases.iter().map(String::as_str))
         .collect()
+}
+
+pub(crate) fn command_input_tool_fields(
+    tool_name: &str,
+    tool_input: &Value,
+    cwd: &Path,
+) -> (String, Value) {
+    if tool_name == "apply_patch"
+        && let Some(input) = tool_input.get("command").and_then(Value::as_str)
+        && let Some(write_input) = apply_patch_tool_input(input, cwd)
+    {
+        return ("Write".to_string(), write_input);
+    }
+
+    (tool_name.to_string(), tool_input.clone())
+}
+
+fn apply_patch_tool_input(input: &str, cwd: &Path) -> Option<Value> {
+    let argv = vec!["apply_patch".to_string(), input.to_string()];
+    match codex_apply_patch::maybe_parse_apply_patch_verified(&argv, cwd) {
+        MaybeApplyPatchVerified::Body(action) => {
+            let mut changes = action.changes().iter();
+            let (path, change) = changes.next()?;
+            if changes.next().is_some() {
+                return None;
+            }
+
+            match change {
+                ApplyPatchFileChange::Add { content } => Some(serde_json::json!({
+                    "file_path": path.display().to_string(),
+                    "content": content,
+                })),
+                ApplyPatchFileChange::Delete { .. } => None,
+                ApplyPatchFileChange::Update {
+                    unified_diff: _,
+                    move_path,
+                    new_content,
+                } => {
+                    let file_path = move_path.as_deref().unwrap_or(path);
+                    Some(serde_json::json!({
+                        "file_path": file_path.display().to_string(),
+                        "content": new_content,
+                    }))
+                }
+            }
+        }
+        MaybeApplyPatchVerified::CorrectnessError(_)
+        | MaybeApplyPatchVerified::ShellParseError(_)
+        | MaybeApplyPatchVerified::NotApplyPatch => None,
+    }
 }
 
 fn is_match_all_matcher(matcher: &str) -> bool {

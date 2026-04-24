@@ -59,6 +59,7 @@ pub(crate) struct StopOutput {
     pub should_block: bool,
     pub reason: Option<String>,
     pub invalid_block_reason: Option<String>,
+    pub additional_context: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -277,6 +278,9 @@ pub(crate) fn parse_stop(stdout: &str) -> Option<StopOutput> {
         universal: UniversalOutput::from(wire.universal),
         should_block: should_block && invalid_block_reason.is_none(),
         reason: wire.reason,
+        additional_context: wire
+            .hook_specific_output
+            .and_then(|output| output.additional_context),
         invalid_block_reason,
     })
 }

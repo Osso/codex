@@ -4,6 +4,7 @@
 //! renders a single prompt row. This module owns that display projection and
 //! the small compare key used to suppress duplicate rows for pending steers.
 
+use std::path::Path;
 use std::path::PathBuf;
 
 use codex_app_server_protocol::UserInput;
@@ -25,6 +26,54 @@ pub(super) struct UserMessageDisplay {
 pub(super) struct PendingSteerCompareKey {
     pub(super) message: String,
     pub(super) image_count: usize,
+}
+
+fn normalized_pending_steer_message(message: &str) -> String {
+    let mut remaining = message;
+
+    while let Some(stripped) = strip_known_prepended_context_block(remaining) {
+        remaining = stripped;
+    }
+
+    remaining.to_string()
+}
+
+fn strip_known_prepended_context_block(message: &str) -> Option<&str> {
+    strip_graph_context_block(message).or_else(|| strip_plan_hook_block(message))
+}
+
+fn strip_graph_context_block(message: &str) -> Option<&str> {
+    let rest = message.strip_prefix("Graph context:\n")?;
+    let crlf = "\r\n\r\n";
+    if let Some(separator_idx) = rest.find(crlf) {
+        return Some(&rest[separator_idx + crlf.len()..]);
+    }
+
+    let lf = "\n\n";
+    let separator_idx = rest.find(lf)?;
+    Some(&rest[separator_idx + lf.len()..])
+}
+
+fn strip_plan_hook_block(message: &str) -> Option<&str> {
+    let rest = message.strip_prefix("```sh\n")?;
+    let fence_end = rest.find("\n```")?;
+    let command = &rest[..fence_end];
+    let command_basename = shlex::split(command)
+        .and_then(|parts| parts.into_iter().next())
+        .and_then(|program| {
+            Path::new(&program)
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map(str::to_owned)
+        })?;
+    if command_basename != "claude-plan-hook" {
+        return None;
+    }
+
+    let after_fence = &rest[fence_end + "\n```".len()..];
+    after_fence
+        .strip_prefix("\r\n\r\n")
+        .or_else(|| after_fence.strip_prefix("\n\n"))
 }
 
 impl ChatWidget {
@@ -83,7 +132,7 @@ impl ChatWidget {
         }
 
         PendingSteerCompareKey {
-            message,
+            message: normalized_pending_steer_message(&message),
             image_count,
         }
     }
@@ -126,5 +175,29 @@ impl ChatWidget {
             local_images,
             remote_image_urls,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ChatWidget;
+    use super::PendingSteerCompareKey;
+    use codex_app_server_protocol::UserInput;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn pending_steer_compare_key_strips_prepended_plan_hook_context_blocks() {
+        let items = vec![UserInput::Text {
+            text: "```sh\n~/Projects/claude/claude-plan-hook --fast\n```\r\n\r\nGraph context:\n- deploy bot maintained_by user\r\n\r\nrun tests".to_string(),
+            text_elements: Vec::new(),
+        }];
+
+        assert_eq!(
+            ChatWidget::pending_steer_compare_key_from_items(&items),
+            PendingSteerCompareKey {
+                message: "run tests".to_string(),
+                image_count: 0,
+            }
+        );
     }
 }

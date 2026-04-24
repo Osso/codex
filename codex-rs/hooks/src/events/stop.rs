@@ -38,6 +38,7 @@ pub struct StopOutcome {
     pub stop_reason: Option<String>,
     pub should_block: bool,
     pub block_reason: Option<String>,
+    pub additional_context: Option<String>,
     pub continuation_fragments: Vec<HookPromptFragment>,
 }
 
@@ -47,6 +48,7 @@ struct StopHandlerData {
     stop_reason: Option<String>,
     should_block: bool,
     block_reason: Option<String>,
+    additional_context: Option<String>,
     continuation_fragments: Vec<HookPromptFragment>,
 }
 
@@ -74,6 +76,7 @@ pub(crate) async fn run(
             stop_reason: None,
             should_block: false,
             block_reason: None,
+            additional_context: None,
             continuation_fragments: Vec::new(),
         };
     }
@@ -117,6 +120,7 @@ pub(crate) async fn run(
         stop_reason: aggregate.stop_reason,
         should_block: aggregate.should_block,
         block_reason: aggregate.block_reason,
+        additional_context: aggregate.additional_context,
         continuation_fragments: aggregate.continuation_fragments,
     }
 }
@@ -132,6 +136,7 @@ fn parse_completed(
     let mut stop_reason = None;
     let mut should_block = false;
     let mut block_reason = None;
+    let mut additional_context = None;
     let mut continuation_prompt = None;
 
     match run_result.error.as_deref() {
@@ -147,6 +152,7 @@ fn parse_completed(
                 let trimmed_stdout = run_result.stdout.trim();
                 if trimmed_stdout.is_empty() {
                 } else if let Some(parsed) = output_parser::parse_stop(&run_result.stdout) {
+                    additional_context = parsed.additional_context.clone();
                     if let Some(system_message) = parsed.universal.system_message {
                         entries.push(HookOutputEntry {
                             kind: HookOutputEntryKind::Warning,
@@ -257,6 +263,7 @@ fn parse_completed(
             stop_reason,
             should_block,
             block_reason,
+            additional_context,
             continuation_fragments,
         },
         completion_order: 0,
@@ -280,6 +287,12 @@ fn aggregate_results<'a>(
     } else {
         None
     };
+    let additional_context = common::join_text_chunks(
+        results
+            .iter()
+            .filter_map(|result| result.additional_context.clone())
+            .collect(),
+    );
     let continuation_fragments = if should_block {
         results
             .iter()
@@ -295,6 +308,7 @@ fn aggregate_results<'a>(
         stop_reason,
         should_block,
         block_reason,
+        additional_context,
         continuation_fragments,
     }
 }
@@ -306,12 +320,16 @@ fn serialization_failure_outcome(hook_events: Vec<HookCompletedEvent>) -> StopOu
         stop_reason: None,
         should_block: false,
         block_reason: None,
+        additional_context: None,
         continuation_fragments: Vec::new(),
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
+    use codex_protocol::items::HookPromptFragment;
     use codex_protocol::protocol::HookEventName;
     use codex_protocol::protocol::HookOutputEntry;
     use codex_protocol::protocol::HookOutputEntryKind;
@@ -319,8 +337,6 @@ mod tests {
     use codex_utils_absolute_path::test_support::PathBufExt;
     use codex_utils_absolute_path::test_support::test_path_buf;
     use pretty_assertions::assert_eq;
-
-    use codex_protocol::items::HookPromptFragment;
 
     use super::StopHandlerData;
     use super::aggregate_results;
@@ -347,6 +363,7 @@ mod tests {
                 stop_reason: None,
                 should_block: true,
                 block_reason: Some("retry with tests".to_string()),
+                additional_context: None,
                 continuation_fragments: vec![HookPromptFragment {
                     text: "retry with tests".to_string(),
                     hook_run_id: parsed.completed.run.id.clone(),
@@ -394,6 +411,7 @@ mod tests {
                 stop_reason: Some("done".to_string()),
                 should_block: false,
                 block_reason: None,
+                additional_context: None,
                 continuation_fragments: Vec::new(),
             }
         );
@@ -415,6 +433,7 @@ mod tests {
                 stop_reason: None,
                 should_block: true,
                 block_reason: Some("retry with tests".to_string()),
+                additional_context: None,
                 continuation_fragments: vec![HookPromptFragment {
                     text: "retry with tests".to_string(),
                     hook_run_id: parsed.completed.run.id.clone(),
@@ -432,7 +451,17 @@ mod tests {
             /*turn_id*/ None,
         );
 
-        assert_eq!(parsed.data, StopHandlerData::default());
+        assert_eq!(
+            parsed.data,
+            StopHandlerData {
+                should_stop: false,
+                stop_reason: None,
+                should_block: false,
+                block_reason: None,
+                additional_context: None,
+                continuation_fragments: Vec::new(),
+            }
+        );
         assert_eq!(parsed.completed.run.status, HookRunStatus::Failed);
         assert_eq!(
             parsed.completed.run.entries,
@@ -446,6 +475,61 @@ mod tests {
     }
 
     #[test]
+    fn parse_completed_extracts_additional_context() {
+        let parsed = parse_completed(
+            &handler(),
+            run_result(
+                Some(0),
+                r#"{"continue":true,"hookSpecificOutput":{"hookEventName":"Stop","additionalContext":"Review PLAN.md before the next turn."}}"#,
+                "",
+            ),
+            Some("turn-1".to_string()),
+        );
+
+        assert_eq!(
+            parsed.data,
+            StopHandlerData {
+                should_stop: false,
+                stop_reason: None,
+                should_block: false,
+                block_reason: None,
+                additional_context: Some("Review PLAN.md before the next turn.".to_string()),
+                continuation_fragments: Vec::new(),
+            }
+        );
+        assert_eq!(parsed.completed.run.status, HookRunStatus::Completed);
+    }
+
+    #[test]
+    fn block_reason_does_not_become_additional_context_when_hook_specific_output_is_absent() {
+        let parsed = parse_completed(
+            &handler(),
+            run_result(
+                Some(0),
+                r#"{"decision":"block","reason":"PLAN.md has remaining work:\n- item"}"#,
+                "",
+            ),
+            Some("turn-1".to_string()),
+        );
+
+        assert_eq!(
+            parsed.data,
+            StopHandlerData {
+                should_stop: false,
+                stop_reason: None,
+                should_block: true,
+                block_reason: Some("PLAN.md has remaining work:\n- item".to_string()),
+                additional_context: None,
+                continuation_fragments: vec![HookPromptFragment::from_single_hook(
+                    "PLAN.md has remaining work:\n- item",
+                    parsed.completed.run.id.as_str(),
+                )],
+            }
+        );
+        assert_eq!(parsed.completed.run.status, HookRunStatus::Blocked);
+    }
+
+    #[test]
     fn block_decision_with_blank_reason_fails_instead_of_blocking() {
         let parsed = parse_completed(
             &handler(),
@@ -453,7 +537,17 @@ mod tests {
             Some("turn-1".to_string()),
         );
 
-        assert_eq!(parsed.data, StopHandlerData::default());
+        assert_eq!(
+            parsed.data,
+            StopHandlerData {
+                should_stop: false,
+                stop_reason: None,
+                should_block: false,
+                block_reason: None,
+                additional_context: None,
+                continuation_fragments: Vec::new(),
+            }
+        );
         assert_eq!(parsed.completed.run.status, HookRunStatus::Failed);
         assert_eq!(
             parsed.completed.run.entries,
@@ -472,7 +566,17 @@ mod tests {
             Some("turn-1".to_string()),
         );
 
-        assert_eq!(parsed.data, StopHandlerData::default());
+        assert_eq!(
+            parsed.data,
+            StopHandlerData {
+                should_stop: false,
+                stop_reason: None,
+                should_block: false,
+                block_reason: None,
+                additional_context: None,
+                continuation_fragments: Vec::new(),
+            }
+        );
         assert_eq!(parsed.completed.run.status, HookRunStatus::Failed);
         assert_eq!(
             parsed.completed.run.entries,
@@ -491,6 +595,7 @@ mod tests {
                 stop_reason: None,
                 should_block: true,
                 block_reason: Some("first".to_string()),
+                additional_context: Some("first".to_string()),
                 continuation_fragments: vec![HookPromptFragment::from_single_hook(
                     "first", "run-1",
                 )],
@@ -500,6 +605,7 @@ mod tests {
                 stop_reason: None,
                 should_block: true,
                 block_reason: Some("second".to_string()),
+                additional_context: Some("second".to_string()),
                 continuation_fragments: vec![HookPromptFragment::from_single_hook(
                     "second", "run-2",
                 )],
@@ -513,6 +619,7 @@ mod tests {
                 stop_reason: None,
                 should_block: true,
                 block_reason: Some("first\n\nsecond".to_string()),
+                additional_context: Some("first\n\nsecond".to_string()),
                 continuation_fragments: vec![
                     HookPromptFragment::from_single_hook("first", "run-1"),
                     HookPromptFragment::from_single_hook("second", "run-2"),

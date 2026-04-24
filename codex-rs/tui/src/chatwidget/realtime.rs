@@ -491,7 +491,6 @@ impl ChatWidget {
         }
     }
 }
-
 fn start_realtime_webrtc_offer_task(app_event_tx: AppEventSender) {
     std::thread::spawn(move || {
         let result = match RealtimeWebrtcSession::start() {

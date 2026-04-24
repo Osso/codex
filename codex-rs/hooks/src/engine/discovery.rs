@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::Path;
+use std::path::PathBuf;
 
 use codex_config::CONFIG_TOML_FILE;
 use codex_config::ConfigLayerEntry;
@@ -413,6 +414,7 @@ fn append_matcher_groups(
                         continue;
                     }
                     let timeout_sec = timeout_sec.unwrap_or(600).max(1);
+                    let status_message = status_message.or_else(|| command_label(&command));
                     let normalized_handler = HookHandlerConfig::Command {
                         command: command.clone(),
                         command_windows: None,
@@ -537,6 +539,17 @@ fn hook_trusted_hash(is_managed: bool, state: Option<&HookStateToml>) -> Option<
         .flatten()
 }
 
+fn command_label(command: &str) -> Option<String> {
+    let program = shlex::split(command)?
+        .into_iter()
+        .next()
+        .filter(|segment| !segment.is_empty())?;
+    PathBuf::from(program)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(ToOwned::to_owned)
+}
+
 fn hook_metadata_for_config_layer_source(source: &ConfigLayerSource) -> (HookSource, bool) {
     match source {
         ConfigLayerSource::System { .. } => (HookSource::System, true),
@@ -649,7 +662,7 @@ mod tests {
                 matcher: None,
                 command: "echo hello".to_string(),
                 timeout_sec: 600,
-                status_message: None,
+                status_message: Some("echo".to_string()),
                 source_path: source_path.clone(),
                 source: hook_source(),
                 display_order: 0,
@@ -684,7 +697,7 @@ mod tests {
                 matcher: Some("^Bash$".to_string()),
                 command: "echo hello".to_string(),
                 timeout_sec: 600,
-                status_message: None,
+                status_message: Some("echo".to_string()),
                 source_path: source_path.clone(),
                 source: hook_source(),
                 display_order: 0,
@@ -828,6 +841,14 @@ mod tests {
             },
         }))
         .expect("config TOML should deserialize")
+    }
+
+    #[test]
+    fn command_label_extracts_program_basename() {
+        assert_eq!(
+            super::command_label("/home/osso/.claude/hooks/simplify-nudge.sh"),
+            Some("simplify-nudge.sh".to_string())
+        );
     }
 
     #[test]
