@@ -69,13 +69,15 @@ use codex_protocol::protocol::AskForApproval;
 use codex_protocol::user_input::UserInput;
 use codex_terminal_detection::TerminalName;
 
+const CODEX_DISPLAY_VERSION: &str = "rust-v0.120.0-osso";
+
 /// Codex CLI
 ///
 /// If no subcommand is specified, options will be forwarded to the interactive CLI.
 #[derive(Debug, Parser)]
 #[clap(
     author,
-    version,
+    version = CODEX_DISPLAY_VERSION,
     // If a sub‑command is given, ignore requirements of the default args.
     subcommand_negates_reqs = true,
     // The executable is sometimes invoked via a platform‑specific name like
@@ -1664,6 +1666,14 @@ mod tests {
     use codex_protocol::ThreadId;
     use codex_protocol::protocol::TokenUsage;
     use pretty_assertions::assert_eq;
+
+    #[test]
+    fn cli_display_version_matches_tui_display_version() {
+        assert_eq!(
+            CODEX_DISPLAY_VERSION,
+            format!("rust-v{}", codex_tui::CODEX_CLI_DISPLAY_VERSION)
+        );
+    }
 
     fn finalize_resume_from_args(args: &[&str]) -> TuiCli {
         let cli = MultitoolCli::try_parse_from(args).expect("parse");
