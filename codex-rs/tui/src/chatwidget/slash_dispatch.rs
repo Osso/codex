@@ -152,10 +152,7 @@ impl ChatWidget {
                 }
             }
             None => {
-                self.add_info_message(
-                    format!("No pending tasks in {plan_filename}."),
-                    None,
-                );
+                self.add_info_message(format!("No pending tasks in {plan_filename}."), None);
             }
         }
     }
