@@ -549,6 +549,12 @@ pub struct Config {
     /// Syntax highlighting theme override (kebab-case name).
     pub tui_theme: Option<String>,
 
+    /// Foreground color override for bold/strong markdown text.
+    pub tui_strong_color: Option<String>,
+
+    /// Foreground color override for inline code in markdown text.
+    pub tui_code_color: Option<String>,
+
     /// Preferred layout for resume/fork session picker results.
     pub tui_session_picker_view: SessionPickerViewMode,
 
@@ -563,7 +569,6 @@ pub struct Config {
     /// 2. `tui.keymap.global`
     /// 3. built-in defaults
     pub tui_keymap: TuiKeymap,
-
     /// The absolute directory that should be treated as the current working
     /// directory for the session. All relative paths inside the business-logic
     /// layer are resolved against this path.
@@ -3205,6 +3210,8 @@ impl Config {
                 .unwrap_or(true),
             tui_terminal_title: cfg.tui.as_ref().and_then(|t| t.terminal_title.clone()),
             tui_theme: cfg.tui.as_ref().and_then(|t| t.theme.clone()),
+            tui_strong_color: cfg.tui.as_ref().and_then(|t| t.strong_color.clone()),
+            tui_code_color: cfg.tui.as_ref().and_then(|t| t.code_color.clone()),
             tui_session_picker_view: config_profile
                 .tui
                 .as_ref()

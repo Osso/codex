@@ -978,6 +978,9 @@ pub async fn run_main(
         }
     }
 
+    crate::markdown_render::set_strong_color(config.tui_strong_color.as_deref());
+    crate::markdown_render::set_code_color(config.tui_code_color.as_deref());
+
     set_default_client_residency_requirement(config.enforce_residency.value());
 
     if let Some(warning) = add_dir_warning_message(
@@ -1490,6 +1493,9 @@ async fn run_ratatui_app(
     ) {
         config.startup_warnings.push(w);
     }
+
+    crate::markdown_render::set_strong_color(config.tui_strong_color.as_deref());
+    crate::markdown_render::set_code_color(config.tui_code_color.as_deref());
 
     set_default_client_residency_requirement(config.enforce_residency.value());
     let active_profile = config.active_profile.clone();
