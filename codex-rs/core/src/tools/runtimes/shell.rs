@@ -61,30 +61,11 @@ pub struct ShellRequest {
     pub exec_approval_requirement: ExecApprovalRequirement,
 }
 
-/// Selects `ShellRuntime` behavior for different callers.
-///
-/// Note: `Generic` is not the same as `ShellCommandClassic`.
-/// `Generic` means "no `shell_command`-specific backend behavior" (used by the
-/// generic `shell` tool path). The `ShellCommand*` variants are only for the
-/// `shell_command` tool family.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) enum ShellRuntimeBackend {
-    /// Tool-agnostic/default runtime path.
-    ///
-    /// Uses the normal `ShellRuntime` execution flow without enabling any
-    /// `shell_command`-specific backend selection.
     #[default]
     Generic,
-    /// Legacy backend for the `shell_command` tool.
-    ///
-    /// Keeps `shell_command` on the standard shell runtime flow without the
-    /// zsh-fork shell-escalation adapter.
     ShellCommandClassic,
-    /// zsh-fork backend for the `shell_command` tool.
-    ///
-    /// On Unix, attempts to run via the zsh-fork + `codex-shell-escalation`
-    /// adapter, with fallback to the standard shell runtime flow if
-    /// prerequisites are not met.
     ShellCommandZshFork,
 }
 
@@ -180,7 +161,7 @@ impl Approvable<ShellRequest> for ShellRuntime {
                     .request_command_approval(
                         turn,
                         call_id,
-                        /*approval_id*/ None,
+                        None,
                         command,
                         cwd,
                         reason,

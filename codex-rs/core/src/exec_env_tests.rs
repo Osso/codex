@@ -104,6 +104,31 @@ fn test_set_overrides() {
 }
 
 #[test]
+fn test_excludes_pwd_state() {
+    let vars = make_vars(&[
+        ("PATH", "/usr/bin"),
+        ("PWD", "/tmp/stale"),
+        ("OLDPWD", "/tmp/older"),
+    ]);
+
+    let mut policy = ShellEnvironmentPolicy {
+        ignore_default_excludes: true,
+        ..Default::default()
+    };
+    policy
+        .r#set
+        .insert("PWD".to_string(), "/override".to_string());
+
+    let result = populate_env(vars, &policy, None);
+
+    let expected: HashMap<String, String> = hashmap! {
+        "PATH".to_string() => "/usr/bin".to_string(),
+    };
+
+    assert_eq!(result, expected);
+}
+
+#[test]
 fn populate_env_inserts_thread_id() {
     let vars = make_vars(&[("PATH", "/usr/bin")]);
     let policy = ShellEnvironmentPolicy::default();

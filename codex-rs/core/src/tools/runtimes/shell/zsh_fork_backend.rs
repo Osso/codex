@@ -13,11 +13,6 @@ pub(crate) struct PreparedUnifiedExecSpawn {
     pub(crate) spawn_lifecycle: SpawnLifecycleHandle,
 }
 
-/// Runs the zsh-fork shell-command backend when this request should be handled
-/// by executable-level escalation instead of the default shell runtime.
-///
-/// Returns `Ok(None)` when the current platform or request shape should fall
-/// back to the normal shell-command path.
 pub(crate) async fn maybe_run_shell_command(
     req: &ShellRequest,
     attempt: &SandboxAttempt<'_>,
@@ -27,12 +22,6 @@ pub(crate) async fn maybe_run_shell_command(
     imp::maybe_run_shell_command(req, attempt, ctx, command).await
 }
 
-/// Prepares unified exec to launch through the zsh-fork backend when the
-/// request matches a wrapped `zsh -c/-lc` command on a supported platform.
-///
-/// Returns the transformed `ExecRequest` plus a spawn lifecycle that keeps the
-/// escalation server alive for the session and performs post-spawn cleanup.
-/// Returns `Ok(None)` when unified exec should use its normal spawn path.
 pub(crate) async fn maybe_prepare_unified_exec(
     req: &UnifiedExecRequest,
     attempt: &SandboxAttempt<'_>,

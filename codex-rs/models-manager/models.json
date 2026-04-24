@@ -137,7 +137,7 @@
           "description": "Extra high reasoning depth for complex problems"
         }
       ],
-      "shell_type": "shell_command",
+      "shell_type": "unified_exec",
       "visibility": "list",
       "minimal_client_version": "0.98.0",
       "supported_in_api": true,
@@ -226,7 +226,7 @@
           "description": "Extra high reasoning depth for complex problems"
         }
       ],
-      "shell_type": "shell_command",
+      "shell_type": "unified_exec",
       "visibility": "list",
       "minimal_client_version": "0.98.0",
       "supported_in_api": true,
@@ -310,7 +310,7 @@
           "description": "Extra high reasoning depth for complex problems"
         }
       ],
-      "shell_type": "shell_command",
+      "shell_type": "unified_exec",
       "visibility": "list",
       "minimal_client_version": "0.98.0",
       "supported_in_api": true,
@@ -394,7 +394,7 @@
           "description": "Extra high reasoning for complex problems"
         }
       ],
-      "shell_type": "shell_command",
+      "shell_type": "unified_exec",
       "visibility": "list",
       "minimal_client_version": "0.0.1",
       "supported_in_api": true,
@@ -474,7 +474,7 @@
           "description": "Extra high reasoning depth for complex problems"
         }
       ],
-      "shell_type": "shell_command",
+      "shell_type": "unified_exec",
       "visibility": "hide",
       "minimal_client_version": "0.98.0",
       "supported_in_api": true,

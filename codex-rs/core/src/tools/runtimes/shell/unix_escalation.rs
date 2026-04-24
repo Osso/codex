@@ -188,9 +188,6 @@ pub(super) async fn try_run_zsh_fork(
         login: Some(login),
     };
 
-    // Note that Stopwatch starts immediately upon creation, so currently we try
-    // to minimize the time between creating the Stopwatch and starting the
-    // escalation server.
     let stopwatch = Stopwatch::new(effective_timeout);
     let mut cancel_token = stopwatch.cancellation_token();
     if let Some(cancellation) = attempt.network_denial_cancellation_token.clone() {

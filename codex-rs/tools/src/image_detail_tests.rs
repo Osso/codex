@@ -12,7 +12,7 @@ fn model_info() -> ModelInfo {
         "display_name": "Test Model",
         "description": null,
         "supported_reasoning_levels": [],
-        "shell_type": "shell_command",
+        "shell_type": "unified_exec",
         "visibility": "list",
         "supported_in_api": true,
         "priority": 1,
