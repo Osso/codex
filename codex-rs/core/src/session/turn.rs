@@ -107,6 +107,7 @@ use codex_utils_stream_parser::strip_citations;
 use futures::future::BoxFuture;
 use futures::prelude::*;
 use futures::stream::FuturesOrdered;
+use serde_json::Value;
 use tokio_util::sync::CancellationToken;
 use tracing::Instrument;
 use tracing::error;
@@ -138,7 +139,7 @@ use tracing::warn;
 pub(crate) async fn run_turn(
     sess: Arc<Session>,
     turn_context: Arc<TurnContext>,
-    input: Vec<UserInput>,
+    mut input: Vec<UserInput>,
     prewarmed_client_session: Option<ModelClientSession>,
     cancellation_token: CancellationToken,
 ) -> Option<String> {
@@ -168,6 +169,14 @@ pub(crate) async fn run_turn(
 
     sess.record_context_updates_and_set_reference_context_item(turn_context.as_ref())
         .await;
+
+    let pending_stop_hook_additional_context = {
+        let mut state = sess.state.lock().await;
+        state.take_pending_stop_hook_additional_context()
+    };
+    if let Some(additional_context) = pending_stop_hook_additional_context {
+        prepend_user_text_input(&mut input, additional_context);
+    }
 
     let loaded_plugins = sess
         .services
@@ -537,6 +546,12 @@ pub(crate) async fn run_turn(
                     let stop_outcome = sess.hooks().run_stop(stop_request).await;
                     emit_hook_completed_events(&sess, &turn_context, stop_outcome.hook_events)
                         .await;
+                    if stop_outcome.additional_context.is_some() {
+                        let mut state = sess.state.lock().await;
+                        state.set_pending_stop_hook_additional_context(
+                            stop_outcome.additional_context.clone(),
+                        );
+                    }
                     if stop_outcome.should_block {
                         if let Some(hook_prompt_message) =
                             build_hook_prompt_message(&stop_outcome.continuation_fragments)
@@ -657,6 +672,45 @@ pub(crate) async fn run_turn(
     }
 
     last_agent_message
+}
+
+pub(crate) fn apply_user_prompt_hook_updated_input(input: &mut Vec<UserInput>, updated: &Value) {
+    if let Ok(updated_input) = serde_json::from_value::<Vec<UserInput>>(updated.clone()) {
+        *input = updated_input;
+        return;
+    }
+
+    if let Ok(updated_input) = serde_json::from_value::<UserInput>(updated.clone()) {
+        match updated_input {
+            UserInput::Text { text, .. } => prepend_user_text_input(input, text),
+            _ => *input = vec![updated_input],
+        }
+        return;
+    }
+
+    let additional_context = updated
+        .get("additional_context")
+        .and_then(Value::as_str)
+        .or_else(|| updated.as_str());
+    if let Some(additional_context) = additional_context {
+        prepend_user_text_input(input, additional_context.to_string());
+    }
+}
+
+pub(crate) fn prepend_user_text_input(input: &mut Vec<UserInput>, text: String) {
+    let text = match input.first() {
+        Some(UserInput::Text { .. }) if !text.ends_with(char::is_whitespace) => {
+            format!("{text}\r\n\r\n")
+        }
+        _ => text,
+    };
+    input.insert(
+        0,
+        UserInput::Text {
+            text,
+            text_elements: Vec::new(),
+        },
+    );
 }
 
 async fn track_turn_resolved_config_analytics(

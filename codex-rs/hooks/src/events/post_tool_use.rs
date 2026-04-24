@@ -143,11 +143,17 @@ pub(crate) async fn run(
 
 /// Serializes command stdin for a selected `PostToolUse` hook.
 ///
-/// Handler selection may include internal matcher aliases, but hook stdin keeps
-/// the canonical `tool_name` for logs and for consumers that pair pre/post
-/// events across processes. Shell-like tools pass `{ "command": ... }` as
-/// `tool_input`; MCP tools pass their resolved JSON arguments.
+/// Handler selection may include internal matcher aliases. Hook stdin generally
+/// keeps the canonical `tool_name`; single-file `apply_patch` inputs are
+/// translated to Claude-compatible `Write` payloads for existing hook scripts.
+/// Shell-like tools pass `{ "command": ... }` as `tool_input`; MCP tools pass
+/// their resolved JSON arguments.
 fn command_input_json(request: &PostToolUseRequest) -> Result<String, serde_json::Error> {
+    let (tool_name, tool_input) = common::command_input_tool_fields(
+        &request.tool_name,
+        &request.tool_input,
+        request.cwd.as_path(),
+    );
     serde_json::to_string(&PostToolUseCommandInput {
         session_id: request.session_id.to_string(),
         turn_id: request.turn_id.clone(),
@@ -156,8 +162,8 @@ fn command_input_json(request: &PostToolUseRequest) -> Result<String, serde_json
         hook_event_name: "PostToolUse".to_string(),
         model: request.model.clone(),
         permission_mode: request.permission_mode.clone(),
-        tool_name: request.tool_name.clone(),
-        tool_input: request.tool_input.clone(),
+        tool_name,
+        tool_input,
         tool_response: request.tool_response.clone(),
         tool_use_id: request.tool_use_id.clone(),
     })

@@ -52,6 +52,8 @@ use crate::tasks::SessionTask;
 use crate::tasks::SessionTaskContext;
 use crate::tasks::UserShellCommandMode;
 use crate::tasks::execute_user_shell_command;
+use crate::session::turn::apply_user_prompt_hook_updated_input;
+use crate::session::turn::prepend_user_text_input;
 use crate::tools::ToolRouter;
 use crate::tools::context::ToolInvocation;
 use crate::tools::context::ToolPayload;
@@ -341,6 +343,61 @@ fn test_model_client_session() -> crate::client::ModelClientSession {
     .new_session()
 }
 
+#[test]
+fn single_text_user_prompt_hook_update_is_prepended_instead_of_replacing_input() {
+    let mut input = vec![UserInput::Text {
+        text: "run deploy.sh".to_string(),
+        text_elements: Vec::new(),
+    }];
+
+    apply_user_prompt_hook_updated_input(
+        &mut input,
+        &json!({
+            "type": "text",
+            "text": "Graph context:\n- deploy bot maintained_by user"
+        }),
+    );
+
+    assert_eq!(
+        input,
+        vec![
+            UserInput::Text {
+                text: "Graph context:\n- deploy bot maintained_by user\r\n\r\n".to_string(),
+                text_elements: Vec::new(),
+            },
+            UserInput::Text {
+                text: "run deploy.sh".to_string(),
+                text_elements: Vec::new(),
+            },
+        ]
+    );
+}
+
+#[test]
+fn array_user_prompt_hook_update_still_replaces_input() {
+    let mut input = vec![UserInput::Text {
+        text: "run deploy.sh".to_string(),
+        text_elements: Vec::new(),
+    }];
+
+    apply_user_prompt_hook_updated_input(
+        &mut input,
+        &json!([
+            {
+                "type": "text",
+                "text": "rewritten prompt"
+            }
+        ]),
+    );
+
+    assert_eq!(
+        input,
+        vec![UserInput::Text {
+            text: "rewritten prompt".to_string(),
+            text_elements: Vec::new(),
+        }]
+    );
+}
 fn developer_input_texts(items: &[ResponseItem]) -> Vec<&str> {
     items
         .iter()
@@ -6288,7 +6345,6 @@ async fn steer_input_returns_active_turn_id() {
     assert_eq!(turn_id, tc.sub_id);
     assert!(sess.has_pending_input().await);
 }
-
 #[tokio::test]
 async fn prepend_pending_input_keeps_older_tail_ahead_of_newer_input() {
     let (sess, tc, _rx) = make_session_and_context_with_rx().await;
@@ -6581,6 +6637,93 @@ async fn tool_calls_reopen_mailbox_delivery_for_current_turn() {
     );
 }
 
+#[test]
+fn user_prompt_hook_additional_context_is_prepended_to_input() {
+    let mut input = vec![UserInput::Text {
+        text: "fix the failing test".to_string(),
+        text_elements: Vec::new(),
+    }];
+
+    apply_user_prompt_hook_updated_input(
+        &mut input,
+        &json!({
+            "additional_context": "Relevant memories:\n- Prefer repo-owned helpers"
+        }),
+    );
+
+    assert_eq!(
+        input,
+        vec![
+            UserInput::Text {
+                text: "Relevant memories:\n- Prefer repo-owned helpers\r\n\r\n".to_string(),
+                text_elements: Vec::new(),
+            },
+            UserInput::Text {
+                text: "fix the failing test".to_string(),
+                text_elements: Vec::new(),
+            },
+        ]
+    );
+}
+
+#[test]
+fn prepend_user_text_input_adds_context_before_existing_items() {
+    let mut input = vec![UserInput::Text {
+        text: "continue implementation".to_string(),
+        text_elements: Vec::new(),
+    }];
+
+    prepend_user_text_input(&mut input, "Review PLAN.md before responding.".to_string());
+
+    assert_eq!(
+        input,
+        vec![
+            UserInput::Text {
+                text: "Review PLAN.md before responding.\r\n\r\n".to_string(),
+                text_elements: Vec::new(),
+            },
+            UserInput::Text {
+                text: "continue implementation".to_string(),
+                text_elements: Vec::new(),
+            },
+        ]
+    );
+}
+
+#[test]
+fn prepend_user_text_input_separates_multiple_prepended_context_blocks() {
+    let mut input = vec![UserInput::Text {
+        text: "run tests".to_string(),
+        text_elements: Vec::new(),
+    }];
+
+    prepend_user_text_input(
+        &mut input,
+        "Graph context:\n- deploy bot maintained_by user".to_string(),
+    );
+    prepend_user_text_input(
+        &mut input,
+        "```sh\nclaude-plan-hook --fast\n```".to_string(),
+    );
+
+    assert_eq!(
+        input,
+        vec![
+            UserInput::Text {
+                text: "```sh\nclaude-plan-hook --fast\n```\r\n\r\n".to_string(),
+                text_elements: Vec::new(),
+            },
+            UserInput::Text {
+                text: "Graph context:\n- deploy bot maintained_by user\r\n\r\n".to_string(),
+                text_elements: Vec::new(),
+            },
+            UserInput::Text {
+                text: "run tests".to_string(),
+                text_elements: Vec::new(),
+            },
+        ]
+    );
+}
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn abort_review_task_emits_exited_then_aborted_and_records_history() {
     let (sess, tc, rx) = make_session_and_context_with_rx().await;
@@ -6961,6 +7104,7 @@ async fn rejects_escalated_permissions_when_policy_not_on_request() {
                 })
                 .to_string(),
             },
+            pre_tool_hook_decision: None,
         })
         .await;
 
@@ -7039,6 +7183,7 @@ async fn unified_exec_rejects_escalated_permissions_when_policy_not_on_request()
                 })
                 .to_string(),
             },
+            pre_tool_hook_decision: None,
         })
         .await;
 

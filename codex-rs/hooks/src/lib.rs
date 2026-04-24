@@ -3,6 +3,7 @@ pub(crate) mod events;
 mod legacy_notify;
 mod registry;
 mod schema;
+mod session_end;
 mod types;
 
 pub use events::permission_request::PermissionRequestDecision;
@@ -25,6 +26,8 @@ pub use registry::Hooks;
 pub use registry::HooksConfig;
 pub use registry::command_from_argv;
 pub use schema::write_schema_fixtures;
+pub use session_end::session_end_transcript_path_from_json;
+pub use types::CommandHookConfig;
 pub use types::Hook;
 pub use types::HookEvent;
 pub use types::HookEventAfterAgent;

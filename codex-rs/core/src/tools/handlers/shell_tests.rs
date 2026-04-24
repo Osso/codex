@@ -233,6 +233,7 @@ async fn shell_pre_tool_use_payload_uses_joined_command() {
             tool_name: codex_tools::ToolName::plain("shell"),
             source: crate::tools::context::ToolCallSource::Direct,
             payload,
+            pre_tool_hook_decision: None,
         }),
         Some(crate::tools::registry::PreToolUsePayload {
             tool_name: HookToolName::bash(),
@@ -261,6 +262,7 @@ async fn shell_command_pre_tool_use_payload_uses_raw_command() {
             tool_name: codex_tools::ToolName::plain("shell_command"),
             source: crate::tools::context::ToolCallSource::Direct,
             payload,
+            pre_tool_hook_decision: None,
         }),
         Some(crate::tools::registry::PreToolUsePayload {
             tool_name: HookToolName::bash(),

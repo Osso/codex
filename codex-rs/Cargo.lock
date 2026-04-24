@@ -2743,6 +2743,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "chrono",
+ "codex-apply-patch",
  "codex-config",
  "codex-protocol",
  "codex-utils-absolute-path",
@@ -2752,6 +2753,7 @@ dependencies = [
  "schemars 0.8.22",
  "serde",
  "serde_json",
+ "shlex",
  "tempfile",
  "tokio",
 ]

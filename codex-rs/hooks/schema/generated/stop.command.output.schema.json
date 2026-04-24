@@ -7,6 +7,32 @@
         "block"
       ],
       "type": "string"
+    },
+    "HookEventNameWire": {
+      "enum": [
+        "PreToolUse",
+        "PostToolUse",
+        "SessionStart",
+        "UserPromptSubmit",
+        "Stop"
+      ],
+      "type": "string"
+    },
+    "StopHookSpecificOutputWire": {
+      "additionalProperties": false,
+      "properties": {
+        "additionalContext": {
+          "default": null,
+          "type": "string"
+        },
+        "hookEventName": {
+          "$ref": "#/definitions/HookEventNameWire"
+        }
+      },
+      "required": [
+        "hookEventName"
+      ],
+      "type": "object"
     }
   },
   "properties": {
@@ -18,6 +44,14 @@
       "allOf": [
         {
           "$ref": "#/definitions/BlockDecisionWire"
+        }
+      ],
+      "default": null
+    },
+    "hookSpecificOutput": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/StopHookSpecificOutputWire"
         }
       ],
       "default": null

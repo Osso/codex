@@ -32,6 +32,7 @@ pub(crate) struct SessionState {
     pub(crate) startup_prewarm: Option<SessionStartupPrewarmHandle>,
     pub(crate) active_connector_selection: HashSet<String>,
     pub(crate) pending_session_start_source: Option<codex_hooks::SessionStartSource>,
+    pending_stop_hook_additional_context: Option<String>,
     granted_permissions: Option<PermissionProfile>,
     next_turn_is_first: bool,
 }
@@ -51,6 +52,7 @@ impl SessionState {
             startup_prewarm: None,
             active_connector_selection: HashSet::new(),
             pending_session_start_source: None,
+            pending_stop_hook_additional_context: None,
             granted_permissions: None,
             next_turn_is_first: true,
         }
@@ -184,6 +186,17 @@ impl SessionState {
 
     pub(crate) fn take_session_startup_prewarm(&mut self) -> Option<SessionStartupPrewarmHandle> {
         self.startup_prewarm.take()
+    }
+
+    pub(crate) fn set_pending_stop_hook_additional_context(
+        &mut self,
+        additional_context: Option<String>,
+    ) {
+        self.pending_stop_hook_additional_context = additional_context;
+    }
+
+    pub(crate) fn take_pending_stop_hook_additional_context(&mut self) -> Option<String> {
+        self.pending_stop_hook_additional_context.take()
     }
 
     // Adds connector IDs to the active set and returns the merged selection.

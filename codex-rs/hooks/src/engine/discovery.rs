@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::Path;
+use std::path::PathBuf;
 
 use codex_config::CONFIG_TOML_FILE;
 use codex_config::ConfigLayerEntry;
@@ -348,6 +349,7 @@ fn append_group_handlers(
                     continue;
                 }
                 let timeout_sec = timeout_sec.unwrap_or(600).max(1);
+                let status_message = status_message.or_else(|| command_label(&command));
                 handlers.push(ConfiguredHandler {
                     event_name,
                     is_managed: source.is_managed,
@@ -371,6 +373,17 @@ fn append_group_handlers(
             )),
         }
     }
+}
+
+fn command_label(command: &str) -> Option<String> {
+    let program = shlex::split(command)?
+        .into_iter()
+        .next()
+        .filter(|segment| !segment.is_empty())?;
+    PathBuf::from(program)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(ToOwned::to_owned)
 }
 
 fn hook_source_for_config_layer_source(source: &ConfigLayerSource) -> HookSource {
@@ -471,7 +484,7 @@ mod tests {
                 matcher: None,
                 command: "echo hello".to_string(),
                 timeout_sec: 600,
-                status_message: None,
+                status_message: Some("echo".to_string()),
                 source_path: source_path.clone(),
                 source: hook_source(),
                 display_order: 0,
@@ -504,7 +517,7 @@ mod tests {
                 matcher: Some("^Bash$".to_string()),
                 command: "echo hello".to_string(),
                 timeout_sec: 600,
-                status_message: None,
+                status_message: Some("echo".to_string()),
                 source_path: source_path.clone(),
                 source: hook_source(),
                 display_order: 0,
@@ -553,6 +566,14 @@ mod tests {
         assert_eq!(handlers.len(), 1);
         assert_eq!(handlers[0].event_name, HookEventName::PostToolUse);
         assert_eq!(handlers[0].matcher.as_deref(), Some("Edit|Write"));
+    }
+
+    #[test]
+    fn command_label_extracts_program_basename() {
+        assert_eq!(
+            super::command_label("/home/osso/.claude/hooks/simplify-nudge.sh"),
+            Some("simplify-nudge.sh".to_string())
+        );
     }
 
     #[test]
