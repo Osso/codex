@@ -70,3 +70,17 @@ fn parses_config_isolation_flags() {
     assert!(cli.ignore_user_config);
     assert!(cli.ignore_rules);
 }
+
+#[test]
+fn parses_permission_prompt_tool_flag() {
+    let cli = Cli::parse_from([
+        "codex-exec",
+        "--permission-prompt-tool",
+        "mcp__approval__prompt",
+    ]);
+
+    assert_eq!(
+        cli.permission_prompt_tool.as_deref(),
+        Some("mcp__approval__prompt")
+    );
+}

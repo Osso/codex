@@ -272,6 +272,10 @@ pub struct Config {
     /// ARC.
     pub approvals_reviewer: ApprovalsReviewer,
 
+    /// Optional MCP tool identifier (`mcp__server__tool`) used to prompt for
+    /// approval decisions.
+    pub permission_prompt_tool: Option<String>,
+
     /// enforce_residency means web traffic cannot be routed outside of a
     /// particular geography. HTTP clients should direct their requests
     /// using backend-specific headers or URLs to enforce this.
@@ -1388,6 +1392,7 @@ pub struct ConfigOverrides {
     pub review_model: Option<String>,
     pub cwd: Option<PathBuf>,
     pub approval_policy: Option<AskForApproval>,
+    pub permission_prompt_tool: Option<String>,
     pub approvals_reviewer: Option<ApprovalsReviewer>,
     pub sandbox_mode: Option<SandboxMode>,
     pub permission_profile: Option<PermissionProfile>,
@@ -1410,6 +1415,34 @@ pub struct ConfigOverrides {
     pub ephemeral: Option<bool>,
     /// Additional directories that should be treated as writable roots for this session.
     pub additional_writable_roots: Vec<PathBuf>,
+}
+
+/// Remove a string-valued CLI override from `cli_overrides`, returning the
+/// last provided value if present.
+pub fn pop_string_cli_override(
+    cli_overrides: &mut Vec<(String, TomlValue)>,
+    key: &str,
+) -> std::io::Result<Option<String>> {
+    let mut value = None;
+    let mut index = 0;
+    while index < cli_overrides.len() {
+        if cli_overrides[index].0 == key {
+            let (_, candidate) = cli_overrides.remove(index);
+            let candidate = match candidate {
+                TomlValue::String(candidate) => candidate,
+                other => {
+                    return Err(std::io::Error::new(
+                        ErrorKind::InvalidInput,
+                        format!("`{key}` override must be a string, got {other}"),
+                    ));
+                }
+            };
+            value = Some(candidate);
+        } else {
+            index += 1;
+        }
+    }
+    Ok(value)
 }
 
 /// Resolves the OSS provider from CLI override, profile config, or global config.
@@ -1608,6 +1641,7 @@ impl Config {
             review_model: override_review_model,
             cwd,
             approval_policy: approval_policy_override,
+            permission_prompt_tool: permission_prompt_tool_override,
             approvals_reviewer: approvals_reviewer_override,
             sandbox_mode,
             permission_profile,
@@ -2324,6 +2358,7 @@ impl Config {
                 windows_sandbox_private_desktop,
             },
             approvals_reviewer: constrained_approvals_reviewer.value(),
+            permission_prompt_tool: permission_prompt_tool_override,
             enforce_residency: enforce_residency.value,
             notify: cfg.notify,
             user_instructions,

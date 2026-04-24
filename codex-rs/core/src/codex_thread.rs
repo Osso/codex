@@ -45,6 +45,7 @@ pub struct ThreadConfigSnapshot {
     pub model_provider_id: String,
     pub service_tier: Option<ServiceTier>,
     pub approval_policy: AskForApproval,
+    pub permission_prompt_tool: Option<String>,
     pub approvals_reviewer: ApprovalsReviewer,
     pub sandbox_policy: SandboxPolicy,
     pub permission_profile: PermissionProfile,

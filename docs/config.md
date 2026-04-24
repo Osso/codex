@@ -42,6 +42,28 @@ default_tools_approval_mode = "approve"
 approval_mode = "prompt"
 ```
 
+## Permission prompt tool
+
+When command approvals are enabled, Codex can delegate shell/exec approval
+decisions to an MCP tool instead of prompting interactively:
+
+```toml
+permission_prompt_tool = "mcp__approval__permission_prompt"
+```
+
+Use the `mcp__<server>__<tool>` format. `<server>` must match a configured
+`[mcp_servers.<server>]` entry in the same `config.toml`.
+
+You can also set it per run with:
+
+```shell
+codex --permission-prompt-tool mcp__approval__permission_prompt
+codex exec --permission-prompt-tool mcp__approval__permission_prompt "run tests"
+```
+
+If the tool is missing, times out, or returns an error, Codex falls back to
+the normal interactive approval prompt.
+
 ## Apps (Connectors)
 
 Use `$` in the composer to insert a ChatGPT connector; the popover lists accessible

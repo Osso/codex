@@ -1,6 +1,7 @@
 pub(crate) mod mcp;
 pub(crate) mod mcp_connection_manager;
 pub(crate) mod mcp_tool_names;
+pub mod permission_prompt;
 
 pub use mcp::CODEX_APPS_MCP_SERVER_NAME;
 pub use mcp::McpAuthStatusEntry;

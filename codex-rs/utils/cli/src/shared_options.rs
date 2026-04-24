@@ -33,6 +33,10 @@ pub struct SharedCliOptions {
     #[arg(long = "profile", short = 'p')]
     pub config_profile: Option<String>,
 
+    /// Route shell/exec approval prompts through an MCP tool (`mcp__server__tool`).
+    #[arg(long = "permission-prompt-tool", value_name = "mcp__server__tool")]
+    pub permission_prompt_tool: Option<String>,
+
     /// Select the sandbox policy to use when executing model-generated shell
     /// commands.
     #[arg(long = "sandbox", short = 's')]
@@ -72,6 +76,7 @@ impl SharedCliOptions {
             oss,
             oss_provider,
             config_profile,
+            permission_prompt_tool,
             sandbox_mode,
             full_auto,
             dangerously_bypass_approvals_and_sandbox,
@@ -84,6 +89,7 @@ impl SharedCliOptions {
             oss: root_oss,
             oss_provider: root_oss_provider,
             config_profile: root_config_profile,
+            permission_prompt_tool: root_permission_prompt_tool,
             sandbox_mode: root_sandbox_mode,
             full_auto: root_full_auto,
             dangerously_bypass_approvals_and_sandbox: root_dangerously_bypass_approvals_and_sandbox,
@@ -102,6 +108,9 @@ impl SharedCliOptions {
         }
         if config_profile.is_none() {
             config_profile.clone_from(root_config_profile);
+        }
+        if permission_prompt_tool.is_none() {
+            permission_prompt_tool.clone_from(root_permission_prompt_tool);
         }
         if sandbox_mode.is_none() {
             *sandbox_mode = *root_sandbox_mode;
@@ -136,6 +145,7 @@ impl SharedCliOptions {
             oss,
             oss_provider,
             config_profile,
+            permission_prompt_tool,
             sandbox_mode,
             full_auto,
             dangerously_bypass_approvals_and_sandbox,
@@ -154,6 +164,9 @@ impl SharedCliOptions {
         }
         if let Some(config_profile) = config_profile {
             self.config_profile = Some(config_profile);
+        }
+        if let Some(permission_prompt_tool) = permission_prompt_tool {
+            self.permission_prompt_tool = Some(permission_prompt_tool);
         }
         if subcommand_selected_sandbox_mode {
             self.sandbox_mode = sandbox_mode;

@@ -65,6 +65,9 @@ use crate::turn_diff_tracker::TurnDiffTracker;
 use codex_app_server_protocol::AppInfo;
 use codex_config::config_toml::ConfigToml;
 use codex_config::config_toml::ProjectConfig;
+use codex_config::types::McpServerConfig;
+use codex_config::types::McpServerTransportConfig;
+use codex_config::types::OAuthCredentialsStoreMode;
 use codex_execpolicy::Decision;
 use codex_execpolicy::NetworkRuleProtocol;
 use codex_execpolicy::Policy;
@@ -145,6 +148,12 @@ use serde_json::json;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration as StdDuration;
+use wiremock::Mock;
+use wiremock::Request;
+use wiremock::Respond;
+use wiremock::ResponseTemplate;
+use wiremock::matchers::method;
+use wiremock::matchers::path;
 
 mod guardian_tests;
 
@@ -2288,6 +2297,7 @@ async fn set_rate_limits_retains_previous_credits() {
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
+        permission_prompt_tool: config.permission_prompt_tool.clone(),
         approvals_reviewer: config.approvals_reviewer,
         sandbox_policy: config.permissions.sandbox_policy.clone(),
         file_system_sandbox_policy: config.permissions.file_system_sandbox_policy.clone(),
@@ -2394,6 +2404,7 @@ async fn set_rate_limits_updates_plan_type_when_present() {
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
+        permission_prompt_tool: config.permission_prompt_tool.clone(),
         approvals_reviewer: config.approvals_reviewer,
         sandbox_policy: config.permissions.sandbox_policy.clone(),
         file_system_sandbox_policy: config.permissions.file_system_sandbox_policy.clone(),
@@ -2845,6 +2856,7 @@ pub(crate) async fn make_session_configuration_for_tests() -> SessionConfigurati
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
+        permission_prompt_tool: config.permission_prompt_tool.clone(),
         approvals_reviewer: config.approvals_reviewer,
         sandbox_policy: config.permissions.sandbox_policy.clone(),
         file_system_sandbox_policy: config.permissions.file_system_sandbox_policy.clone(),
@@ -2875,6 +2887,330 @@ fn turn_environments_for_tests(
         environment: Arc::clone(environment),
         cwd: cwd.clone(),
     }]
+}
+
+#[tokio::test]
+async fn thread_config_snapshot_includes_permission_prompt_tool() {
+    let mut session_configuration = make_session_configuration_for_tests().await;
+    session_configuration.permission_prompt_tool = Some("mcp__server__tool".to_string());
+
+    let snapshot = session_configuration.thread_config_snapshot();
+
+    assert_eq!(
+        snapshot.permission_prompt_tool.as_deref(),
+        Some("mcp__server__tool")
+    );
+}
+
+#[derive(Clone)]
+struct PermissionPromptResponder {
+    tool_use_ids: Arc<std::sync::Mutex<Vec<String>>>,
+}
+
+impl PermissionPromptResponder {
+    fn allow_decision() -> serde_json::Value {
+        json!({
+            "behavior": "allow"
+        })
+    }
+
+    fn deny_decision(message: String) -> serde_json::Value {
+        json!({
+            "behavior": "deny",
+            "message": message
+        })
+    }
+
+    fn session_allow_decision() -> serde_json::Value {
+        json!({
+            "behavior": "allow",
+            "updatedPermissions": [{
+                "type": "addRules",
+                "destination": "session",
+                "behavior": "allow",
+                "rules": [{
+                    "toolName": "Bash",
+                    "ruleContent": "echo session-cache"
+                }]
+            }]
+        })
+    }
+
+    fn user_settings_allow_decision() -> serde_json::Value {
+        json!({
+            "behavior": "allow",
+            "updatedPermissions": [{
+                "type": "addRules",
+                "destination": "userSettings",
+                "behavior": "allow",
+                "rules": [{
+                    "toolName": "Bash",
+                    "ruleContent": "echo user-cache"
+                }]
+            }]
+        })
+    }
+
+    fn decision_for_tool_use_id(&self, tool_use_id: &str) -> serde_json::Value {
+        match tool_use_id {
+            "allow-1" => Self::allow_decision(),
+            "deny-1" => Self::deny_decision("blocked".to_string()),
+            "session-1" => Self::session_allow_decision(),
+            "user-1" => Self::user_settings_allow_decision(),
+            _ => Self::deny_decision(format!("unexpected tool_use_id: {tool_use_id}")),
+        }
+    }
+
+    fn tools_call_response(
+        &self,
+        id: serde_json::Value,
+        body: &serde_json::Value,
+    ) -> ResponseTemplate {
+        let tool_use_id = body
+            .pointer("/params/arguments/tool_use_id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        self.tool_use_ids
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(tool_use_id.clone());
+        let decision = self.decision_for_tool_use_id(tool_use_id.as_str());
+        ResponseTemplate::new(200).set_body_json(json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "result": {
+                "content": [{
+                    "type": "text",
+                    "text": decision.to_string()
+                }],
+                "isError": false
+            }
+        }))
+    }
+}
+
+fn parse_jsonrpc_request(
+    request: &Request,
+) -> Result<(serde_json::Value, String, serde_json::Value), ResponseTemplate> {
+    let body = serde_json::from_slice::<serde_json::Value>(&request.body).map_err(|err| {
+        ResponseTemplate::new(400).set_body_json(json!({
+            "error": format!("invalid JSON body: {err}")
+        }))
+    })?;
+    let id = body.get("id").cloned().unwrap_or(serde_json::Value::Null);
+    let method = body
+        .get("method")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    Ok((id, method, body))
+}
+
+fn initialize_response(id: serde_json::Value) -> ResponseTemplate {
+    ResponseTemplate::new(200).set_body_json(json!({
+        "jsonrpc": "2.0",
+        "id": id,
+        "result": {
+            "protocolVersion": "2025-11-05",
+            "capabilities": {
+                "tools": {
+                    "listChanged": false
+                }
+            },
+            "serverInfo": {
+                "name": "approval",
+                "version": "1.0.0"
+            }
+        }
+    }))
+}
+
+fn tools_list_response(id: serde_json::Value) -> ResponseTemplate {
+    ResponseTemplate::new(200).set_body_json(json!({
+        "jsonrpc": "2.0",
+        "id": id,
+        "result": {
+            "tools": [{
+                "name": "permission_prompt",
+                "description": "returns a permission decision",
+                "inputSchema": {
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }],
+            "nextCursor": null
+        }
+    }))
+}
+
+fn method_not_found_response(id: serde_json::Value, method: &str) -> ResponseTemplate {
+    ResponseTemplate::new(200).set_body_json(json!({
+        "jsonrpc": "2.0",
+        "id": id,
+        "error": {
+            "code": -32601,
+            "message": format!("method not found: {method}")
+        }
+    }))
+}
+
+impl Respond for PermissionPromptResponder {
+    fn respond(&self, request: &Request) -> ResponseTemplate {
+        let (id, method, body) = match parse_jsonrpc_request(request) {
+            Ok(parsed) => parsed,
+            Err(response) => return response,
+        };
+        if method == "initialize" {
+            return initialize_response(id);
+        }
+        if method == "tools/list" {
+            return tools_list_response(id);
+        }
+        if method == "tools/call" {
+            return self.tools_call_response(id, &body);
+        }
+        if method == "notifications/initialized" || method.starts_with("notifications/") {
+            return ResponseTemplate::new(202);
+        }
+        method_not_found_response(id, &method)
+    }
+}
+
+async fn request_echo_command_approval(
+    session: &Session,
+    turn_context: &TurnContext,
+    call_id: &str,
+    command_suffix: &str,
+    cwd: &Path,
+) -> ReviewDecision {
+    session
+        .request_command_approval(
+            turn_context,
+            call_id.to_string(),
+            None,
+            vec!["echo".to_string(), command_suffix.to_string()],
+            cwd.abs(),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .await
+}
+
+#[tokio::test]
+async fn request_command_approval_permission_prompt_tool_decisions_and_side_effects() {
+    let (session, mut turn_context) = make_session_and_context().await;
+    let approval_server = wiremock::MockServer::start().await;
+    let tool_use_ids = Arc::new(std::sync::Mutex::new(Vec::new()));
+    Mock::given(method("POST"))
+        .and(path("/approval"))
+        .respond_with(PermissionPromptResponder {
+            tool_use_ids: Arc::clone(&tool_use_ids),
+        })
+        .mount(&approval_server)
+        .await;
+
+    let mut mcp_servers = HashMap::new();
+    mcp_servers.insert(
+        "approval".to_string(),
+        McpServerConfig {
+            transport: McpServerTransportConfig::StreamableHttp {
+                url: format!("{}/approval", approval_server.uri()),
+                bearer_token_env_var: None,
+                http_headers: None,
+                env_http_headers: None,
+            },
+            enabled: true,
+            required: false,
+            supports_parallel_tool_calls: false,
+            disabled_reason: None,
+            startup_timeout_sec: Some(StdDuration::from_secs(5)),
+            tool_timeout_sec: None,
+            enabled_tools: None,
+            disabled_tools: None,
+            scopes: None,
+            oauth_resource: None,
+            tools: HashMap::new(),
+        },
+    );
+    session
+        .refresh_mcp_servers_now(&turn_context, mcp_servers, OAuthCredentialsStoreMode::Auto)
+        .await;
+
+    let mut config = turn_context.config.as_ref().clone();
+    config.permission_prompt_tool = Some("mcp__approval__permission_prompt".to_string());
+    config.permissions.approval_policy = Constrained::allow_any(AskForApproval::OnRequest);
+    turn_context.config = Arc::new(config);
+
+    {
+        let mut cache = session
+            .services
+            .permission_prompt_session_rule_cache
+            .lock()
+            .await;
+        *cache = crate::permission_prompt::PermissionPromptSessionRuleCache::from_config(
+            turn_context.config.as_ref(),
+        );
+    }
+
+    let cwd = turn_context.config.cwd.as_path();
+
+    let allow =
+        request_echo_command_approval(&session, &turn_context, "allow-1", "allow", cwd).await;
+    assert_eq!(allow, ReviewDecision::Approved);
+
+    let deny = request_echo_command_approval(&session, &turn_context, "deny-1", "deny", cwd).await;
+    assert_eq!(deny, ReviewDecision::Denied);
+
+    let session_remembered =
+        request_echo_command_approval(&session, &turn_context, "session-1", "session-cache", cwd)
+            .await;
+    assert_eq!(session_remembered, ReviewDecision::Approved);
+    let session_cached =
+        request_echo_command_approval(&session, &turn_context, "session-2", "session-cache", cwd)
+            .await;
+    assert_eq!(session_cached, ReviewDecision::Approved);
+
+    let user_remembered =
+        request_echo_command_approval(&session, &turn_context, "user-1", "user-cache", cwd).await;
+    assert_eq!(user_remembered, ReviewDecision::Approved);
+
+    let user_config_path = turn_context
+        .config
+        .codex_home
+        .join(codex_config::CONFIG_TOML_FILE);
+    let user_config = std::fs::read_to_string(&user_config_path).expect("read user config");
+    let parsed_user_config: toml::Value = toml::from_str(&user_config).expect("parse user config");
+    let user_rule_enabled = parsed_user_config
+        .as_table()
+        .and_then(|table| table.get("permission_prompt_rules"))
+        .and_then(toml::Value::as_table)
+        .and_then(|table| table.get("Bash"))
+        .and_then(toml::Value::as_table)
+        .and_then(|table| table.get("content:echo user-cache"))
+        .and_then(toml::Value::as_bool);
+    assert_eq!(user_rule_enabled, Some(true));
+
+    let user_cached =
+        request_echo_command_approval(&session, &turn_context, "user-2", "user-cache", cwd).await;
+    assert_eq!(user_cached, ReviewDecision::Approved);
+
+    let observed_tool_use_ids = tool_use_ids
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clone();
+    assert_eq!(
+        observed_tool_use_ids,
+        vec![
+            "allow-1".to_string(),
+            "deny-1".to_string(),
+            "session-1".to_string(),
+            "user-1".to_string(),
+        ]
+    );
 }
 
 #[tokio::test]
@@ -3174,6 +3510,7 @@ async fn session_new_fails_when_zsh_fork_enabled_without_zsh_path() {
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
+        permission_prompt_tool: config.permission_prompt_tool.clone(),
         approvals_reviewer: config.approvals_reviewer,
         sandbox_policy: config.permissions.sandbox_policy.clone(),
         file_system_sandbox_policy: config.permissions.file_system_sandbox_policy.clone(),
@@ -3283,6 +3620,7 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
+        permission_prompt_tool: config.permission_prompt_tool.clone(),
         approvals_reviewer: config.approvals_reviewer,
         sandbox_policy: config.permissions.sandbox_policy.clone(),
         file_system_sandbox_policy: config.permissions.file_system_sandbox_policy.clone(),
@@ -3358,6 +3696,9 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
         session_telemetry: session_telemetry.clone(),
         models_manager: Arc::clone(&models_manager),
         tool_approvals: Mutex::new(ApprovalStore::default()),
+        permission_prompt_session_rule_cache: Mutex::new(
+            crate::permission_prompt::PermissionPromptSessionRuleCache::default(),
+        ),
         guardian_rejections: Mutex::new(std::collections::HashMap::new()),
         guardian_rejection_circuit_breaker: Mutex::new(Default::default()),
         runtime_handle: tokio::runtime::Handle::current(),
@@ -3506,6 +3847,7 @@ async fn make_session_with_config_and_rx(
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
+        permission_prompt_tool: config.permission_prompt_tool.clone(),
         approvals_reviewer: config.approvals_reviewer,
         sandbox_policy: config.permissions.sandbox_policy.clone(),
         file_system_sandbox_policy: config.permissions.file_system_sandbox_policy.clone(),
@@ -4652,6 +4994,7 @@ pub(crate) async fn make_session_and_context_with_dynamic_tools_and_rx(
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
+        permission_prompt_tool: config.permission_prompt_tool.clone(),
         approvals_reviewer: config.approvals_reviewer,
         sandbox_policy: config.permissions.sandbox_policy.clone(),
         file_system_sandbox_policy: config.permissions.file_system_sandbox_policy.clone(),
@@ -4727,6 +5070,9 @@ pub(crate) async fn make_session_and_context_with_dynamic_tools_and_rx(
         session_telemetry: session_telemetry.clone(),
         models_manager: Arc::clone(&models_manager),
         tool_approvals: Mutex::new(ApprovalStore::default()),
+        permission_prompt_session_rule_cache: Mutex::new(
+            crate::permission_prompt::PermissionPromptSessionRuleCache::default(),
+        ),
         guardian_rejections: Mutex::new(std::collections::HashMap::new()),
         guardian_rejection_circuit_breaker: Mutex::new(Default::default()),
         runtime_handle: tokio::runtime::Handle::current(),
