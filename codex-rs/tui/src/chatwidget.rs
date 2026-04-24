@@ -2687,8 +2687,10 @@ impl ChatWidget {
         !self.rejected_steers_queue.is_empty() || !self.queued_user_messages.is_empty()
     }
 
-    fn has_poppable_steer_messages(&self) -> bool {
-        !self.pending_steers.is_empty() || !self.rejected_steers_queue.is_empty()
+    fn has_poppable_queued_messages(&self) -> bool {
+        !self.queued_user_messages.is_empty()
+            || !self.rejected_steers_queue.is_empty()
+            || !self.pending_steers.is_empty()
     }
 
     fn pop_next_queued_user_message(&mut self) -> Option<QueuedUserMessage> {
@@ -2701,12 +2703,16 @@ impl ChatWidget {
         }
     }
 
-    fn pop_latest_steer_message(&mut self) -> Option<UserMessage> {
-        self.rejected_steers_queue.pop_back().or_else(|| {
-            self.pending_steers
-                .pop_back()
-                .map(|pending| pending.user_message)
-        })
+    fn pop_latest_queued_message_for_edit(&mut self) -> Option<UserMessage> {
+        self.queued_user_messages
+            .pop_back()
+            .map(QueuedUserMessage::into_user_message)
+            .or_else(|| self.rejected_steers_queue.pop_back())
+            .or_else(|| {
+                self.pending_steers
+                    .pop_back()
+                    .map(|pending| pending.user_message)
+            })
     }
 
     pub(crate) fn enqueue_rejected_steer(&mut self) -> bool {
@@ -5409,11 +5415,12 @@ impl ChatWidget {
             _ => {}
         }
 
-        if key_event.kind == KeyEventKind::Press
+        let should_restore_queued_message = key_event.kind == KeyEventKind::Press
             && self.queued_message_edit_binding.is_press(key_event)
-            && self.has_poppable_steer_messages()
-        {
-            if let Some(user_message) = self.pop_latest_steer_message() {
+            && self.bottom_pane.composer_is_empty()
+            && self.has_poppable_queued_messages();
+        if should_restore_queued_message {
+            if let Some(user_message) = self.pop_latest_queued_message_for_edit() {
                 self.restore_user_message_to_composer(user_message);
                 self.refresh_pending_input_preview();
                 self.request_redraw();

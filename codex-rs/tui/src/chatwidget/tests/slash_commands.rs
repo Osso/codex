@@ -157,12 +157,44 @@ async fn queued_slash_review_with_args_restores_for_edit() {
     });
 
     queue_composer_text_with_tab(&mut chat, "/review check regressions");
-    chat.handle_key_event(KeyEvent::new(KeyCode::Up, KeyModifiers::ALT));
+    chat.handle_key_event(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
 
     assert_eq!(
         chat.bottom_pane.composer_text(),
         "/review check regressions"
     );
+    assert!(chat.queued_user_messages.is_empty());
+}
+
+#[tokio::test]
+async fn queued_slash_review_restored_for_edit_is_not_auto_submitted() {
+    let (mut chat, _rx, mut op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
+    chat.thread_id = Some(ThreadId::new());
+    chat.handle_codex_event(Event {
+        id: "turn-start".into(),
+        msg: EventMsg::TurnStarted(TurnStartedEvent {
+            turn_id: "turn-1".to_string(),
+            started_at: None,
+            model_context_window: None,
+            collaboration_mode_kind: ModeKind::Default,
+        }),
+    });
+
+    queue_composer_text_with_tab(&mut chat, "/review check regressions");
+    chat.handle_key_event(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+
+    assert_eq!(
+        chat.bottom_pane.composer_text(),
+        "/review check regressions"
+    );
+    assert!(chat.queued_user_messages.is_empty());
+
+    chat.handle_codex_event(Event {
+        id: "turn-complete".into(),
+        msg: EventMsg::TurnComplete(turn_complete_event("turn-1", None)),
+    });
+
+    assert_no_submit_op(&mut op_rx);
 }
 
 #[tokio::test]
