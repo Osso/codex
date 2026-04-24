@@ -127,6 +127,7 @@ mod frames;
 mod get_git_diff;
 mod history_cell;
 pub(crate) mod insert_history;
+mod inter_agent_message;
 pub use insert_history::insert_history_lines;
 mod key_hint;
 mod line_truncation;

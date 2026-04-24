@@ -57,6 +57,7 @@ use crate::bottom_pane::StatusSurfacePreviewData;
 use crate::bottom_pane::StatusSurfacePreviewItem;
 use crate::bottom_pane::TerminalTitleItem;
 use crate::bottom_pane::TerminalTitleSetupView;
+use crate::inter_agent_message::pretty_inter_agent_message;
 use crate::legacy_core::DEFAULT_AGENTS_MD_FILENAME;
 use crate::legacy_core::config::Config;
 use crate::legacy_core::config::Constrained;
@@ -4603,6 +4604,9 @@ impl ChatWidget {
                 AgentMessageContent::Text { text } => message.push_str(text),
             }
         }
+        if let Some(pretty) = pretty_inter_agent_message(&message) {
+            message = pretty;
+        }
         self.finalize_completed_assistant_message(
             (!message.is_empty()).then_some(message.as_str()),
         );
@@ -7097,6 +7101,7 @@ impl ChatWidget {
                 if matches!(replay_kind, Some(ReplayKind::ThreadSnapshot))
                     && !self.is_review_mode =>
             {
+                let message = pretty_inter_agent_message(&message).unwrap_or(message);
                 if !message.is_empty() {
                     self.record_agent_markdown(&message);
                 }
@@ -7104,6 +7109,7 @@ impl ChatWidget {
             EventMsg::AgentMessage(AgentMessageEvent { message, .. })
                 if from_replay || self.is_review_mode =>
             {
+                let message = pretty_inter_agent_message(&message).unwrap_or(message);
                 if !message.is_empty() {
                     self.record_agent_markdown(&message);
                 }
@@ -7113,6 +7119,7 @@ impl ChatWidget {
                 self.on_agent_message(message)
             }
             EventMsg::AgentMessage(AgentMessageEvent { message, .. }) => {
+                let message = pretty_inter_agent_message(&message).unwrap_or(message);
                 if !message.is_empty() {
                     self.record_agent_markdown(&message);
                 }
