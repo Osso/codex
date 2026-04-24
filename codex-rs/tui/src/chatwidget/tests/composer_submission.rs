@@ -957,9 +957,10 @@ fn queued_message_edit_binding_is_plain_up() {
     );
 }
 
-/// Pressing Up to recall the most recent history entry and immediately queuing
-/// it while a task is running should always enqueue the same text, even when it
-/// is queued repeatedly.
+/// Pressing Ctrl+P to recall the most recent history entry and immediately
+/// queuing it while a task is running should always enqueue the same text, even
+/// when it is queued repeatedly. Plain Up is reserved for popping queued drafts
+/// back into the composer once the queue is non-empty.
 #[tokio::test]
 async fn enqueueing_history_prompt_multiple_times_is_stable() {
     let (mut chat, _rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
@@ -975,7 +976,7 @@ async fn enqueueing_history_prompt_multiple_times_is_stable() {
 
     for _ in 0..3 {
         // Recall the prompt from history and ensure it is what we expect.
-        chat.handle_key_event(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+        chat.handle_key_event(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::CONTROL));
         assert_eq!(chat.bottom_pane.composer_text(), "repeat me");
 
         // Queue the prompt while the task is running.
