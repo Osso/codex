@@ -741,6 +741,7 @@ impl AccountRequestProcessor {
         let include_token = params.include_token.unwrap_or(false);
         let do_refresh = params.refresh_token.unwrap_or(false);
 
+        self.auth_manager.reload().await;
         self.refresh_token_if_requested(do_refresh).await;
 
         // Determine whether auth is required based on the active model provider.
@@ -806,6 +807,7 @@ impl AccountRequestProcessor {
     ) -> Result<GetAccountResponse, JSONRPCErrorError> {
         let do_refresh = params.refresh_token;
 
+        self.auth_manager.reload().await;
         self.refresh_token_if_requested(do_refresh).await;
 
         let provider = create_model_provider(
