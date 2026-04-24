@@ -42,7 +42,7 @@ use crate::text_formatting::truncate_text;
 use crate::tooltips;
 use crate::ui_consts::LIVE_PREFIX_COLS;
 use crate::update_action::UpdateAction;
-use crate::version::CODEX_CLI_VERSION;
+use crate::version::CODEX_CLI_DISPLAY_VERSION;
 use crate::wrapping::RtOptions;
 use crate::wrapping::adaptive_wrap_line;
 use crate::wrapping::adaptive_wrap_lines;
@@ -765,7 +765,7 @@ impl HistoryCell for UpdateAvailableHistoryCell {
                 padded_emoji("✨").bold().cyan(),
                 "Update available!".bold().cyan(),
                 " ",
-                format!("{CODEX_CLI_VERSION} -> {}", self.latest_version).bold(),
+                format!("{CODEX_CLI_DISPLAY_VERSION} -> {}", self.latest_version).bold(),
             ],
             update_instruction,
             "",
@@ -1507,7 +1507,7 @@ pub(crate) fn new_session_info(
         session.reasoning_effort,
         show_fast_status,
         config.cwd.to_path_buf(),
-        CODEX_CLI_VERSION,
+        CODEX_CLI_DISPLAY_VERSION,
     )
     .with_yolo_mode(has_yolo_permissions(
         session.approval_policy,

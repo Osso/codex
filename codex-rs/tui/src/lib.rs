@@ -189,6 +189,8 @@ mod update_prompt;
 mod update_versions;
 mod updates;
 mod version;
+pub use version::CODEX_CLI_DISPLAY_VERSION;
+pub use version::CODEX_CLI_VERSION;
 #[cfg(not(target_os = "linux"))]
 mod voice;
 mod width;
@@ -898,7 +900,7 @@ pub async fn run_main(
     let otel = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         crate::legacy_core::otel_init::build_provider(
             &config,
-            env!("CARGO_PKG_VERSION"),
+            CODEX_CLI_VERSION,
             /*service_name_override*/ None,
             /*default_analytics_enabled*/ true,
         )
