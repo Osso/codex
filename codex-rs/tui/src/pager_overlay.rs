@@ -15,7 +15,9 @@
 //! recomputed. `ChatWidget` is responsible for producing a key that changes when the active cell
 //! mutates in place or when its transcript output is time-dependent.
 
+use std::cell::Cell as StdCell;
 use std::io::Result;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::chatwidget::ActiveCellTranscriptKey;
@@ -83,16 +85,12 @@ impl Overlay {
 
 const KEY_UP: KeyBinding = key_hint::plain(KeyCode::Up);
 const KEY_DOWN: KeyBinding = key_hint::plain(KeyCode::Down);
-const KEY_K: KeyBinding = key_hint::plain(KeyCode::Char('k'));
-const KEY_J: KeyBinding = key_hint::plain(KeyCode::Char('j'));
 const KEY_PAGE_UP: KeyBinding = key_hint::plain(KeyCode::PageUp);
 const KEY_PAGE_DOWN: KeyBinding = key_hint::plain(KeyCode::PageDown);
 const KEY_SPACE: KeyBinding = key_hint::plain(KeyCode::Char(' '));
 const KEY_SHIFT_SPACE: KeyBinding = key_hint::shift(KeyCode::Char(' '));
 const KEY_HOME: KeyBinding = key_hint::plain(KeyCode::Home);
 const KEY_END: KeyBinding = key_hint::plain(KeyCode::End);
-const KEY_LEFT: KeyBinding = key_hint::plain(KeyCode::Left);
-const KEY_RIGHT: KeyBinding = key_hint::plain(KeyCode::Right);
 const KEY_CTRL_F: KeyBinding = key_hint::ctrl(KeyCode::Char('f'));
 const KEY_CTRL_D: KeyBinding = key_hint::ctrl(KeyCode::Char('d'));
 const KEY_CTRL_B: KeyBinding = key_hint::ctrl(KeyCode::Char('b'));
@@ -105,7 +103,6 @@ const KEY_CTRL_C: KeyBinding = key_hint::ctrl(KeyCode::Char('c'));
 
 // Common pager navigation hints rendered on the first line
 const PAGER_KEY_HINTS: &[(&[KeyBinding], &str)] = &[
-    (&[KEY_UP, KEY_DOWN], "to scroll"),
     (&[KEY_PAGE_UP, KEY_PAGE_DOWN], "to page"),
     (&[KEY_HOME, KEY_END], "to jump"),
 ];
@@ -260,12 +257,6 @@ impl PagerView {
 
     fn handle_key_event(&mut self, tui: &mut tui::Tui, key_event: KeyEvent) -> Result<()> {
         match key_event {
-            e if KEY_UP.is_press(e) || KEY_K.is_press(e) => {
-                self.scroll_offset = self.scroll_offset.saturating_sub(1);
-            }
-            e if KEY_DOWN.is_press(e) || KEY_J.is_press(e) => {
-                self.scroll_offset = self.scroll_offset.saturating_add(1);
-            }
             e if KEY_PAGE_UP.is_press(e)
                 || KEY_SHIFT_SPACE.is_press(e)
                 || KEY_CTRL_B.is_press(e) =>
@@ -374,16 +365,16 @@ impl PagerView {
 /// A renderable that caches its desired height.
 struct CachedRenderable {
     renderable: Box<dyn Renderable>,
-    height: std::cell::Cell<Option<u16>>,
-    last_width: std::cell::Cell<Option<u16>>,
+    height: StdCell<Option<u16>>,
+    last_width: StdCell<Option<u16>>,
 }
 
 impl CachedRenderable {
     fn new(renderable: impl Into<Box<dyn Renderable>>) -> Self {
         Self {
             renderable: renderable.into(),
-            height: std::cell::Cell::new(None),
-            last_width: std::cell::Cell::new(None),
+            height: StdCell::new(None),
+            last_width: StdCell::new(None),
         }
     }
 }
@@ -404,13 +395,21 @@ impl Renderable for CachedRenderable {
 
 struct CellRenderable {
     cell: Arc<dyn HistoryCell>,
-    style: Style,
+    base_style: Style,
+    cell_index: usize,
+    highlight_cell: Rc<StdCell<Option<usize>>>,
+    is_user_message: bool,
 }
 
 impl Renderable for CellRenderable {
     fn render(&self, area: Rect, buf: &mut Buffer) {
+        let style = if self.is_user_message && self.highlight_cell.get() == Some(self.cell_index) {
+            self.base_style.reversed()
+        } else {
+            self.base_style
+        };
         let p = Paragraph::new(Text::from(self.cell.transcript_lines(area.width)))
-            .style(self.style)
+            .style(style)
             .wrap(Wrap { trim: false });
         p.render(area, buf);
     }
@@ -428,7 +427,7 @@ pub(crate) struct TranscriptOverlay {
     view: PagerView,
     /// Committed transcript cells (does not include the live tail).
     cells: Vec<Arc<dyn HistoryCell>>,
-    highlight_cell: Option<usize>,
+    highlight_cell: Rc<StdCell<Option<usize>>>,
     /// Cache key for the render-only live tail appended after committed cells.
     live_tail_key: Option<LiveTailKey>,
     is_done: bool,
@@ -455,14 +454,15 @@ impl TranscriptOverlay {
     /// This overlay does not own the "active cell"; callers may optionally append a live tail via
     /// `sync_live_tail` during draws to reflect in-flight activity.
     pub(crate) fn new(transcript_cells: Vec<Arc<dyn HistoryCell>>) -> Self {
+        let highlight_cell = Rc::new(StdCell::new(None));
         Self {
             view: PagerView::new(
-                Self::render_cells(&transcript_cells, /*highlight_cell*/ None),
+                Self::render_cells(&transcript_cells, Rc::clone(&highlight_cell)),
                 "T R A N S C R I P T".to_string(),
                 usize::MAX,
             ),
             cells: transcript_cells,
-            highlight_cell: None,
+            highlight_cell,
             live_tail_key: None,
             is_done: false,
         }
@@ -470,28 +470,25 @@ impl TranscriptOverlay {
 
     fn render_cells(
         cells: &[Arc<dyn HistoryCell>],
-        highlight_cell: Option<usize>,
+        highlight_cell: Rc<StdCell<Option<usize>>>,
     ) -> Vec<Box<dyn Renderable>> {
         cells
             .iter()
             .enumerate()
             .flat_map(|(i, c)| {
                 let mut v: Vec<Box<dyn Renderable>> = Vec::new();
-                let mut cell_renderable = if c.as_any().is::<UserHistoryCell>() {
-                    Box::new(CachedRenderable::new(CellRenderable {
-                        cell: c.clone(),
-                        style: if highlight_cell == Some(i) {
-                            user_message_style().reversed()
-                        } else {
-                            user_message_style()
-                        },
-                    })) as Box<dyn Renderable>
-                } else {
-                    Box::new(CachedRenderable::new(CellRenderable {
-                        cell: c.clone(),
-                        style: Style::default(),
-                    })) as Box<dyn Renderable>
-                };
+                let is_user_message = c.as_any().is::<UserHistoryCell>();
+                let mut cell_renderable = Box::new(CachedRenderable::new(CellRenderable {
+                    cell: c.clone(),
+                    base_style: if is_user_message {
+                        user_message_style()
+                    } else {
+                        Style::default()
+                    },
+                    cell_index: i,
+                    highlight_cell: Rc::clone(&highlight_cell),
+                    is_user_message,
+                })) as Box<dyn Renderable>;
                 if !c.is_stream_continuation() && i > 0 {
                     cell_renderable = Box::new(InsetRenderable::new(
                         cell_renderable,
@@ -521,7 +518,7 @@ impl TranscriptOverlay {
         let had_prior_cells = !self.cells.is_empty();
         let tail_renderable = self.take_live_tail_renderable();
         self.cells.push(cell);
-        self.view.renderables = Self::render_cells(&self.cells, self.highlight_cell);
+        self.view.renderables = Self::render_cells(&self.cells, Rc::clone(&self.highlight_cell));
         if let Some(tail) = tail_renderable {
             let tail = if !had_prior_cells
                 && self
@@ -556,9 +553,10 @@ impl TranscriptOverlay {
         self.cells = cells;
         if self
             .highlight_cell
+            .get()
             .is_some_and(|idx| idx >= self.cells.len())
         {
-            self.highlight_cell = None;
+            self.highlight_cell.set(None);
         }
         self.rebuild_renderables();
         if follow_bottom {
@@ -615,9 +613,8 @@ impl TranscriptOverlay {
     }
 
     pub(crate) fn set_highlight_cell(&mut self, cell: Option<usize>) {
-        self.highlight_cell = cell;
-        self.rebuild_renderables();
-        if let Some(idx) = self.highlight_cell {
+        self.highlight_cell.set(cell);
+        if let Some(idx) = self.highlight_cell.get() {
             self.view.scroll_chunk_into_view(idx);
         }
     }
@@ -632,7 +629,7 @@ impl TranscriptOverlay {
 
     fn rebuild_renderables(&mut self) {
         let tail_renderable = self.take_live_tail_renderable();
-        self.view.renderables = Self::render_cells(&self.cells, self.highlight_cell);
+        self.view.renderables = Self::render_cells(&self.cells, Rc::clone(&self.highlight_cell));
         if let Some(tail) = tail_renderable {
             self.view.renderables.push(tail);
         }
@@ -670,13 +667,13 @@ impl TranscriptOverlay {
         let line2 = Rect::new(area.x, area.y.saturating_add(1), area.width, 1);
         render_key_hints(line1, buf, PAGER_KEY_HINTS);
 
-        let mut pairs: Vec<(&[KeyBinding], &str)> = vec![(&[KEY_Q], "to quit")];
-        if self.highlight_cell.is_some() {
-            pairs.push((&[KEY_ESC, KEY_LEFT], "to edit prev"));
-            pairs.push((&[KEY_RIGHT], "to edit next"));
+        let mut pairs: Vec<(&[KeyBinding], &str)> = vec![(&[KEY_Q, KEY_ESC], "to quit")];
+        if self.highlight_cell.get().is_some() {
+            pairs.push((&[KEY_UP], "to edit prev"));
+            pairs.push((&[KEY_DOWN], "to edit next"));
             pairs.push((&[KEY_ENTER], "to edit message"));
         } else {
-            pairs.push((&[KEY_ESC], "to edit prev"));
+            pairs.push((&[KEY_UP], "to edit prev"));
         }
         render_key_hints(line2, buf, &pairs);
     }
@@ -694,7 +691,11 @@ impl TranscriptOverlay {
     pub(crate) fn handle_event(&mut self, tui: &mut tui::Tui, event: TuiEvent) -> Result<()> {
         match event {
             TuiEvent::Key(key_event) => match key_event {
-                e if KEY_Q.is_press(e) || KEY_CTRL_C.is_press(e) || KEY_CTRL_T.is_press(e) => {
+                e if KEY_Q.is_press(e)
+                    || KEY_ESC.is_press(e)
+                    || KEY_CTRL_C.is_press(e)
+                    || KEY_CTRL_T.is_press(e) =>
+                {
                     self.is_done = true;
                     Ok(())
                 }
@@ -815,6 +816,8 @@ mod tests {
     use std::collections::HashMap;
     use std::path::PathBuf;
     use std::sync::Arc;
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering;
     use std::time::Duration;
 
     use crate::exec_cell::CommandOutput;
@@ -839,6 +842,36 @@ mod tests {
 
         fn transcript_lines(&self, _width: u16) -> Vec<Line<'static>> {
             self.lines.clone()
+        }
+    }
+
+    #[derive(Debug)]
+    struct CountingHeightCell {
+        lines: Vec<Line<'static>>,
+        desired_height_calls: AtomicUsize,
+    }
+
+    impl CountingHeightCell {
+        fn new(text: &'static str) -> Self {
+            Self {
+                lines: vec![Line::from(text)],
+                desired_height_calls: AtomicUsize::new(0),
+            }
+        }
+    }
+
+    impl crate::history_cell::HistoryCell for CountingHeightCell {
+        fn display_lines(&self, _width: u16) -> Vec<Line<'static>> {
+            self.lines.clone()
+        }
+
+        fn transcript_lines(&self, _width: u16) -> Vec<Line<'static>> {
+            self.lines.clone()
+        }
+
+        fn desired_transcript_height(&self, _width: u16) -> u16 {
+            self.desired_height_calls.fetch_add(1, Ordering::Relaxed);
+            1
         }
     }
 
@@ -885,6 +918,10 @@ mod tests {
         assert!(
             s.contains("edit next"),
             "expected 'edit next' hint in overlay footer, got: {s:?}"
+        );
+        assert!(
+            s.contains("q/esc to quit"),
+            "expected 'q/esc to quit' hint in overlay footer, got: {s:?}"
         );
     }
 
@@ -952,6 +989,28 @@ mod tests {
         });
 
         assert_eq!(calls.get(), 1);
+    }
+
+    #[test]
+    fn set_highlight_cell_keeps_cached_heights() {
+        let cell_a = Arc::new(CountingHeightCell::new("alpha"));
+        let cell_b = Arc::new(CountingHeightCell::new("beta"));
+        let cells: Vec<Arc<dyn HistoryCell>> = vec![cell_a.clone(), cell_b.clone()];
+        let mut overlay = TranscriptOverlay::new(cells);
+        let area = Rect::new(0, 0, 40, 10);
+        let mut buf = Buffer::empty(area);
+
+        overlay.render(area, &mut buf);
+        let initial_calls = cell_a.desired_height_calls.load(Ordering::Relaxed)
+            + cell_b.desired_height_calls.load(Ordering::Relaxed);
+        assert_eq!(initial_calls, 2);
+
+        overlay.set_highlight_cell(Some(1));
+        overlay.render(area, &mut buf);
+
+        let final_calls = cell_a.desired_height_calls.load(Ordering::Relaxed)
+            + cell_b.desired_height_calls.load(Ordering::Relaxed);
+        assert_eq!(final_calls, initial_calls);
     }
 
     fn buffer_to_text(buf: &Buffer, area: Rect) -> String {
