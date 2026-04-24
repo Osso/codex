@@ -231,10 +231,6 @@ use codex_protocol::request_user_input::RequestUserInputQuestionOption;
 use codex_protocol::user_input::ByteRange;
 use codex_protocol::user_input::TextElement;
 use codex_protocol::user_input::UserInput;
-use codex_terminal_detection::Multiplexer;
-use codex_terminal_detection::TerminalInfo;
-use codex_terminal_detection::TerminalName;
-use codex_terminal_detection::terminal_info;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use codex_utils_sleep_inhibitor::SleepInhibitor;
 use crossterm::event::KeyCode;
@@ -274,37 +270,12 @@ const TUI_STUB_MESSAGE: &str = "Not available in TUI yet.";
 
 /// Choose the keybinding used to edit the most-recently queued message.
 ///
-/// Apple Terminal, Warp, and VSCode integrated terminals intercept or silently
-/// swallow Alt+Up, and tmux does not reliably pass that chord through. We fall
-/// back to Shift+Left for those environments while keeping the more discoverable
-/// Alt+Up everywhere else.
-///
-/// The match is exhaustive so that adding a new `TerminalName` variant forces
-/// an explicit decision about which binding that terminal should use.
-fn queued_message_edit_binding_for_terminal(terminal_info: TerminalInfo) -> KeyBinding {
-    if matches!(
-        terminal_info.multiplexer.as_ref(),
-        Some(Multiplexer::Tmux { .. })
-    ) {
-        return key_hint::shift(KeyCode::Left);
-    }
-
-    match terminal_info.name {
-        TerminalName::AppleTerminal | TerminalName::WarpTerminal | TerminalName::VsCode => {
-            key_hint::shift(KeyCode::Left)
-        }
-        TerminalName::Ghostty
-        | TerminalName::Iterm2
-        | TerminalName::WezTerm
-        | TerminalName::Kitty
-        | TerminalName::Alacritty
-        | TerminalName::Konsole
-        | TerminalName::GnomeTerminal
-        | TerminalName::Vte
-        | TerminalName::WindowsTerminal
-        | TerminalName::Dumb
-        | TerminalName::Unknown => key_hint::alt(KeyCode::Up),
-    }
+/// Plain Up is used so the command is easy to reach and matches the composer
+/// history key. The key handler only intercepts it while queued follow-up
+/// messages exist, so ordinary history recall still works when the queue is
+/// empty.
+fn queued_message_edit_binding() -> KeyBinding {
+    key_hint::plain(KeyCode::Up)
 }
 
 use crate::app_event::AppEvent;
@@ -941,9 +912,8 @@ pub(crate) struct ChatWidget {
     // When set, the next interrupt should resubmit all pending steers as one
     // fresh user turn instead of restoring them into the composer.
     submit_pending_steers_after_interrupt: bool,
-    /// Terminal-appropriate keybinding for popping the most-recently queued
-    /// message back into the composer.  Determined once at construction time via
-    /// [`queued_message_edit_binding_for_terminal`] and propagated to
+    /// Keybinding for popping the most-recently queued message back into the
+    /// composer. Determined once at construction time and propagated to
     /// `BottomPane` so the hint text matches the actual shortcut.
     queued_message_edit_binding: KeyBinding,
     // Pending notification to show when unfocused on next Draw
@@ -2717,6 +2687,10 @@ impl ChatWidget {
         !self.rejected_steers_queue.is_empty() || !self.queued_user_messages.is_empty()
     }
 
+    fn has_poppable_steer_messages(&self) -> bool {
+        !self.pending_steers.is_empty() || !self.rejected_steers_queue.is_empty()
+    }
+
     fn pop_next_queued_user_message(&mut self) -> Option<QueuedUserMessage> {
         if self.rejected_steers_queue.is_empty() {
             self.queued_user_messages.pop_front()
@@ -2727,11 +2701,12 @@ impl ChatWidget {
         }
     }
 
-    fn pop_latest_queued_user_message(&mut self) -> Option<UserMessage> {
-        self.queued_user_messages
-            .pop_back()
-            .map(QueuedUserMessage::into_user_message)
-            .or_else(|| self.rejected_steers_queue.pop_back())
+    fn pop_latest_steer_message(&mut self) -> Option<UserMessage> {
+        self.rejected_steers_queue.pop_back().or_else(|| {
+            self.pending_steers
+                .pop_back()
+                .map(|pending| pending.user_message)
+        })
     }
 
     pub(crate) fn enqueue_rejected_steer(&mut self) -> bool {
@@ -5171,7 +5146,7 @@ impl ChatWidget {
 
         let current_cwd = Some(config.cwd.to_path_buf());
         let effective_service_tier = config.service_tier;
-        let queued_message_edit_binding = queued_message_edit_binding_for_terminal(terminal_info());
+        let queued_message_edit_binding = queued_message_edit_binding();
         let mut widget = Self {
             app_event_tx: app_event_tx.clone(),
             frame_requester: frame_requester.clone(),
@@ -5426,9 +5401,9 @@ impl ChatWidget {
 
         if key_event.kind == KeyEventKind::Press
             && self.queued_message_edit_binding.is_press(key_event)
-            && self.has_queued_follow_up_messages()
+            && self.has_poppable_steer_messages()
         {
-            if let Some(user_message) = self.pop_latest_queued_user_message() {
+            if let Some(user_message) = self.pop_latest_steer_message() {
                 self.restore_user_message_to_composer(user_message);
                 self.refresh_pending_input_preview();
                 self.request_redraw();

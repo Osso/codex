@@ -1,5 +1,4 @@
 use super::*;
-use pretty_assertions::assert_eq;
 
 pub(super) async fn test_config() -> Config {
     // Start from the built-in defaults so tests do not inherit host/system config.
@@ -271,7 +270,7 @@ pub(super) async fn make_chatwidget_manual(
         rejected_steers_queue: VecDeque::new(),
         pending_steers: VecDeque::new(),
         submit_pending_steers_after_interrupt: false,
-        queued_message_edit_binding: crate::key_hint::alt(KeyCode::Up),
+        queued_message_edit_binding: queued_message_edit_binding(),
         suppress_session_configured_redraw: false,
         suppress_initial_user_message_submit: false,
         pending_notification: None,
@@ -724,40 +723,6 @@ pub(super) fn get_available_model(chat: &ChatWidget, model: &str) -> ModelPreset
         .find(|&preset| preset.model == model)
         .cloned()
         .unwrap_or_else(|| panic!("{model} preset not found"))
-}
-
-pub(super) async fn assert_shift_left_edits_most_recent_queued_message_for_terminal(
-    terminal_info: TerminalInfo,
-) {
-    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
-    chat.queued_message_edit_binding = queued_message_edit_binding_for_terminal(terminal_info);
-    chat.bottom_pane
-        .set_queued_message_edit_binding(chat.queued_message_edit_binding);
-
-    // Simulate a running task so messages would normally be queued.
-    chat.bottom_pane.set_task_running(/*running*/ true);
-
-    // Seed two queued messages.
-    chat.queued_user_messages
-        .push_back(UserMessage::from("first queued".to_string()).into());
-    chat.queued_user_messages
-        .push_back(UserMessage::from("second queued".to_string()).into());
-    chat.refresh_pending_input_preview();
-
-    // Press Shift+Left to edit the most recent (last) queued message.
-    chat.handle_key_event(KeyEvent::new(KeyCode::Left, KeyModifiers::SHIFT));
-
-    // Composer should now contain the last queued message.
-    assert_eq!(
-        chat.bottom_pane.composer_text(),
-        "second queued".to_string()
-    );
-    // And the queue should now contain only the remaining (older) item.
-    assert_eq!(chat.queued_user_messages.len(), 1);
-    assert_eq!(
-        chat.queued_user_messages.front().unwrap().text,
-        "first queued"
-    );
 }
 
 pub(super) fn render_bottom_first_row(chat: &ChatWidget, width: u16) -> String {

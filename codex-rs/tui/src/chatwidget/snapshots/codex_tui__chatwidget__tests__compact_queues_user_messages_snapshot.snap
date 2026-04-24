@@ -1,11 +1,22 @@
 ---
 source: tui/src/chatwidget/tests/slash_commands.rs
+assertion_line: 837
 expression: normalize_snapshot_paths(term.backend().vt100().screen().contents())
 ---
+
+
+
+
+
+
+
+
+
 • Working (0s • esc to interrupt)
 
 • Messages to be submitted at end of turn
   ↳ Steer submitted while /compact was running.
+    ↑ edit last steering message
 
 › Ask Codex to do anything
 

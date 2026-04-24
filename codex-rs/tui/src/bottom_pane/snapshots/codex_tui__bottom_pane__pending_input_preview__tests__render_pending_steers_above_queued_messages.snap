@@ -16,7 +16,7 @@ Buffer {
         "                                                    ",
         "• Queued follow-up inputs                           ",
         "  ↳ Queued follow-up question                       ",
-        "    ⌥ + ↑ edit last queued message                  ",
+        "    ↑ edit last steering message                    ",
     ],
     styles: [
         x: 0, y: 0, fg: Reset, bg: Reset, underline: Reset, modifier: DIM,
@@ -37,6 +37,6 @@ Buffer {
         x: 4, y: 9, fg: Reset, bg: Reset, underline: Reset, modifier: DIM | ITALIC,
         x: 29, y: 9, fg: Reset, bg: Reset, underline: Reset, modifier: NONE,
         x: 0, y: 10, fg: Reset, bg: Reset, underline: Reset, modifier: DIM,
-        x: 34, y: 10, fg: Reset, bg: Reset, underline: Reset, modifier: NONE,
+        x: 32, y: 10, fg: Reset, bg: Reset, underline: Reset, modifier: NONE,
     ]
 }

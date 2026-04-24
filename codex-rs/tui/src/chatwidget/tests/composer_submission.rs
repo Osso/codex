@@ -894,138 +894,11 @@ async fn restore_thread_input_state_syncs_sleep_inhibitor_state() {
     assert!(!chat.bottom_pane.is_task_running());
 }
 
-#[tokio::test]
-async fn alt_up_edits_most_recent_queued_message() {
-    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
-    chat.queued_message_edit_binding = crate::key_hint::alt(KeyCode::Up);
-    chat.bottom_pane
-        .set_queued_message_edit_binding(crate::key_hint::alt(KeyCode::Up));
-
-    // Simulate a running task so messages would normally be queued.
-    chat.bottom_pane.set_task_running(/*running*/ true);
-
-    // Seed two queued messages.
-    chat.queued_user_messages
-        .push_back(UserMessage::from("first queued".to_string()).into());
-    chat.queued_user_messages
-        .push_back(UserMessage::from("second queued".to_string()).into());
-    chat.refresh_pending_input_preview();
-
-    // Press Alt+Up to edit the most recent (last) queued message.
-    chat.handle_key_event(KeyEvent::new(KeyCode::Up, KeyModifiers::ALT));
-
-    // Composer should now contain the last queued message.
-    assert_eq!(
-        chat.bottom_pane.composer_text(),
-        "second queued".to_string()
-    );
-    // And the queue should now contain only the remaining (older) item.
-    assert_eq!(chat.queued_user_messages.len(), 1);
-    assert_eq!(
-        chat.queued_user_messages.front().unwrap().text,
-        "first queued"
-    );
-}
-
-#[tokio::test]
-async fn shift_left_edits_most_recent_queued_message_in_apple_terminal() {
-    assert_shift_left_edits_most_recent_queued_message_for_terminal(TerminalInfo {
-        name: TerminalName::AppleTerminal,
-        term_program: None,
-        version: None,
-        term: None,
-        multiplexer: None,
-    })
-    .await;
-}
-
-#[tokio::test]
-async fn shift_left_edits_most_recent_queued_message_in_warp_terminal() {
-    assert_shift_left_edits_most_recent_queued_message_for_terminal(TerminalInfo {
-        name: TerminalName::WarpTerminal,
-        term_program: None,
-        version: None,
-        term: None,
-        multiplexer: None,
-    })
-    .await;
-}
-
-#[tokio::test]
-async fn shift_left_edits_most_recent_queued_message_in_vscode_terminal() {
-    assert_shift_left_edits_most_recent_queued_message_for_terminal(TerminalInfo {
-        name: TerminalName::VsCode,
-        term_program: None,
-        version: None,
-        term: None,
-        multiplexer: None,
-    })
-    .await;
-}
-
-#[tokio::test]
-async fn shift_left_edits_most_recent_queued_message_in_tmux() {
-    assert_shift_left_edits_most_recent_queued_message_for_terminal(TerminalInfo {
-        name: TerminalName::Iterm2,
-        term_program: None,
-        version: None,
-        term: None,
-        multiplexer: Some(Multiplexer::Tmux { version: None }),
-    })
-    .await;
-}
-
 #[test]
-fn queued_message_edit_binding_mapping_covers_special_terminals_and_tmux() {
+fn queued_message_edit_binding_is_plain_up() {
     assert_eq!(
-        queued_message_edit_binding_for_terminal(TerminalInfo {
-            name: TerminalName::AppleTerminal,
-            term_program: None,
-            version: None,
-            term: None,
-            multiplexer: None,
-        }),
-        crate::key_hint::shift(KeyCode::Left)
-    );
-    assert_eq!(
-        queued_message_edit_binding_for_terminal(TerminalInfo {
-            name: TerminalName::WarpTerminal,
-            term_program: None,
-            version: None,
-            term: None,
-            multiplexer: None,
-        }),
-        crate::key_hint::shift(KeyCode::Left)
-    );
-    assert_eq!(
-        queued_message_edit_binding_for_terminal(TerminalInfo {
-            name: TerminalName::VsCode,
-            term_program: None,
-            version: None,
-            term: None,
-            multiplexer: None,
-        }),
-        crate::key_hint::shift(KeyCode::Left)
-    );
-    assert_eq!(
-        queued_message_edit_binding_for_terminal(TerminalInfo {
-            name: TerminalName::Iterm2,
-            term_program: None,
-            version: None,
-            term: None,
-            multiplexer: Some(Multiplexer::Tmux { version: None }),
-        }),
-        crate::key_hint::shift(KeyCode::Left)
-    );
-    assert_eq!(
-        queued_message_edit_binding_for_terminal(TerminalInfo {
-            name: TerminalName::Iterm2,
-            term_program: None,
-            version: None,
-            term: None,
-            multiplexer: None,
-        }),
-        crate::key_hint::alt(KeyCode::Up)
+        queued_message_edit_binding(),
+        crate::key_hint::plain(KeyCode::Up)
     );
 }
 
@@ -1058,6 +931,25 @@ async fn enqueueing_history_prompt_multiple_times_is_stable() {
     for message in chat.queued_user_messages.iter() {
         assert_eq!(message.text, "repeat me");
     }
+}
+
+#[tokio::test]
+async fn plain_up_recalls_history_when_no_queued_messages_exist() {
+    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
+    chat.thread_id = Some(ThreadId::new());
+
+    chat.bottom_pane
+        .set_composer_text("repeat me".to_string(), Vec::new(), Vec::new());
+    chat.handle_key_event(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+
+    chat.bottom_pane.set_task_running(/*running*/ true);
+    chat.bottom_pane
+        .set_composer_text(String::new(), Vec::new(), Vec::new());
+
+    chat.handle_key_event(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+
+    assert_eq!(chat.bottom_pane.composer_text(), "repeat me".to_string());
+    assert!(chat.queued_user_messages.is_empty());
 }
 
 #[test]

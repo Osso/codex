@@ -603,6 +603,25 @@ async fn item_completed_only_pops_front_pending_steer() {
     assert!(lines_to_single_string(&inserted[0]).contains("first"));
 }
 
+#[tokio::test]
+async fn plain_up_pops_latest_pending_steer_into_composer() {
+    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
+    chat.pending_steers
+        .push_back(pending_steer("first pending steer"));
+    chat.pending_steers
+        .push_back(pending_steer("second pending steer"));
+    chat.refresh_pending_input_preview();
+
+    chat.handle_key_event(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+
+    assert_eq!(chat.bottom_pane.composer_text(), "second pending steer");
+    assert_eq!(chat.pending_steers.len(), 1);
+    assert_eq!(
+        chat.pending_steers.front().unwrap().user_message.text,
+        "first pending steer"
+    );
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn item_completed_pops_pending_steer_with_local_image_and_text_elements() {
     let (mut chat, mut rx, mut op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
