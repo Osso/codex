@@ -84,6 +84,8 @@ yarn.lock
 package.json-e
 session.ts-e
 CHANGELOG.ignore.md
+*.snap.new
+codex-rs/exec/.codex
 
 # nix related
 .direnv
