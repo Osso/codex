@@ -5,6 +5,7 @@
 
 use super::*;
 use crate::tools::context::FunctionToolOutput;
+use codex_protocol::protocol::CollabAgentInteractionTool;
 use codex_protocol::protocol::InterAgentCommunication;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -25,6 +26,13 @@ impl MessageDeliveryMode {
                 trigger_turn: true,
                 ..communication
             },
+        }
+    }
+
+    fn event_tool(self) -> CollabAgentInteractionTool {
+        match self {
+            Self::QueueOnly => CollabAgentInteractionTool::SendMessage,
+            Self::TriggerTurn => CollabAgentInteractionTool::FollowupTask,
         }
     }
 }
@@ -118,6 +126,7 @@ async fn handle_message_submission(
                 call_id: call_id.clone(),
                 sender_thread_id: session.conversation_id,
                 receiver_thread_id,
+                tool: mode.event_tool(),
                 prompt: prompt.clone(),
             }
             .into(),
@@ -153,6 +162,7 @@ async fn handle_message_submission(
                 call_id,
                 sender_thread_id: session.conversation_id,
                 receiver_thread_id,
+                tool: mode.event_tool(),
                 receiver_agent_nickname: receiver_agent.agent_nickname,
                 receiver_agent_role: receiver_agent.agent_role,
                 prompt,

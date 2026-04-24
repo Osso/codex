@@ -2345,6 +2345,7 @@ model_provider = "mock_provider"
 [features]
 personality = true
 general_analytics = true
+apply_patch_freeform = true
 
 [model_providers.mock_provider]
 name = "Mock provider for test"

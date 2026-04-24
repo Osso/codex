@@ -36,7 +36,8 @@ async fn responses_api_parent_and_subagent_requests_include_identity_headers() -
 
     let server = start_mock_server().await;
 
-    let spawn_args = serde_json::to_string(&json!({ "message": CHILD_PROMPT }))?;
+    let spawn_args =
+        serde_json::to_string(&json!({ "message": CHILD_PROMPT, "task_name": "worker" }))?;
     let parent_mock = mount_sse_once_match(
         &server,
         |req: &wiremock::Request| {

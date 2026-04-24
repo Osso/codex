@@ -11,6 +11,7 @@ use codex_protocol::ThreadId;
 use codex_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
 use codex_protocol::protocol::AgentStatus;
 use codex_protocol::protocol::CollabAgentInteractionEndEvent;
+use codex_protocol::protocol::CollabAgentInteractionTool;
 use codex_protocol::protocol::CollabAgentRef;
 use codex_protocol::protocol::CollabAgentSpawnEndEvent;
 use codex_protocol::protocol::CollabAgentStatusEntry;
@@ -211,14 +212,20 @@ pub(crate) fn interaction_end(ev: CollabAgentInteractionEndEvent) -> PlainHistor
         call_id: _,
         sender_thread_id: _,
         receiver_thread_id,
+        tool,
         receiver_agent_nickname,
         receiver_agent_role,
         prompt,
         status: _,
     } = ev;
 
+    let title_text = match tool {
+        CollabAgentInteractionTool::SendInput => "Sent input to",
+        CollabAgentInteractionTool::SendMessage => "Sent message to",
+        CollabAgentInteractionTool::FollowupTask => "Assigned task to",
+    };
     let title = title_with_agent(
-        "Sent input to",
+        title_text,
         AgentLabel {
             thread_id: Some(receiver_thread_id),
             nickname: receiver_agent_nickname.as_deref(),
@@ -623,6 +630,7 @@ mod tests {
             call_id: "call-send".to_string(),
             sender_thread_id,
             receiver_thread_id: robie_id,
+            tool: CollabAgentInteractionTool::FollowupTask,
             receiver_agent_nickname: Some("Robie".to_string()),
             receiver_agent_role: Some("explorer".to_string()),
             prompt: "Please continue and return the answer only.".to_string(),

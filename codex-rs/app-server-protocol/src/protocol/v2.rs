@@ -5994,10 +5994,24 @@ v2_enum_from_core! {
 #[ts(export_to = "v2/")]
 pub enum CollabAgentTool {
     SpawnAgent,
+    SendMessage,
+    FollowupTask,
     SendInput,
     ResumeAgent,
-    Wait,
+    WaitAgent,
     CloseAgent,
+}
+
+impl From<codex_protocol::protocol::CollabAgentInteractionTool> for CollabAgentTool {
+    fn from(value: codex_protocol::protocol::CollabAgentInteractionTool) -> Self {
+        match value {
+            codex_protocol::protocol::CollabAgentInteractionTool::SendInput => Self::SendInput,
+            codex_protocol::protocol::CollabAgentInteractionTool::SendMessage => Self::SendMessage,
+            codex_protocol::protocol::CollabAgentInteractionTool::FollowupTask => {
+                Self::FollowupTask
+            }
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]

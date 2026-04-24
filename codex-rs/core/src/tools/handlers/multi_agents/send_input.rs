@@ -47,6 +47,7 @@ impl ToolHandler for Handler {
                     call_id: call_id.clone(),
                     sender_thread_id: session.conversation_id,
                     receiver_thread_id,
+                    tool: codex_protocol::protocol::CollabAgentInteractionTool::SendInput,
                     prompt: prompt.clone(),
                 }
                 .into(),
@@ -69,6 +70,7 @@ impl ToolHandler for Handler {
                     call_id,
                     sender_thread_id: session.conversation_id,
                     receiver_thread_id,
+                    tool: codex_protocol::protocol::CollabAgentInteractionTool::SendInput,
                     receiver_agent_nickname: receiver_agent.agent_nickname,
                     receiver_agent_role: receiver_agent.agent_role,
                     prompt,

@@ -217,8 +217,10 @@ pub enum CollabToolCallStatus {
 #[serde(rename_all = "snake_case")]
 pub enum CollabTool {
     SpawnAgent,
+    SendMessage,
+    FollowupTask,
     SendInput,
-    Wait,
+    WaitAgent,
     CloseAgent,
 }
 

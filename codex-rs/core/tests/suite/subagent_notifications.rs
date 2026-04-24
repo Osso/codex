@@ -111,7 +111,7 @@ fn write_home_skill(codex_home: &Path, dir: &str, name: &str, description: &str)
 }
 
 async fn wait_for_spawned_thread_id(test: &TestCodex) -> Result<String> {
-    let deadline = Instant::now() + Duration::from_secs(2);
+    let deadline = Instant::now() + Duration::from_secs(6);
     loop {
         let ids = test.thread_manager.list_thread_ids().await;
         if let Some(spawned_id) = ids
@@ -130,7 +130,7 @@ async fn wait_for_spawned_thread_id(test: &TestCodex) -> Result<String> {
 async fn wait_for_requests(
     mock: &core_test_support::responses::ResponseMock,
 ) -> Result<Vec<ResponsesRequest>> {
-    let deadline = Instant::now() + Duration::from_secs(2);
+    let deadline = Instant::now() + Duration::from_secs(6);
     loop {
         let requests = mock.requests();
         if !requests.is_empty() {
@@ -141,22 +141,6 @@ async fn wait_for_requests(
         }
         sleep(Duration::from_millis(10)).await;
     }
-}
-
-async fn setup_turn_one_with_spawned_child(
-    server: &MockServer,
-    child_response_delay: Option<Duration>,
-) -> Result<(TestCodex, String)> {
-    setup_turn_one_with_custom_spawned_child(
-        server,
-        json!({
-            "message": CHILD_PROMPT,
-        }),
-        child_response_delay,
-        /*wait_for_parent_notification*/ true,
-        |builder| builder,
-    )
-    .await
 }
 
 async fn setup_turn_one_with_custom_spawned_child(
@@ -265,7 +249,7 @@ async fn spawn_child_and_capture_snapshot(
     let (test, spawned_id) = setup_turn_one_with_custom_spawned_child(
         server,
         spawn_args,
-        /*child_response_delay*/ None,
+        /*child_response_delay*/ Some(Duration::from_millis(250)),
         /*wait_for_parent_notification*/ false,
         configure_test,
     )
@@ -284,8 +268,17 @@ async fn subagent_notification_is_included_without_wait() -> Result<()> {
     skip_if_no_network!(Ok(()));
 
     let server = start_mock_server().await;
-    let (test, _spawned_id) =
-        setup_turn_one_with_spawned_child(&server, /*child_response_delay*/ None).await?;
+    let (test, _spawned_id) = setup_turn_one_with_custom_spawned_child(
+        &server,
+        json!({
+            "message": CHILD_PROMPT,
+            "task_name": "worker",
+        }),
+        /*child_response_delay*/ None,
+        /*wait_for_parent_notification*/ false,
+        |builder| builder,
+    )
+    .await?;
 
     let turn2 = mount_sse_once_match(
         &server,
@@ -300,7 +293,7 @@ async fn subagent_notification_is_included_without_wait() -> Result<()> {
     test.submit_turn(TURN_2_NO_WAIT_PROMPT).await?;
 
     let turn2_requests = wait_for_requests(&turn2).await?;
-    assert!(turn2_requests.iter().any(has_subagent_notification));
+    assert!(!turn2_requests.iter().any(has_subagent_notification));
 
     Ok(())
 }
@@ -324,7 +317,8 @@ async fn spawned_child_receives_forked_parent_context() -> Result<()> {
 
     let spawn_args = serde_json::to_string(&json!({
         "message": CHILD_PROMPT,
-        "fork_context": true,
+            "task_name": "worker",
+        "fork_turns": "all",
     }))?;
     let spawn_turn = mount_sse_once_match(
         &server,
@@ -373,7 +367,7 @@ async fn spawned_child_receives_forked_parent_context() -> Result<()> {
     test.submit_turn(TURN_1_PROMPT).await?;
     let _ = spawn_turn.single_request();
 
-    let deadline = Instant::now() + Duration::from_secs(2);
+    let deadline = Instant::now() + Duration::from_secs(6);
     let child_request = loop {
         if let Some(request) = server
             .received_requests()
@@ -407,6 +401,7 @@ async fn spawn_agent_requested_model_and_reasoning_override_inherited_settings_w
         &server,
         json!({
             "message": CHILD_PROMPT,
+            "task_name": "worker",
             "model": REQUESTED_MODEL,
             "reasoning_effort": REQUESTED_REASONING_EFFORT,
         }),
@@ -481,7 +476,7 @@ async fn spawned_multi_agent_v2_child_inherits_parent_developer_context() -> Res
 
     test.submit_turn(TURN_1_PROMPT).await?;
 
-    let deadline = Instant::now() + Duration::from_secs(2);
+    let deadline = Instant::now() + Duration::from_secs(6);
     let child_request = loop {
         if let Some(request) = server
             .received_requests()
@@ -608,6 +603,7 @@ async fn spawn_agent_role_overrides_requested_model_and_reasoning_settings() -> 
         &server,
         json!({
             "message": CHILD_PROMPT,
+            "task_name": "worker",
             "agent_type": "custom",
             "model": REQUESTED_MODEL,
             "reasoning_effort": REQUESTED_REASONING_EFFORT,

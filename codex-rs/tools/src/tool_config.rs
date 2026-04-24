@@ -86,6 +86,7 @@ pub struct ToolsConfig {
     pub shell_type: ConfigShellToolType,
     pub shell_command_backend: ShellCommandBackendConfig,
     pub unified_exec_shell_mode: UnifiedExecShellMode,
+    pub legacy_shell_compat: bool,
     pub has_environment: bool,
     pub allow_login_shell: bool,
     pub apply_patch_tool_type: Option<ApplyPatchToolType>,
@@ -104,6 +105,7 @@ pub struct ToolsConfig {
     pub can_request_original_image_detail: bool,
     pub collab_tools: bool,
     pub multi_agent_v2: bool,
+    pub legacy_multi_agent_v1: bool,
     pub hide_spawn_agent_metadata: bool,
     pub spawn_agent_usage_hint: bool,
     pub spawn_agent_usage_hint_text: Option<String>,
@@ -143,8 +145,12 @@ impl ToolsConfig {
         let include_js_repl = features.enabled(Feature::JsRepl);
         let include_js_repl_tools_only =
             include_js_repl && features.enabled(Feature::JsReplToolsOnly);
-        let include_collab_tools = features.enabled(Feature::Collab);
-        let include_multi_agent_v2 = features.enabled(Feature::MultiAgentV2);
+        let collab_enabled = features.enabled(Feature::Collab);
+        let include_multi_agent_v2 = collab_enabled && features.enabled(Feature::MultiAgentV2);
+        let include_legacy_multi_agent_v1 = collab_enabled
+            && !include_multi_agent_v2
+            && features.enabled(Feature::LegacyMultiAgentV1);
+        let include_collab_tools = include_multi_agent_v2 || include_legacy_multi_agent_v1;
         let include_agent_jobs = features.enabled(Feature::SpawnCsv);
         let include_default_mode_request_user_input =
             features.enabled(Feature::DefaultModeRequestUserInput);
@@ -167,6 +173,7 @@ impl ToolsConfig {
             } else {
                 ShellCommandBackendConfig::Classic
             };
+        let legacy_shell_compat = features.enabled(Feature::LegacyShellCompat);
         let unified_exec_allowed = unified_exec_allowed_in_environment(
             cfg!(target_os = "windows"),
             sandbox_policy,
@@ -200,6 +207,7 @@ impl ToolsConfig {
             shell_type,
             shell_command_backend,
             unified_exec_shell_mode: UnifiedExecShellMode::Direct,
+            legacy_shell_compat,
             has_environment: true,
             allow_login_shell: true,
             apply_patch_tool_type,
@@ -218,6 +226,7 @@ impl ToolsConfig {
             can_request_original_image_detail: include_original_image_detail,
             collab_tools: include_collab_tools,
             multi_agent_v2: include_multi_agent_v2,
+            legacy_multi_agent_v1: include_legacy_multi_agent_v1,
             hide_spawn_agent_metadata: false,
             spawn_agent_usage_hint: true,
             spawn_agent_usage_hint_text: None,

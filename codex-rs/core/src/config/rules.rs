@@ -15,7 +15,7 @@ pub(crate) fn load_rules_from_dir(rules_dir: &Path) -> Option<String> {
 
     let entries = std::fs::read_dir(rules_dir).ok()?;
     let mut paths: Vec<std::path::PathBuf> = entries
-        .filter_map(|e| e.ok())
+        .filter_map(std::result::Result::ok)
         .map(|e| e.path())
         .filter(|p| p.extension().is_some_and(|ext| ext == "md"))
         .collect();

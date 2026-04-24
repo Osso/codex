@@ -1859,7 +1859,7 @@ async fn turn_start_updates_sandbox_and_cwd_between_turns_v2() -> Result<()> {
         &codex_home,
         &server.uri(),
         "untrusted",
-        &BTreeMap::default(),
+        &BTreeMap::from([(Feature::ApplyPatchFreeform, true)]),
     )?;
 
     let mut mcp = McpProcess::new(&codex_home).await?;
@@ -2188,7 +2188,7 @@ async fn turn_start_file_change_approval_v2() -> Result<()> {
         &codex_home,
         &server.uri(),
         "untrusted",
-        &BTreeMap::default(),
+        &BTreeMap::from([(Feature::ApplyPatchFreeform, true)]),
     )?;
 
     let mut mcp = McpProcess::new(&codex_home).await?;
@@ -2608,6 +2608,7 @@ async fn turn_start_emits_spawn_agent_item_with_model_metadata_v2() -> Result<()
     let server = responses::start_mock_server().await;
     let spawn_args = serde_json::to_string(&json!({
         "message": CHILD_PROMPT,
+        "task_name": "child_task",
         "model": REQUESTED_MODEL,
         "reasoning_effort": REQUESTED_REASONING_EFFORT,
     }))?;
@@ -2804,6 +2805,7 @@ async fn turn_start_emits_spawn_agent_item_with_effective_role_model_metadata_v2
     let server = responses::start_mock_server().await;
     let spawn_args = serde_json::to_string(&json!({
         "message": CHILD_PROMPT,
+        "task_name": "child_task",
         "agent_type": "custom",
         "model": REQUESTED_MODEL,
         "reasoning_effort": REQUESTED_REASONING_EFFORT,
@@ -3006,7 +3008,7 @@ async fn turn_start_file_change_approval_accept_for_session_persists_v2() -> Res
         &codex_home,
         &server.uri(),
         "untrusted",
-        &BTreeMap::default(),
+        &BTreeMap::from([(Feature::ApplyPatchFreeform, true)]),
     )?;
 
     let mut mcp = McpProcess::new(&codex_home).await?;
@@ -3187,7 +3189,7 @@ async fn turn_start_file_change_approval_decline_v2() -> Result<()> {
         &codex_home,
         &server.uri(),
         "untrusted",
-        &BTreeMap::default(),
+        &BTreeMap::from([(Feature::ApplyPatchFreeform, true)]),
     )?;
 
     let mut mcp = McpProcess::new(&codex_home).await?;

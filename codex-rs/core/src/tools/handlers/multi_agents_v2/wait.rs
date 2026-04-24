@@ -40,6 +40,27 @@ impl ToolHandler for Handler {
         let mut mailbox_seq_rx = session.subscribe_mailbox_seq();
 
         session
+            .services
+            .agent_control
+            .register_session_root(session.conversation_id, &turn.session_source);
+        let current_agent_path = turn
+            .session_source
+            .get_agent_path()
+            .unwrap_or_else(AgentPath::root);
+        let descendant_prefix = format!("{current_agent_path}/");
+        let has_descendant_agents = session
+            .services
+            .agent_control
+            .list_agents(&turn.session_source, None)
+            .await
+            .map_err(collab_spawn_error)?
+            .into_iter()
+            .any(|agent| agent.agent_name.starts_with(&descendant_prefix));
+        if !has_descendant_agents {
+            return Ok(WaitAgentResult::no_agents());
+        }
+
+        session
             .send_event(
                 &turn,
                 CollabWaitingBeginEvent {
@@ -90,6 +111,13 @@ pub(crate) struct WaitAgentResult {
 }
 
 impl WaitAgentResult {
+    fn no_agents() -> Self {
+        Self {
+            message: "No agents available yet.".to_string(),
+            timed_out: false,
+        }
+    }
+
     fn from_timed_out(timed_out: bool) -> Self {
         let message = if timed_out {
             "Wait timed out."

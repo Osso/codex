@@ -448,7 +448,7 @@ async fn user_input_does_not_preempt_after_reasoning_item() {
                 ev_function_call(
                     "call-preserved",
                     "shell",
-                    r#"{"command":"echo preserved tool call"}"#,
+                    r#"{"command":["sh","-lc","echo preserved tool call"],"timeout_ms":1000}"#,
                 ),
                 ev_message_item_added("msg-1", ""),
                 ev_output_text_delta("first answer"),

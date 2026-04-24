@@ -183,6 +183,7 @@ pub(crate) fn server_notification_requires_delivery(notification: &ServerNotific
         ServerNotification::TurnCompleted(_)
             | ServerNotification::ItemCompleted(_)
             | ServerNotification::AgentMessageDelta(_)
+            | ServerNotification::McpServerStatusUpdated(_)
             | ServerNotification::PlanDelta(_)
             | ServerNotification::ReasoningSummaryTextDelta(_)
             | ServerNotification::ReasoningTextDelta(_)
@@ -1956,6 +1957,17 @@ mod tests {
                             phase: None,
                             memory_citation: None,
                         },
+                    }
+                )
+            )
+        ));
+        assert!(event_requires_delivery(
+            &InProcessServerEvent::ServerNotification(
+                codex_app_server_protocol::ServerNotification::McpServerStatusUpdated(
+                    codex_app_server_protocol::McpServerStatusUpdatedNotification {
+                        name: "regex-replace".to_string(),
+                        status: codex_app_server_protocol::McpServerStartupState::Ready,
+                        error: None,
                     }
                 )
             )

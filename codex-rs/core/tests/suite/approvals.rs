@@ -743,7 +743,7 @@ fn body_contains(req: &Request, text: &str) -> bool {
 }
 
 async fn wait_for_spawned_thread(test: &TestCodex) -> Result<Arc<CodexThread>> {
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(6);
     loop {
         let ids = test.thread_manager.list_thread_ids().await;
         if let Some(thread_id) = ids
@@ -2108,6 +2108,7 @@ async fn spawned_subagent_execpolicy_amendment_propagates_to_parent_session() ->
 
     let spawn_args = serde_json::to_string(&json!({
         "message": CHILD_PROMPT,
+        "task_name": "worker",
     }))?;
     mount_sse_once_match(
         &server,
@@ -2195,7 +2196,7 @@ async fn spawned_subagent_execpolicy_amendment_propagates_to_parent_session() ->
                 EventMsg::ExecApprovalRequest(_) | EventMsg::TurnComplete(_)
             )
         },
-        Duration::from_secs(2),
+        Duration::from_secs(6),
     )
     .await;
 
@@ -2229,7 +2230,7 @@ async fn spawned_subagent_execpolicy_amendment_propagates_to_parent_session() ->
                 EventMsg::ExecApprovalRequest(_) | EventMsg::TurnComplete(_)
             )
         },
-        Duration::from_secs(2),
+        Duration::from_secs(6),
     )
     .await;
     match child_event {

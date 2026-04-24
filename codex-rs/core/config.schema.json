@@ -441,6 +441,9 @@
             "js_repl_tools_only": {
               "type": "boolean"
             },
+            "legacy_shell_compat": {
+              "type": "boolean"
+            },
             "memories": {
               "type": "boolean"
             },
@@ -448,6 +451,9 @@
               "type": "boolean"
             },
             "multi_agent": {
+              "type": "boolean"
+            },
+            "multi_agent_v1": {
               "type": "boolean"
             },
             "multi_agent_v2": {
@@ -2222,6 +2228,11 @@
           },
           "type": "array"
         },
+        "strong_color": {
+          "default": null,
+          "description": "Foreground color for bold/strong markdown text (e.g. \"#E6B450\").",
+          "type": "string"
+        },
         "terminal_title": {
           "default": null,
           "description": "Ordered list of terminal title item identifiers.\n\nWhen set, the TUI renders the selected items into the terminal window/tab title. When unset, the TUI defaults to: `spinner` and `project`.",
@@ -2602,6 +2613,9 @@
         "js_repl_tools_only": {
           "type": "boolean"
         },
+        "legacy_shell_compat": {
+          "type": "boolean"
+        },
         "memories": {
           "type": "boolean"
         },
@@ -2609,6 +2623,9 @@
           "type": "boolean"
         },
         "multi_agent": {
+          "type": "boolean"
+        },
+        "multi_agent_v1": {
           "type": "boolean"
         },
         "multi_agent_v2": {
