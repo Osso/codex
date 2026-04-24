@@ -9,6 +9,9 @@ use codex_login::ExternalAuth;
 use codex_login::ExternalAuthRefreshContext;
 use codex_login::ExternalAuthTokens;
 use codex_login::TokenData;
+use codex_model_provider_info::WireApi;
+use codex_protocol::config_types::ModelProviderAuthInfo;
+use codex_protocol::openai_models::ApplyPatchToolType;
 use codex_protocol::openai_models::ModelsResponse;
 use pretty_assertions::assert_eq;
 use serde_json::json;
@@ -782,4 +785,28 @@ fn bundled_models_json_roundtrips() {
         !response.models.is_empty(),
         "bundled models.json should contain at least one model"
     );
+}
+
+#[test]
+fn bundled_gpt54_keeps_relaxed_apply_patch_instruction() {
+    let response = crate::bundled_models_response()
+        .unwrap_or_else(|err| panic!("bundled models.json should parse: {err}"));
+    let model = response
+        .models
+        .iter()
+        .find(|model| model.slug == "gpt-5.4")
+        .expect("bundled models.json should include gpt-5.4");
+
+    assert_eq!(
+        model.apply_patch_tool_type,
+        Some(ApplyPatchToolType::Freeform)
+    );
+    assert!(
+        model
+            .base_instructions
+            .contains("Prefer apply_patch for single-file edits; use other methods for generated or bulk scripted changes.")
+    );
+    assert!(!model.base_instructions.contains(
+        "Use the `apply_patch` tool to edit files (NEVER try `applypatch` or `apply-patch`)"
+    ));
 }
