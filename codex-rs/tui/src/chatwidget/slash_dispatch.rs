@@ -29,6 +29,18 @@ const SIDE_REVIEW_UNAVAILABLE_MESSAGE: &str =
     "'/side' is unavailable while code review is running.";
 const SIDE_SLASH_COMMAND_UNAVAILABLE_HINT: &str = "Press Esc to return to the main thread first.";
 
+/// Return the text of the first unchecked item in a PLAN.md file, or `None`.
+fn find_next_plan_item(plan_path: &std::path::Path) -> Option<String> {
+    let contents = std::fs::read_to_string(plan_path).ok()?;
+    contents
+        .lines()
+        .find(|line| {
+            let trimmed = line.trim();
+            trimmed.starts_with("- [ ]") || trimmed.starts_with("* [ ]")
+        })
+        .map(|line| line.trim().to_string())
+}
+
 impl ChatWidget {
     /// Dispatch a bare slash command and record its staged local-history entry.
     ///
@@ -72,6 +84,54 @@ impl ChatWidget {
                 /*hint*/ None,
             );
             false
+        }
+    }
+
+    fn dispatch_run_plan(&mut self, plan_file: Option<&str>) {
+        // Child processes (such as hooks) read PLAN_FILE to pick up the plan.
+        // `PLAN_FILE=1` selects the default PLAN.md; otherwise the supplied
+        // filename is stored verbatim.
+        let env_value = plan_file.unwrap_or("1");
+        unsafe { std::env::set_var("PLAN_FILE", env_value) };
+
+        let cwd = self
+            .current_cwd
+            .as_deref()
+            .unwrap_or(self.config.cwd.as_path());
+        let plan_filename = plan_file.unwrap_or("PLAN.md");
+        let plan_path = cwd.join(plan_filename);
+        let next_item = find_next_plan_item(&plan_path);
+
+        match next_item {
+            Some(item) => {
+                let text = format!(
+                    "Work on the next task from {plan_filename}:\n{item}\n\n\
+                     Commit after completing this item. \
+                     Check it off (change `- [ ]` to `- [x]`). \
+                     Do not delete existing items from {plan_filename}."
+                );
+                let user_message = UserMessage {
+                    text,
+                    local_images: Vec::new(),
+                    remote_image_urls: Vec::new(),
+                    text_elements: Vec::new(),
+                    mention_bindings: Vec::new(),
+                };
+                if self.is_session_configured() {
+                    self.reasoning_buffer.clear();
+                    self.full_reasoning_buffer.clear();
+                    self.set_status_header(String::from("Working"));
+                    self.submit_user_message(user_message);
+                } else {
+                    self.queue_user_message(user_message);
+                }
+            }
+            None => {
+                self.add_info_message(
+                    format!("No pending tasks in {plan_filename}."),
+                    None,
+                );
+            }
         }
     }
 
@@ -200,6 +260,9 @@ impl ChatWidget {
             }
             SlashCommand::Plan => {
                 self.apply_plan_slash_command();
+            }
+            SlashCommand::RunPlan => {
+                self.dispatch_run_plan(/*plan_file*/ None);
             }
             SlashCommand::Collab => {
                 if !self.collaboration_modes_enabled() {
@@ -607,6 +670,21 @@ impl ChatWidget {
                 self.app_event_tx
                     .send(AppEvent::ResumeSessionByIdOrName(args));
             }
+            SlashCommand::RunPlan => {
+                let prepared = if trimmed.is_empty() {
+                    None
+                } else {
+                    let Some((prepared_args, _prepared_elements)) = self
+                        .bottom_pane
+                        .prepare_inline_args_submission(/*record_history*/ false)
+                    else {
+                        return;
+                    };
+                    Some(prepared_args.trim().to_string())
+                };
+                self.dispatch_run_plan(prepared.as_deref());
+                self.bottom_pane.drain_pending_submission_state();
+            }
             SlashCommand::SandboxReadRoot if !trimmed.is_empty() => {
                 self.app_event_tx
                     .send(AppEvent::BeginWindowsSandboxGrantReadRoot { path: args });
@@ -811,5 +889,38 @@ impl ChatWidget {
         self.add_error_message(SIDE_REVIEW_UNAVAILABLE_MESSAGE.to_string());
         self.bottom_pane.drain_pending_submission_state();
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::find_next_plan_item;
+    use pretty_assertions::assert_eq;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn finds_first_unchecked_plan_item() {
+        let temp = tempdir().expect("tempdir");
+        let plan_path = temp.path().join("PLAN.md");
+        fs::write(
+            &plan_path,
+            "# Plan\n- [x] done\n- [ ] next item\n* [ ] later item\n",
+        )
+        .expect("write plan");
+
+        assert_eq!(
+            find_next_plan_item(&plan_path),
+            Some("- [ ] next item".to_string())
+        );
+    }
+
+    #[test]
+    fn returns_none_without_unchecked_plan_item() {
+        let temp = tempdir().expect("tempdir");
+        let plan_path = temp.path().join("PLAN.md");
+        fs::write(&plan_path, "# Plan\n- [x] done\n").expect("write plan");
+
+        assert_eq!(find_next_plan_item(&plan_path), None);
     }
 }
