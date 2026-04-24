@@ -135,6 +135,8 @@ mod otel;
 mod permissions;
 #[cfg(test)]
 mod schema;
+pub(crate) mod rules;
+pub(crate) mod service;
 pub use codex_config::Constrained;
 pub use codex_config::ConstraintError;
 pub use codex_config::ConstraintResult;
