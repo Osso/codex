@@ -107,6 +107,7 @@ use codex_utils_stream_parser::strip_citations;
 use futures::future::BoxFuture;
 use futures::prelude::*;
 use futures::stream::FuturesOrdered;
+#[cfg(test)]
 use serde_json::Value;
 use tokio_util::sync::CancellationToken;
 use tracing::Instrument;
@@ -674,6 +675,7 @@ pub(crate) async fn run_turn(
     last_agent_message
 }
 
+#[cfg(test)]
 pub(crate) fn apply_user_prompt_hook_updated_input(input: &mut Vec<UserInput>, updated: &Value) {
     if let Ok(updated_input) = serde_json::from_value::<Vec<UserInput>>(updated.clone()) {
         *input = updated_input;

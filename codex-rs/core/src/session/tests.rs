@@ -47,13 +47,13 @@ use codex_protocol::request_permissions::RequestPermissionProfile;
 use tracing::Span;
 
 use crate::rollout::recorder::RolloutRecorder;
+use crate::session::turn::apply_user_prompt_hook_updated_input;
+use crate::session::turn::prepend_user_text_input;
 use crate::state::TaskKind;
 use crate::tasks::SessionTask;
 use crate::tasks::SessionTaskContext;
 use crate::tasks::UserShellCommandMode;
 use crate::tasks::execute_user_shell_command;
-use crate::session::turn::apply_user_prompt_hook_updated_input;
-use crate::session::turn::prepend_user_text_input;
 use crate::tools::ToolRouter;
 use crate::tools::context::ToolInvocation;
 use crate::tools::context::ToolPayload;
@@ -3123,12 +3123,14 @@ async fn request_command_approval_permission_prompt_tool_decisions_and_side_effe
                 http_headers: None,
                 env_http_headers: None,
             },
+            experimental_environment: None,
             enabled: true,
             required: false,
             supports_parallel_tool_calls: false,
             disabled_reason: None,
             startup_timeout_sec: Some(StdDuration::from_secs(5)),
             tool_timeout_sec: None,
+            default_tools_approval_mode: None,
             enabled_tools: None,
             disabled_tools: None,
             scopes: None,
@@ -7453,7 +7455,6 @@ async fn rejects_escalated_permissions_when_policy_not_on_request() {
                 })
                 .to_string(),
             },
-            pre_tool_hook_decision: None,
         })
         .await;
 
@@ -7532,7 +7533,6 @@ async fn unified_exec_rejects_escalated_permissions_when_policy_not_on_request()
                 })
                 .to_string(),
             },
-            pre_tool_hook_decision: None,
         })
         .await;
 

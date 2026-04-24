@@ -17,6 +17,9 @@ use codex_cli::run_login_with_chatgpt;
 use codex_cli::run_login_with_device_code;
 use codex_cli::run_logout;
 use codex_cloud_tasks::Cli as CloudTasksCli;
+use codex_config::HookEventsToml;
+use codex_config::HookHandlerConfig;
+use codex_config::MatcherGroup;
 use codex_exec::Cli as ExecCli;
 use codex_exec::Command as ExecCommand;
 use codex_exec::ReviewArgs;
@@ -33,6 +36,7 @@ use codex_tui::UpdateAction;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use codex_utils_cli::CliConfigOverrides;
 use owo_colors::OwoColorize;
+use serde::Deserialize;
 use std::io::IsTerminal;
 use std::path::PathBuf;
 use supports_color::Stream;
@@ -179,6 +183,9 @@ enum Subcommand {
 
     /// Inspect feature flags.
     Features(FeaturesCli),
+
+    /// Import or manage lifecycle hooks.
+    Hooks(HooksCli),
 }
 
 #[derive(Debug, Parser)]
@@ -699,6 +706,25 @@ enum FeaturesSubcommand {
 struct FeatureSetArgs {
     /// Feature key to update (for example: unified_exec).
     feature: String,
+}
+
+#[derive(Debug, Parser)]
+struct HooksCli {
+    #[command(subcommand)]
+    sub: HooksSubcommand,
+}
+
+#[derive(Debug, Parser)]
+enum HooksSubcommand {
+    /// Import hooks from Claude settings JSON into config.toml.
+    ImportClaude(ImportClaudeHooksArgs),
+}
+
+#[derive(Debug, Parser)]
+struct ImportClaudeHooksArgs {
+    /// Path to Claude settings JSON with a top-level `hooks` object.
+    #[arg(long = "from", default_value = "/home/osso/.claude/settings.json")]
+    from: PathBuf,
 }
 
 fn stage_str(stage: Stage) -> &'static str {
@@ -1223,6 +1249,16 @@ async fn cli_main(arg0_paths: Arg0DispatchPaths) -> anyhow::Result<()> {
                 disable_feature_in_config(&interactive, &feature).await?;
             }
         },
+        Some(Subcommand::Hooks(HooksCli { sub })) => match sub {
+            HooksSubcommand::ImportClaude(ImportClaudeHooksArgs { from }) => {
+                reject_remote_mode_for_subcommand(
+                    root_remote.as_deref(),
+                    root_remote_auth_token_env.as_deref(),
+                    "hooks import-claude",
+                )?;
+                import_claude_hooks(&from).await?;
+            }
+        },
     }
 
     Ok(())
@@ -1360,27 +1396,25 @@ fn apply_claude_settings_to_doc(
     summary
 }
 
-fn map_claude_hooks(hooks: ClaudeHooks) -> (HooksToml, ClaudeHookImportSummary) {
+fn map_claude_hooks(hooks: ClaudeHooks) -> (HookEventsToml, ClaudeHookImportSummary) {
     let mut summary = ClaudeHookImportSummary::default();
     let pre_tool_use = map_claude_rule_list(hooks.pre_tool_use, &mut summary);
     let post_tool_use = map_claude_rule_list(hooks.post_tool_use, &mut summary);
     let user_prompt_submit = map_claude_rule_list(hooks.user_prompt_submit, &mut summary);
     let session_start = map_claude_rule_list(hooks.session_start, &mut summary);
     let stop = map_claude_rule_list(hooks.stop, &mut summary);
-    let session_end = map_claude_rule_list(hooks.session_end, &mut summary);
-    let subagent_start = map_claude_rule_list(hooks.subagent_start, &mut summary);
-    let subagent_stop = map_claude_rule_list(hooks.subagent_stop, &mut summary);
+    count_unsupported_claude_rules(hooks.session_end, &mut summary);
+    count_unsupported_claude_rules(hooks.subagent_start, &mut summary);
+    count_unsupported_claude_rules(hooks.subagent_stop, &mut summary);
 
     (
-        HooksToml {
+        HookEventsToml {
             pre_tool_use,
             post_tool_use,
             user_prompt_submit,
             session_start,
             stop,
-            session_end,
-            subagent_start,
-            subagent_stop,
+            ..Default::default()
         },
         summary,
     )
@@ -1389,7 +1423,7 @@ fn map_claude_hooks(hooks: ClaudeHooks) -> (HooksToml, ClaudeHookImportSummary) 
 fn map_claude_rule_list(
     rules: Vec<ClaudeHookMatcher>,
     summary: &mut ClaudeHookImportSummary,
-) -> Vec<HookRuleConfig> {
+) -> Vec<MatcherGroup> {
     rules
         .into_iter()
         .filter_map(|rule| {
@@ -1398,9 +1432,11 @@ fn map_claude_rule_list(
                 .hooks
                 .into_iter()
                 .filter(|hook| hook.hook_type == "command")
-                .map(|hook| CommandHookConfig {
+                .map(|hook| HookHandlerConfig::Command {
                     command: hook.command,
                     timeout_sec: hook.timeout,
+                    r#async: false,
+                    status_message: None,
                 })
                 .collect::<Vec<_>>();
             summary.skipped_hooks += total_hooks.saturating_sub(commands.len());
@@ -1409,59 +1445,92 @@ fn map_claude_rule_list(
                 None
             } else {
                 summary.imported_rules += 1;
-                Some(HookRuleConfig {
+                Some(MatcherGroup {
                     matcher: rule.matcher,
-                    commands,
+                    hooks: commands,
                 })
             }
         })
         .collect()
 }
 
-fn hooks_to_item(hooks: &HooksToml) -> toml_edit::Item {
+fn count_unsupported_claude_rules(
+    rules: Vec<ClaudeHookMatcher>,
+    summary: &mut ClaudeHookImportSummary,
+) {
+    summary.skipped_rules += rules.len();
+    summary.skipped_hooks += rules
+        .into_iter()
+        .map(|rule| rule.hooks.len())
+        .sum::<usize>();
+}
+
+fn hooks_to_item(hooks: &HookEventsToml) -> toml_edit::Item {
     let mut hooks_table = toml_edit::Table::new();
-    set_hook_rule_array(&mut hooks_table, "pre_tool_use", &hooks.pre_tool_use);
-    set_hook_rule_array(&mut hooks_table, "post_tool_use", &hooks.post_tool_use);
+    set_hook_rule_array(&mut hooks_table, "PreToolUse", &hooks.pre_tool_use);
+    set_hook_rule_array(&mut hooks_table, "PostToolUse", &hooks.post_tool_use);
     set_hook_rule_array(
         &mut hooks_table,
-        "user_prompt_submit",
+        "UserPromptSubmit",
         &hooks.user_prompt_submit,
     );
-    set_hook_rule_array(&mut hooks_table, "session_start", &hooks.session_start);
-    set_hook_rule_array(&mut hooks_table, "stop", &hooks.stop);
-    set_hook_rule_array(&mut hooks_table, "session_end", &hooks.session_end);
-    set_hook_rule_array(&mut hooks_table, "subagent_start", &hooks.subagent_start);
-    set_hook_rule_array(&mut hooks_table, "subagent_stop", &hooks.subagent_stop);
+    set_hook_rule_array(&mut hooks_table, "SessionStart", &hooks.session_start);
+    set_hook_rule_array(&mut hooks_table, "Stop", &hooks.stop);
     toml_edit::Item::Table(hooks_table)
 }
 
-fn set_hook_rule_array(hooks_table: &mut toml_edit::Table, key: &str, rules: &[HookRuleConfig]) {
+fn set_hook_rule_array(hooks_table: &mut toml_edit::Table, key: &str, rules: &[MatcherGroup]) {
     if rules.is_empty() {
         return;
     }
     let mut rules_array = toml_edit::ArrayOfTables::new();
     for rule in rules {
-        let mut rule_table = toml_edit::Table::new();
-        if let Some(matcher) = rule.matcher.as_deref() {
-            rule_table["matcher"] = toml_edit::value(matcher);
-        }
-
-        let mut command_array = toml_edit::ArrayOfTables::new();
-        for command in &rule.commands {
-            let mut command_table = toml_edit::Table::new();
-            command_table["command"] = toml_edit::value(command.command.clone());
-            if let Some(timeout_sec) = command.timeout_sec {
-                command_table["timeout_sec"] =
-                    toml_edit::value(i64::try_from(timeout_sec).unwrap_or(i64::MAX));
-            }
-            command_array.push(command_table);
-        }
-        rule_table["commands"] = toml_edit::Item::ArrayOfTables(command_array);
-        rules_array.push(rule_table);
+        rules_array.push(hook_rule_to_table(rule));
     }
     hooks_table[key] = toml_edit::Item::ArrayOfTables(rules_array);
 }
 
+fn hook_rule_to_table(rule: &MatcherGroup) -> toml_edit::Table {
+    let mut rule_table = toml_edit::Table::new();
+    if let Some(matcher) = rule.matcher.as_deref() {
+        rule_table["matcher"] = toml_edit::value(matcher);
+    }
+
+    let mut hook_array = toml_edit::ArrayOfTables::new();
+    for hook in &rule.hooks {
+        if let Some(hook_table) = command_hook_to_table(hook) {
+            hook_array.push(hook_table);
+        }
+    }
+    rule_table["hooks"] = toml_edit::Item::ArrayOfTables(hook_array);
+    rule_table
+}
+
+fn command_hook_to_table(hook: &HookHandlerConfig) -> Option<toml_edit::Table> {
+    let HookHandlerConfig::Command {
+        command,
+        timeout_sec,
+        r#async,
+        status_message,
+    } = hook
+    else {
+        return None;
+    };
+
+    let mut hook_table = toml_edit::Table::new();
+    hook_table["type"] = toml_edit::value("command");
+    hook_table["command"] = toml_edit::value(command.clone());
+    if let Some(timeout_sec) = timeout_sec {
+        hook_table["timeout"] = toml_edit::value(i64::try_from(*timeout_sec).unwrap_or(i64::MAX));
+    }
+    if *r#async {
+        hook_table["async"] = toml_edit::value(true);
+    }
+    if let Some(status_message) = status_message {
+        hook_table["statusMessage"] = toml_edit::value(status_message.clone());
+    }
+    Some(hook_table)
+}
 
 fn maybe_print_under_development_feature_warning(
     codex_home: &std::path::Path,
@@ -1973,26 +2042,32 @@ mod tests {
 
         assert_eq!(
             hooks,
-            HooksToml {
-                pre_tool_use: vec![HookRuleConfig {
+            HookEventsToml {
+                pre_tool_use: vec![MatcherGroup {
                     matcher: Some("Bash".to_string()),
-                    commands: vec![CommandHookConfig {
+                    hooks: vec![HookHandlerConfig::Command {
                         command: "/tmp/pre".to_string(),
                         timeout_sec: Some(30),
+                        r#async: false,
+                        status_message: None,
                     }],
                 }],
-                session_start: vec![HookRuleConfig {
+                session_start: vec![MatcherGroup {
                     matcher: Some("startup".to_string()),
-                    commands: vec![CommandHookConfig {
+                    hooks: vec![HookHandlerConfig::Command {
                         command: "/tmp/start".to_string(),
                         timeout_sec: Some(15),
+                        r#async: false,
+                        status_message: None,
                     }],
                 }],
-                stop: vec![HookRuleConfig {
+                stop: vec![MatcherGroup {
                     matcher: None,
-                    commands: vec![CommandHookConfig {
+                    hooks: vec![HookHandlerConfig::Command {
                         command: "/tmp/stop".to_string(),
                         timeout_sec: None,
+                        r#async: false,
+                        status_message: None,
                     }],
                 }],
                 ..Default::default()
@@ -2010,12 +2085,14 @@ mod tests {
 
     #[test]
     fn hooks_to_item_writes_expected_toml_shape() {
-        let hooks = HooksToml {
-            session_start: vec![HookRuleConfig {
+        let hooks = HookEventsToml {
+            session_start: vec![MatcherGroup {
                 matcher: Some("startup".to_string()),
-                commands: vec![CommandHookConfig {
+                hooks: vec![HookHandlerConfig::Command {
                     command: "/tmp/start".to_string(),
                     timeout_sec: Some(10),
+                    r#async: false,
+                    status_message: None,
                 }],
             }],
             ..Default::default()
@@ -2025,11 +2102,12 @@ mod tests {
         doc["hooks"] = hooks_to_item(&hooks);
 
         let rendered = doc.to_string();
-        assert!(rendered.contains("[[hooks.session_start]]"));
+        assert!(rendered.contains("[[hooks.SessionStart]]"));
         assert!(rendered.contains("matcher = \"startup\""));
-        assert!(rendered.contains("[[hooks.session_start.commands]]"));
+        assert!(rendered.contains("[[hooks.SessionStart.hooks]]"));
+        assert!(rendered.contains("type = \"command\""));
         assert!(rendered.contains("command = \"/tmp/start\""));
-        assert!(rendered.contains("timeout_sec = 10"));
+        assert!(rendered.contains("timeout = 10"));
     }
 
     #[test]

@@ -110,7 +110,6 @@ mod permissions;
 pub(crate) mod rules;
 #[cfg(test)]
 mod schema;
-pub(crate) mod service;
 pub use codex_config::Constrained;
 pub use codex_config::ConstraintError;
 pub use codex_config::ConstraintResult;

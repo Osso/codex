@@ -326,8 +326,6 @@ fn serialization_failure_outcome(hook_events: Vec<HookCompletedEvent>) -> StopOu
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
     use codex_protocol::items::HookPromptFragment;
     use codex_protocol::protocol::HookEventName;
     use codex_protocol::protocol::HookOutputEntry;

@@ -36,7 +36,7 @@ fn format_communication(comm: &InterAgentCommunication) -> String {
         let others: Vec<&str> = comm
             .other_recipients
             .iter()
-            .map(|path| path.as_str())
+            .map(codex_protocol::AgentPath::as_str)
             .collect();
         out.push_str(&format!(" (cc: {})", others.join(", ")));
     }

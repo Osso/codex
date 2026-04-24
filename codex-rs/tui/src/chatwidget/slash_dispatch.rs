@@ -820,6 +820,7 @@ impl ChatWidget {
             | SlashCommand::Settings
             | SlashCommand::Personality
             | SlashCommand::Plan
+            | SlashCommand::RunPlan
             | SlashCommand::Collab
             | SlashCommand::Side
             | SlashCommand::Agent

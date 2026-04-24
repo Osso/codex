@@ -81,7 +81,7 @@ pub(crate) async fn run(
         };
     }
 
-    let input_json = match command_input_json(&request) {
+    let input_json = match command_input_json(&request).await {
         Ok(input_json) => input_json,
         Err(error) => {
             let hook_events = common::serialization_failure_hook_events_for_tool_use(
@@ -128,12 +128,10 @@ pub(crate) async fn run(
 /// translated to Claude-compatible `Write` payloads for existing hook scripts.
 /// Shell-like tools pass `{ "command": ... }` as `tool_input`; MCP tools pass
 /// their resolved JSON arguments.
-fn command_input_json(request: &PreToolUseRequest) -> Result<String, serde_json::Error> {
-    let (tool_name, tool_input) = common::command_input_tool_fields(
-        &request.tool_name,
-        &request.tool_input,
-        request.cwd.as_path(),
-    );
+async fn command_input_json(request: &PreToolUseRequest) -> Result<String, serde_json::Error> {
+    let (tool_name, tool_input) =
+        common::command_input_tool_fields(&request.tool_name, &request.tool_input, &request.cwd)
+            .await;
     serde_json::to_string(&PreToolUseCommandInput {
         session_id: request.session_id.to_string(),
         turn_id: request.turn_id.clone(),
@@ -277,20 +275,22 @@ mod tests {
     use crate::engine::command_runner::CommandRunResult;
     use crate::events::common;
 
-    #[test]
-    fn command_input_uses_request_tool_name() {
+    #[tokio::test]
+    async fn command_input_uses_request_tool_name() {
         let mut request = request_for_tool_use("call-apply-patch");
         request.tool_name = "apply_patch".to_string();
 
-        let input_json = command_input_json(&request).expect("serialize command input");
+        let input_json = command_input_json(&request)
+            .await
+            .expect("serialize command input");
         let input: serde_json::Value =
             serde_json::from_str(&input_json).expect("parse command input");
 
         assert_eq!(input["tool_name"], "apply_patch");
     }
 
-    #[test]
-    fn command_input_translates_single_file_apply_patch_for_claude_write_hooks() {
+    #[tokio::test]
+    async fn command_input_translates_single_file_apply_patch_for_claude_write_hooks() {
         let dir = tempfile::tempdir().expect("create temp dir");
         let file_path = dir.path().join("main.rs");
         fs::write(&file_path, "fn keep() {\n    println!(\"before\");\n}\n")
@@ -303,12 +303,17 @@ mod tests {
             "command": "*** Begin Patch\n*** Update File: main.rs\n@@\n-fn keep() {\n-    println!(\"before\");\n-}\n+fn keep() {\n+    println!(\"after\");\n+}\n*** End Patch\n",
         });
 
-        let input_json = command_input_json(&request).expect("serialize command input");
+        let input_json = command_input_json(&request)
+            .await
+            .expect("serialize command input");
         let input: serde_json::Value =
             serde_json::from_str(&input_json).expect("parse command input");
 
         assert_eq!(input["tool_name"], "Write");
-        assert_eq!(input["tool_input"]["file_path"], file_path.display().to_string());
+        assert_eq!(
+            input["tool_input"]["file_path"],
+            file_path.display().to_string()
+        );
         assert_eq!(
             input["tool_input"]["content"],
             "fn keep() {\n    println!(\"after\");\n}\n"

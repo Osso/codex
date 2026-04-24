@@ -558,6 +558,8 @@ fn config_toml_deserializes_model_availability_nux() {
             status_line: None,
             terminal_title: None,
             theme: None,
+            strong_color: None,
+            code_color: None,
             model_availability_nux: ModelAvailabilityNuxConfig {
                 shown_count: HashMap::from([
                     ("gpt-bar".to_string(), 4),
@@ -1470,6 +1472,8 @@ fn tui_config_missing_notifications_field_defaults_to_enabled() {
             status_line: None,
             terminal_title: None,
             theme: None,
+            strong_color: None,
+            code_color: None,
             model_availability_nux: ModelAvailabilityNuxConfig::default(),
         }
     );
@@ -5227,6 +5231,7 @@ async fn test_precedence_fixture_with_o3_profile() -> std::io::Result<()> {
                 windows_sandbox_private_desktop: true,
             },
             approvals_reviewer: ApprovalsReviewer::User,
+            permission_prompt_tool: None,
             enforce_residency: Constrained::allow_any(/*initial_value*/ None),
             user_instructions: None,
             notify: None,
@@ -5426,6 +5431,7 @@ async fn test_precedence_fixture_with_gpt3_profile() -> std::io::Result<()> {
             windows_sandbox_private_desktop: true,
         },
         approvals_reviewer: ApprovalsReviewer::User,
+        permission_prompt_tool: None,
         enforce_residency: Constrained::allow_any(/*initial_value*/ None),
         user_instructions: None,
         notify: None,
@@ -5579,6 +5585,7 @@ async fn test_precedence_fixture_with_zdr_profile() -> std::io::Result<()> {
             windows_sandbox_private_desktop: true,
         },
         approvals_reviewer: ApprovalsReviewer::User,
+        permission_prompt_tool: None,
         enforce_residency: Constrained::allow_any(/*initial_value*/ None),
         user_instructions: None,
         notify: None,
@@ -5717,6 +5724,7 @@ async fn test_precedence_fixture_with_gpt5_profile() -> std::io::Result<()> {
             windows_sandbox_private_desktop: true,
         },
         approvals_reviewer: ApprovalsReviewer::User,
+        permission_prompt_tool: None,
         enforce_residency: Constrained::allow_any(/*initial_value*/ None),
         user_instructions: None,
         notify: None,
