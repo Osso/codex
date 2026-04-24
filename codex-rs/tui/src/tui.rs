@@ -350,7 +350,10 @@ fn restore_common(should_disable_raw_mode: bool) -> Result<()> {
 /// Inverse of `set_modes`.
 pub fn restore() -> Result<()> {
     let should_disable_raw_mode = true;
-    restore_common(should_disable_raw_mode)
+    restore_common(should_disable_raw_mode)?;
+    // Drop any queued kitty keyboard release events before returning control to the shell.
+    flush_terminal_input_buffer();
+    Ok(())
 }
 
 /// Restore the terminal to its original state, but keep raw mode enabled.
