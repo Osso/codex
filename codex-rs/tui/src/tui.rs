@@ -255,7 +255,10 @@ fn restore_common(
 /// Restore the terminal to its original state.
 /// Inverse of `set_modes`.
 pub fn restore() -> Result<()> {
-    restore_common(RawModeRestore::Disable, KeyboardRestore::PopStack)
+    restore_common(RawModeRestore::Disable, KeyboardRestore::PopStack)?;
+    // Drop any queued kitty keyboard release events before returning control to the shell.
+    flush_terminal_input_buffer();
+    Ok(())
 }
 
 /// Restore the terminal after Codex is exiting.
@@ -263,7 +266,10 @@ pub fn restore() -> Result<()> {
 /// Uses a stronger keyboard reset than [`restore`] so the parent shell recovers even if a
 /// terminal missed the stack pop that normally pairs with [`set_modes`].
 pub fn restore_after_exit() -> Result<()> {
-    restore_common(RawModeRestore::Disable, KeyboardRestore::ResetAfterExit)
+    restore_common(RawModeRestore::Disable, KeyboardRestore::ResetAfterExit)?;
+    // Drop any queued kitty keyboard release events before returning control to the shell.
+    flush_terminal_input_buffer();
+    Ok(())
 }
 
 /// Restore the terminal to its original state, but keep raw mode enabled.
