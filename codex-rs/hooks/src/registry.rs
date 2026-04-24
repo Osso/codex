@@ -177,3 +177,106 @@ pub fn command_from_argv(argv: &[String]) -> Option<Command> {
     command.args(args);
     Some(command)
 }
+
+#[cfg(test)]
+mod tests {
+    use chrono::Utc;
+    use codex_config::ConfigLayerEntry;
+    use codex_config::ConfigLayerSource;
+    use codex_config::ConfigLayerStack;
+    use codex_config::ConfigRequirements;
+    use codex_config::ConfigRequirementsToml;
+    use codex_config::TomlValue;
+    use codex_protocol::ThreadId;
+    use codex_utils_absolute_path::AbsolutePathBuf;
+    use pretty_assertions::assert_eq;
+    use tempfile::tempdir;
+
+    use super::*;
+    use crate::types::HookEventAfterAgent;
+
+    #[tokio::test]
+    async fn configured_stop_hooks_do_not_run_during_after_agent_dispatch() {
+        let temp = tempdir().expect("create tempdir");
+        let marker = temp.path().join("stop-hook-ran");
+        let config_file = temp.path().join("config.toml");
+        let marker_path = marker.to_string_lossy();
+        let quoted_marker_path =
+            shlex::try_quote(&marker_path).expect("marker path should be shell-quotable");
+        let command = format!("printf stop > {quoted_marker_path}");
+        let config: TomlValue = serde_json::from_value(serde_json::json!({
+            "hooks": {
+                "Stop": [{
+                    "hooks": [{
+                        "type": "command",
+                        "command": command,
+                    }],
+                }],
+            },
+        }))
+        .expect("build hooks config");
+        let config_file =
+            AbsolutePathBuf::from_absolute_path(&config_file).expect("absolute config path");
+        let config_layer_stack = ConfigLayerStack::new(
+            vec![ConfigLayerEntry::new(
+                ConfigLayerSource::User { file: config_file },
+                config,
+            )],
+            ConfigRequirements::default(),
+            ConfigRequirementsToml::default(),
+        )
+        .expect("valid config layer stack");
+        let hooks = Hooks::new(HooksConfig {
+            feature_enabled: true,
+            config_layer_stack: Some(config_layer_stack),
+            shell_program: Some("/bin/sh".to_string()),
+            shell_args: vec!["-c".to_string()],
+            ..Default::default()
+        });
+        let cwd = AbsolutePathBuf::from_absolute_path(temp.path()).expect("absolute cwd path");
+        let session_id = ThreadId::new();
+        let thread_id = ThreadId::new();
+
+        let after_agent_responses = hooks
+            .dispatch(HookPayload {
+                session_id,
+                cwd: cwd.clone(),
+                client: None,
+                triggered_at: Utc::now(),
+                hook_event: HookEvent::AfterAgent {
+                    event: HookEventAfterAgent {
+                        thread_id,
+                        turn_id: "turn-1".to_string(),
+                        input_messages: vec!["hello".to_string()],
+                        last_assistant_message: Some("done".to_string()),
+                    },
+                },
+            })
+            .await;
+
+        assert_eq!(after_agent_responses.len(), 0);
+        assert!(
+            !marker.exists(),
+            "AfterAgent dispatch must not execute configured Stop hooks"
+        );
+
+        let stop_outcome = hooks
+            .run_stop(StopRequest {
+                session_id,
+                turn_id: "turn-1".to_string(),
+                cwd,
+                transcript_path: None,
+                model: "gpt-5.4".to_string(),
+                permission_mode: "default".to_string(),
+                stop_hook_active: false,
+                last_assistant_message: Some("done".to_string()),
+            })
+            .await;
+
+        assert_eq!(stop_outcome.hook_events.len(), 1);
+        assert!(
+            marker.exists(),
+            "test setup should execute the configured Stop hook when run_stop is called"
+        );
+    }
+}
