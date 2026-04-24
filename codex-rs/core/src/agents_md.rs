@@ -16,6 +16,7 @@
 //! 3.  We do **not** walk past the project root.
 
 use crate::config::Config;
+use crate::config::rules::load_rules_from_dir;
 use crate::config_loader::ConfigLayerStackOrdering;
 use crate::config_loader::default_project_root_markers;
 use crate::config_loader::merge_toml_values;
@@ -132,6 +133,13 @@ impl<'a> AgentsMdManager<'a> {
 
         if let Some(instructions) = self.config.user_instructions.clone() {
             output.push_str(&instructions);
+        }
+
+        if let Some(rules) = load_rules_from_dir(&self.config.codex_home.join("rules")) {
+            if !output.is_empty() {
+                output.push_str("\n\n");
+            }
+            output.push_str(&rules);
         }
 
         match agents_md_docs {
