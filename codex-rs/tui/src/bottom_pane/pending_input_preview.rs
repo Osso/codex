@@ -16,16 +16,16 @@ use crate::wrapping::adaptive_wrap_lines;
 /// resubmitted at end of turn, then ordinary queued user messages. Pending
 /// steers explain that they will be submitted after the next tool/result
 /// boundary unless the user presses Esc to interrupt and send them
-/// immediately. The edit hint at the bottom only appears when there are actual
-/// queued user inputs to pop back into the composer. Because some terminals
+/// immediately. When a steer message can be popped back into the composer, the
+/// widget also shows an edit hint for that shortcut. Because some terminals
 /// intercept certain modifier-key combinations, the displayed binding is
 /// configurable via [`set_edit_binding`](Self::set_edit_binding).
 pub(crate) struct PendingInputPreview {
     pub pending_steers: Vec<String>,
     pub rejected_steers: Vec<String>,
     pub queued_messages: Vec<String>,
-    /// Key combination rendered in the hint line.  Defaults to Alt+Up but may
-    /// be overridden for terminals where that chord is unavailable.
+    /// Key combination rendered in the hint line. Defaults to plain Up so it
+    /// matches the composer history key and stays easy to reach.
     edit_binding: Option<key_hint::KeyBinding>,
 }
 
@@ -37,7 +37,7 @@ impl PendingInputPreview {
             pending_steers: Vec::new(),
             rejected_steers: Vec::new(),
             queued_messages: Vec::new(),
-            edit_binding: Some(key_hint::alt(KeyCode::Up)),
+            edit_binding: Some(key_hint::plain(KeyCode::Up)),
         }
     }
 
@@ -67,6 +67,10 @@ impl PendingInputPreview {
             std::iter::once(Line::from(spans)),
             RtOptions::new(width as usize).subsequent_indent(Line::from("  ".dim())),
         ));
+    }
+
+    fn has_editable_steers(&self) -> bool {
+        !self.pending_steers.is_empty() || !self.rejected_steers.is_empty()
     }
 
     fn as_renderable(&self, width: u16) -> Box<dyn Renderable> {
@@ -145,14 +149,14 @@ impl PendingInputPreview {
             }
         }
 
-        if !self.queued_messages.is_empty()
+        if self.has_editable_steers()
             && let Some(edit_binding) = self.edit_binding
         {
             lines.push(
                 Line::from(vec![
                     "    ".into(),
                     edit_binding.into(),
-                    " edit last queued message".into(),
+                    " edit last steering message".into(),
                 ])
                 .dim(),
             );
@@ -192,7 +196,7 @@ mod tests {
     fn desired_height_one_message() {
         let mut queue = PendingInputPreview::new();
         queue.queued_messages.push("Hello, world!".to_string());
-        assert_eq!(queue.desired_height(/*width*/ 40), 3);
+        assert_eq!(queue.desired_height(/*width*/ 40), 2);
     }
 
     #[test]
@@ -207,16 +211,16 @@ mod tests {
     }
 
     #[test]
-    fn render_one_message_with_shift_left_binding() {
+    fn render_one_message_with_plain_up_binding() {
         let mut queue = PendingInputPreview::new();
         queue.queued_messages.push("Hello, world!".to_string());
-        queue.set_edit_binding(Some(key_hint::shift(KeyCode::Left)));
+        queue.set_edit_binding(Some(key_hint::plain(KeyCode::Up)));
         let width = 40;
         let height = queue.desired_height(width);
         let mut buf = Buffer::empty(Rect::new(0, 0, width, height));
         queue.render(Rect::new(0, 0, width, height), &mut buf);
         assert_snapshot!(
-            "render_one_message_with_shift_left_binding",
+            "render_one_message_with_plain_up_binding",
             format!("{buf:?}")
         );
     }
@@ -295,8 +299,8 @@ mod tests {
         let width = 36;
         let height = queue.desired_height(width);
         assert_eq!(
-            height, 3,
-            "expected header, one message row, and hint row for URL-like token"
+            height, 2,
+            "expected only header and one message row for URL-like token"
         );
 
         let mut buf = Buffer::empty(Rect::new(0, 0, width, height));

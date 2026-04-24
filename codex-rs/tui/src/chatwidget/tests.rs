@@ -164,6 +164,7 @@ pub(super) use codex_protocol::plan_tool::StepStatus;
 pub(super) use codex_protocol::plan_tool::UpdatePlanArgs;
 pub(super) use codex_protocol::request_permissions::RequestPermissionProfile;
 pub(super) use codex_protocol::user_input::TextElement;
+pub(super) use codex_protocol::user_input::UserInput;
 pub(super) use codex_terminal_detection::Multiplexer;
 pub(super) use codex_terminal_detection::TerminalInfo;
 pub(super) use codex_terminal_detection::TerminalName;

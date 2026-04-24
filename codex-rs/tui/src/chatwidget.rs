@@ -166,6 +166,7 @@ use codex_protocol::plan_tool::StepStatus as UpdatePlanItemStatus;
 use codex_protocol::request_permissions::RequestPermissionsEvent;
 use codex_protocol::user_input::ByteRange;
 use codex_protocol::user_input::TextElement;
+use codex_protocol::user_input::UserInput;
 use codex_terminal_detection::Multiplexer;
 use codex_terminal_detection::TerminalInfo;
 use codex_terminal_detection::TerminalName;
@@ -208,37 +209,12 @@ const TUI_STUB_MESSAGE: &str = "Not available in TUI yet.";
 
 /// Choose the keybinding used to edit the most-recently queued message.
 ///
-/// Apple Terminal, Warp, and VSCode integrated terminals intercept or silently
-/// swallow Alt+Up, and tmux does not reliably pass that chord through. We fall
-/// back to Shift+Left for those environments while keeping the more discoverable
-/// Alt+Up everywhere else.
-///
-/// The match is exhaustive so that adding a new `TerminalName` variant forces
-/// an explicit decision about which binding that terminal should use.
-fn queued_message_edit_binding_for_terminal(terminal_info: TerminalInfo) -> KeyBinding {
-    if matches!(
-        terminal_info.multiplexer.as_ref(),
-        Some(Multiplexer::Tmux { .. })
-    ) {
-        return key_hint::shift(KeyCode::Left);
-    }
-
-    match terminal_info.name {
-        TerminalName::AppleTerminal | TerminalName::WarpTerminal | TerminalName::VsCode => {
-            key_hint::shift(KeyCode::Left)
-        }
-        TerminalName::Ghostty
-        | TerminalName::Iterm2
-        | TerminalName::WezTerm
-        | TerminalName::Kitty
-        | TerminalName::Alacritty
-        | TerminalName::Konsole
-        | TerminalName::GnomeTerminal
-        | TerminalName::Vte
-        | TerminalName::WindowsTerminal
-        | TerminalName::Dumb
-        | TerminalName::Unknown => key_hint::alt(KeyCode::Up),
-    }
+/// Plain Up is used so the command is easy to reach and matches the composer
+/// history key. The key handler only intercepts it while queued follow-up
+/// messages exist, so ordinary history recall still works when the queue is
+/// empty.
+fn queued_message_edit_binding() -> KeyBinding {
+    key_hint::plain(KeyCode::Up)
 }
 
 fn queued_message_edit_hint_binding(
@@ -2471,6 +2447,11 @@ impl ChatWidget {
         self.input_queue.has_queued_follow_up_messages()
     }
 
+    fn has_poppable_steer_messages(&self) -> bool {
+        !self.input_queue.pending_steers.is_empty()
+            || !self.input_queue.rejected_steers_queue.is_empty()
+    }
+
     fn pop_next_queued_user_message(
         &mut self,
     ) -> Option<(QueuedUserMessage, UserMessageHistoryRecord)> {
@@ -2511,25 +2492,19 @@ impl ChatWidget {
         }
     }
 
-    fn pop_latest_queued_user_message(&mut self) -> Option<UserMessage> {
-        if let Some(user_message) = self.input_queue.queued_user_messages.pop_back() {
-            let history_record = self
-                .input_queue
-                .queued_user_message_history_records
-                .pop_back()
-                .unwrap_or(UserMessageHistoryRecord::UserMessageText);
-            Some(user_message_for_restore(
-                user_message.into_user_message(),
-                &history_record,
-            ))
-        } else {
-            let user_message = self.input_queue.rejected_steers_queue.pop_back()?;
+    fn pop_latest_steer_message(&mut self) -> Option<UserMessage> {
+        if let Some(user_message) = self.input_queue.rejected_steers_queue.pop_back() {
             let history_record = self
                 .input_queue
                 .rejected_steer_history_records
                 .pop_back()
                 .unwrap_or(UserMessageHistoryRecord::UserMessageText);
             Some(user_message_for_restore(user_message, &history_record))
+        } else {
+            self.input_queue
+                .pending_steers
+                .pop_back()
+                .map(|pending| pending.user_message)
         }
     }
 
@@ -5043,10 +5018,10 @@ impl ChatWidget {
 
         if key_event.kind == KeyEventKind::Press
             && self.chat_keymap.edit_queued_message.is_pressed(key_event)
-            && self.has_queued_follow_up_messages()
+            && self.has_poppable_steer_messages()
             && self.bottom_pane.no_modal_or_popup_active()
         {
-            if let Some(user_message) = self.pop_latest_queued_user_message() {
+            if let Some(user_message) = self.pop_latest_steer_message() {
                 self.restore_user_message_to_composer(user_message);
                 self.refresh_pending_input_preview();
                 self.request_redraw();

@@ -1,8 +1,8 @@
 ---
 source: tui/src/chatwidget/tests/review_mode.rs
+assertion_line: 1483
 expression: normalize_snapshot_paths(term.backend().vt100().screen().contents())
 ---
-
 
 
 
@@ -16,6 +16,7 @@ expression: normalize_snapshot_paths(term.backend().vt100().screen().contents())
 
 • Messages to be submitted at end of turn
   ↳ Steer submitted while /review was running.
+    ↑ edit last steering message
 
 › Ask Codex to do anything
 
