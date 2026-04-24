@@ -27,6 +27,8 @@ pub enum SlashCommand {
     Memories,
     Skills,
     Hooks,
+    #[strum(serialize = "run-plan")]
+    RunPlan,
     Review,
     Rename,
     New,
@@ -81,6 +83,9 @@ impl SlashCommand {
             SlashCommand::New => "start a new chat during a conversation",
             SlashCommand::Init => "create an AGENTS.md file with instructions for Codex",
             SlashCommand::Compact => "summarize conversation to prevent hitting the context limit",
+            SlashCommand::RunPlan => {
+                "set PLAN_FILE and work on next plan item (optional: /run-plan <file>)"
+            }
             SlashCommand::Review => "review my current changes and find issues",
             SlashCommand::Rename => "rename the current thread",
             SlashCommand::Resume => "resume a saved chat",
@@ -153,6 +158,7 @@ impl SlashCommand {
                 | SlashCommand::Raw
                 | SlashCommand::Side
                 | SlashCommand::Resume
+                | SlashCommand::RunPlan
                 | SlashCommand::SandboxReadRoot
         )
     }
@@ -188,6 +194,7 @@ impl SlashCommand {
             | SlashCommand::Experimental
             | SlashCommand::Memories
             | SlashCommand::Review
+            | SlashCommand::RunPlan
             | SlashCommand::Plan
             | SlashCommand::Clear
             | SlashCommand::Logout
@@ -246,6 +253,7 @@ pub fn built_in_slash_commands() -> Vec<(&'static str, SlashCommand)> {
 
 #[cfg(test)]
 mod tests {
+    use super::built_in_slash_commands;
     use pretty_assertions::assert_eq;
     use std::str::FromStr;
 
@@ -279,5 +287,19 @@ mod tests {
             SlashCommand::from_str("approve"),
             Ok(SlashCommand::AutoReview)
         );
+    }
+
+    #[test]
+    fn run_plan_command_is_registered() {
+        assert!(built_in_slash_commands().contains(&("run-plan", SlashCommand::RunPlan)));
+        assert_eq!(
+            SlashCommand::RunPlan.description(),
+            "set PLAN_FILE and work on next plan item (optional: /run-plan <file>)"
+        );
+    }
+
+    #[test]
+    fn run_plan_is_blocked_while_task_is_running() {
+        assert!(!SlashCommand::RunPlan.available_during_task());
     }
 }
