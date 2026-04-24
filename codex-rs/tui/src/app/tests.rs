@@ -4971,7 +4971,7 @@ async fn replace_chat_widget_reseeds_collab_agent_metadata_for_replay() {
                         started_at_ms: 0,
                         item: ThreadItem::CollabAgentToolCall {
                             id: "wait-1".to_string(),
-                            tool: codex_app_server_protocol::CollabAgentTool::Wait,
+                            tool: codex_app_server_protocol::CollabAgentTool::WaitAgent,
                             status:
                                 codex_app_server_protocol::CollabAgentToolCallStatus::InProgress,
                             sender_thread_id: ThreadId::new().to_string(),

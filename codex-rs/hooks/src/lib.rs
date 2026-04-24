@@ -68,7 +68,6 @@ pub use registry::command_from_argv;
 pub use registry::list_hooks;
 pub use schema::write_schema_fixtures;
 pub use session_end::session_end_transcript_path_from_json;
-pub use types::CommandHookConfig;
 pub use types::Hook;
 pub use types::HookEvent;
 pub use types::HookEventAfterAgent;

@@ -1026,6 +1026,7 @@ impl ChatWidget {
             | SlashCommand::Personality
             | SlashCommand::Plan
             | SlashCommand::Goal
+            | SlashCommand::RunPlan
             | SlashCommand::Collab
             | SlashCommand::Side
             | SlashCommand::Keymap

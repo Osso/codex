@@ -1,13 +1,13 @@
-use std::path::Path;
-
 use codex_apply_patch::ApplyPatchFileChange;
 use codex_apply_patch::MaybeApplyPatchVerified;
+use codex_exec_server::LOCAL_FS;
 use codex_protocol::protocol::HookCompletedEvent;
 use codex_protocol::protocol::HookEventName;
 use codex_protocol::protocol::HookOutputEntry;
 use codex_protocol::protocol::HookOutputEntryKind;
 use codex_protocol::protocol::HookRunStatus;
 use codex_protocol::protocol::HookRunSummary;
+use codex_utils_absolute_path::AbsolutePathBuf;
 use serde_json::Value;
 
 use crate::engine::ConfiguredHandler;
@@ -150,14 +150,14 @@ pub(crate) fn matcher_inputs<'a>(
         .collect()
 }
 
-pub(crate) fn command_input_tool_fields(
+pub(crate) async fn command_input_tool_fields(
     tool_name: &str,
     tool_input: &Value,
-    cwd: &Path,
+    cwd: &AbsolutePathBuf,
 ) -> (String, Value) {
     if tool_name == "apply_patch"
         && let Some(input) = tool_input.get("command").and_then(Value::as_str)
-        && let Some(write_input) = apply_patch_tool_input(input, cwd)
+        && let Some(write_input) = apply_patch_tool_input(input, cwd).await
     {
         return ("Write".to_string(), write_input);
     }
@@ -165,9 +165,11 @@ pub(crate) fn command_input_tool_fields(
     (tool_name.to_string(), tool_input.clone())
 }
 
-fn apply_patch_tool_input(input: &str, cwd: &Path) -> Option<Value> {
+async fn apply_patch_tool_input(input: &str, cwd: &AbsolutePathBuf) -> Option<Value> {
     let argv = vec!["apply_patch".to_string(), input.to_string()];
-    match codex_apply_patch::maybe_parse_apply_patch_verified(&argv, cwd) {
+    match codex_apply_patch::maybe_parse_apply_patch_verified(&argv, cwd, LOCAL_FS.as_ref(), None)
+        .await
+    {
         MaybeApplyPatchVerified::Body(action) => {
             let mut changes = action.changes().iter();
             let (path, change) = changes.next()?;
