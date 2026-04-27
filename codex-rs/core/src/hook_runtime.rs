@@ -129,6 +129,17 @@ pub(crate) async fn run_pending_session_start_hooks(
     .await
 }
 
+/// Combined output of `PreToolUse` hooks.
+///
+/// `block_message` is `Some` when the dispatch must abort. `updated_input` is
+/// `Some` when a hook returned `hookSpecificOutput.updatedInput` and the tool
+/// payload should be rewritten before dispatch — currently only Bash payloads
+/// honor the rewrite.
+pub(crate) struct PreToolUseHookResult {
+    pub block_message: Option<String>,
+    pub updated_input: Option<Value>,
+}
+
 /// Runs matching `PreToolUse` hooks before a tool executes.
 ///
 /// `tool_name` is the canonical name serialized to hook stdin. Matcher aliases
@@ -140,7 +151,7 @@ pub(crate) async fn run_pre_tool_use_hooks(
     tool_use_id: String,
     tool_name: &HookToolName,
     tool_input: &Value,
-) -> Option<String> {
+) -> PreToolUseHookResult {
     let request = PreToolUseRequest {
         session_id: sess.conversation_id,
         turn_id: turn_context.sub_id.clone(),
@@ -160,10 +171,11 @@ pub(crate) async fn run_pre_tool_use_hooks(
         hook_events,
         should_block,
         block_reason,
+        updated_input,
     } = sess.hooks().run_pre_tool_use(request).await;
     emit_hook_completed_events(sess, turn_context, hook_events).await;
 
-    if should_block {
+    let block_message = if should_block {
         block_reason.map(|reason| {
             if (tool_name.name() == "Bash" || tool_name.name() == "apply_patch")
                 && let Some(command) = tool_input.get("command").and_then(Value::as_str)
@@ -178,6 +190,19 @@ pub(crate) async fn run_pre_tool_use_hooks(
         })
     } else {
         None
+    };
+
+    // A blocking hook short-circuits dispatch, so an accompanying rewrite
+    // would never be observed; drop it to keep the contract obvious.
+    let updated_input = if block_message.is_some() {
+        None
+    } else {
+        updated_input
+    };
+
+    PreToolUseHookResult {
+        block_message,
+        updated_input,
     }
 }
 

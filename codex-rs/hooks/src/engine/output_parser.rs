@@ -17,6 +17,13 @@ pub(crate) struct PreToolUseOutput {
     pub universal: UniversalOutput,
     pub block_reason: Option<String>,
     pub invalid_reason: Option<String>,
+    /// Rewritten tool input from `hookSpecificOutput.updatedInput`.
+    ///
+    /// Codex applies this to the tool invocation before dispatch when present
+    /// (currently only honored by Bash payloads — see
+    /// `core::tools::registry`). Carrying the raw JSON object lets future
+    /// handlers opt in without churning the parser shape.
+    pub updated_input: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -124,11 +131,17 @@ pub(crate) fn parse_pre_tool_use(stdout: &str) -> Option<PreToolUseOutput> {
     } else {
         None
     };
+    let updated_input = if invalid_reason.is_none() {
+        hook_specific_output.and_then(|output| output.updated_input.clone())
+    } else {
+        None
+    };
 
     Some(PreToolUseOutput {
         universal,
         block_reason,
         invalid_reason,
+        updated_input,
     })
 }
 
@@ -341,44 +354,46 @@ fn unsupported_post_tool_use_hook_specific_output(
 fn unsupported_pre_tool_use_hook_specific_output(
     output: &crate::schema::PreToolUseHookSpecificOutputWire,
 ) -> Option<String> {
-    if output.updated_input.is_some() {
-        Some("PreToolUse hook returned unsupported updatedInput".to_string())
-    } else if output
+    if output
         .additional_context
         .as_deref()
         .and_then(trimmed_reason)
         .is_some()
     {
-        Some("PreToolUse hook returned unsupported additionalContext".to_string())
-    } else {
-        match output.permission_decision {
-            Some(PreToolUsePermissionDecisionWire::Allow) => {
-                Some("PreToolUse hook returned unsupported permissionDecision:allow".to_string())
-            }
-            Some(PreToolUsePermissionDecisionWire::Ask) => {
-                Some("PreToolUse hook returned unsupported permissionDecision:ask".to_string())
-            }
-            Some(PreToolUsePermissionDecisionWire::Deny) => {
-                if output
-                    .permission_decision_reason
-                    .as_deref()
-                    .and_then(trimmed_reason)
-                    .is_none()
-                {
-                    Some(invalid_pre_tool_use_reason_message())
-                } else {
-                    None
-                }
-            }
-            None => {
-                if output.permission_decision_reason.is_some() {
-                    Some("PreToolUse hook returned permissionDecisionReason without permissionDecision".to_string())
-                } else {
-                    None
-                }
+        return Some("PreToolUse hook returned unsupported additionalContext".to_string());
+    }
+    match output.permission_decision {
+        // `permissionDecision: allow` is treated as a no-op so codex's normal
+        // permission flow still runs. We accept the field (instead of failing
+        // open) so hooks like `claude-bash-hook` can return their full Claude
+        // schema unchanged when paired with codex.
+        Some(PreToolUsePermissionDecisionWire::Allow) | None => None,
+        Some(PreToolUsePermissionDecisionWire::Ask) => {
+            Some("PreToolUse hook returned unsupported permissionDecision:ask".to_string())
+        }
+        Some(PreToolUsePermissionDecisionWire::Deny) => {
+            if output
+                .permission_decision_reason
+                .as_deref()
+                .and_then(trimmed_reason)
+                .is_none()
+            {
+                Some(invalid_pre_tool_use_reason_message())
+            } else {
+                None
             }
         }
     }
+    .or_else(|| {
+        if output.permission_decision.is_none() && output.permission_decision_reason.is_some() {
+            Some(
+                "PreToolUse hook returned permissionDecisionReason without permissionDecision"
+                    .to_string(),
+            )
+        } else {
+            None
+        }
+    })
 }
 
 fn unsupported_pre_tool_use_legacy_decision(

@@ -37,12 +37,17 @@ pub struct PreToolUseOutcome {
     pub hook_events: Vec<HookCompletedEvent>,
     pub should_block: bool,
     pub block_reason: Option<String>,
+    /// Rewritten tool input from the first hook that returned
+    /// `hookSpecificOutput.updatedInput`. Codex applies it to the invocation
+    /// before dispatch — currently only Bash payloads honor the rewrite.
+    pub updated_input: Option<Value>,
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
 struct PreToolUseHandlerData {
     should_block: bool,
     block_reason: Option<String>,
+    updated_input: Option<Value>,
 }
 
 pub(crate) fn preview(
@@ -78,6 +83,7 @@ pub(crate) async fn run(
             hook_events: Vec::new(),
             should_block: false,
             block_reason: None,
+            updated_input: None,
         };
     }
 
@@ -108,6 +114,13 @@ pub(crate) async fn run(
     let block_reason = results
         .iter()
         .find_map(|result| result.data.block_reason.clone());
+    // First hook to emit a rewrite wins. Subsequent hooks see the original
+    // input, not the rewrite — chained rewrites would hide whichever hook ran
+    // last from log review and require a stable ordering policy we don't
+    // currently expose. One rewrite per dispatch keeps the contract simple.
+    let updated_input = results
+        .iter()
+        .find_map(|result| result.data.updated_input.clone());
 
     PreToolUseOutcome {
         hook_events: results
@@ -118,6 +131,7 @@ pub(crate) async fn run(
             .collect(),
         should_block,
         block_reason,
+        updated_input,
     }
 }
 
@@ -155,6 +169,7 @@ fn parse_completed(
     let mut status = HookRunStatus::Completed;
     let mut should_block = false;
     let mut block_reason = None;
+    let mut updated_input = None;
 
     match run_result.error.as_deref() {
         Some(error) => {
@@ -189,6 +204,8 @@ fn parse_completed(
                             kind: HookOutputEntryKind::Feedback,
                             text: reason,
                         });
+                    } else if let Some(rewrite) = parsed.updated_input {
+                        updated_input = Some(rewrite);
                     }
                 } else if trimmed_stdout.starts_with('{') || trimmed_stdout.starts_with('[') {
                     status = HookRunStatus::Failed;
@@ -242,6 +259,7 @@ fn parse_completed(
         data: PreToolUseHandlerData {
             should_block,
             block_reason,
+            updated_input,
         },
     }
 }
@@ -251,6 +269,7 @@ fn serialization_failure_outcome(hook_events: Vec<HookCompletedEvent>) -> PreToo
         hook_events,
         should_block: false,
         block_reason: None,
+        updated_input: None,
     }
 }
 
@@ -337,6 +356,7 @@ mod tests {
             PreToolUseHandlerData {
                 should_block: true,
                 block_reason: Some("do not run that".to_string()),
+                updated_input: None,
             }
         );
         assert_eq!(parsed.completed.run.status, HookRunStatus::Blocked);
@@ -366,6 +386,7 @@ mod tests {
             PreToolUseHandlerData {
                 should_block: true,
                 block_reason: Some("do not run that".to_string()),
+                updated_input: None,
             }
         );
         assert_eq!(parsed.completed.run.status, HookRunStatus::Blocked);
@@ -395,6 +416,7 @@ mod tests {
             PreToolUseHandlerData {
                 should_block: false,
                 block_reason: None,
+                updated_input: None,
             }
         );
         assert_eq!(parsed.completed.run.status, HookRunStatus::Failed);
@@ -420,6 +442,7 @@ mod tests {
             PreToolUseHandlerData {
                 should_block: false,
                 block_reason: None,
+                updated_input: None,
             }
         );
         assert_eq!(parsed.completed.run.status, HookRunStatus::Failed);
@@ -449,6 +472,7 @@ mod tests {
             PreToolUseHandlerData {
                 should_block: false,
                 block_reason: None,
+                updated_input: None,
             }
         );
         assert_eq!(parsed.completed.run.status, HookRunStatus::Failed);
@@ -459,6 +483,30 @@ mod tests {
                 text: "PreToolUse hook returned unsupported additionalContext".to_string(),
             }]
         );
+    }
+
+    #[test]
+    fn updated_input_is_extracted_when_not_blocking() {
+        let parsed = parse_completed(
+            &handler(),
+            run_result(
+                Some(0),
+                r#"{"hookSpecificOutput":{"hookEventName":"PreToolUse","updatedInput":{"command":"rtk git status"}}}"#,
+                "",
+            ),
+            Some("turn-1".to_string()),
+        );
+
+        assert_eq!(
+            parsed.data,
+            PreToolUseHandlerData {
+                should_block: false,
+                block_reason: None,
+                updated_input: Some(serde_json::json!({"command": "rtk git status"})),
+            }
+        );
+        assert_eq!(parsed.completed.run.status, HookRunStatus::Completed);
+        assert_eq!(parsed.completed.run.entries, vec![]);
     }
 
     #[test]
@@ -474,6 +522,7 @@ mod tests {
             PreToolUseHandlerData {
                 should_block: false,
                 block_reason: None,
+                updated_input: None,
             }
         );
         assert_eq!(parsed.completed.run.status, HookRunStatus::Completed);
@@ -493,6 +542,7 @@ mod tests {
             PreToolUseHandlerData {
                 should_block: false,
                 block_reason: None,
+                updated_input: None,
             }
         );
         assert_eq!(parsed.completed.run.status, HookRunStatus::Failed);
@@ -518,6 +568,7 @@ mod tests {
             PreToolUseHandlerData {
                 should_block: true,
                 block_reason: Some("blocked by policy".to_string()),
+                updated_input: None,
             }
         );
         assert_eq!(parsed.completed.run.status, HookRunStatus::Blocked);

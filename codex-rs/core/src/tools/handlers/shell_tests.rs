@@ -264,6 +264,85 @@ async fn shell_command_pre_tool_use_payload_uses_raw_command() {
     );
 }
 
+#[test]
+fn shell_handler_rewrites_function_payload_command() {
+    let mut payload = ToolPayload::Function {
+        arguments: json!({
+            "command": ["echo", "hi"],
+            "workdir": "/tmp",
+        })
+        .to_string(),
+    };
+    let updated = json!({ "command": "rtk git status" });
+    ShellHandler
+        .apply_pre_tool_use_rewrite(&mut payload, &updated)
+        .expect("rewrite should succeed");
+    let ToolPayload::Function { arguments } = &payload else {
+        panic!("expected function payload");
+    };
+    let parsed: serde_json::Value = serde_json::from_str(arguments).unwrap();
+    assert_eq!(parsed["command"], json!(["rtk", "git", "status"]));
+    assert_eq!(parsed["workdir"], "/tmp");
+}
+
+#[test]
+fn shell_handler_rewrites_local_shell_payload_command() {
+    let mut payload = ToolPayload::LocalShell {
+        params: codex_protocol::models::ShellToolCallParams {
+            command: vec!["echo".to_string(), "hi".to_string()],
+            workdir: None,
+            timeout_ms: None,
+            sandbox_permissions: None,
+            prefix_rule: None,
+            additional_permissions: None,
+            justification: None,
+        },
+    };
+    let updated = json!({ "command": "rtk git status" });
+    ShellHandler
+        .apply_pre_tool_use_rewrite(&mut payload, &updated)
+        .expect("rewrite should succeed");
+    let ToolPayload::LocalShell { params } = &payload else {
+        panic!("expected local shell payload");
+    };
+    assert_eq!(
+        params.command,
+        vec!["rtk".to_string(), "git".to_string(), "status".to_string()]
+    );
+}
+
+#[test]
+fn shell_handler_rejects_rewrites_without_command() {
+    let mut payload = ToolPayload::Function {
+        arguments: json!({ "command": ["echo"] }).to_string(),
+    };
+    let updated = json!({ "not_command": "rtk git status" });
+    let err = ShellHandler
+        .apply_pre_tool_use_rewrite(&mut payload, &updated)
+        .expect_err("missing command should error");
+    assert!(err.contains("command"));
+}
+
+#[test]
+fn shell_command_handler_rewrites_string_command_verbatim() {
+    let mut payload = ToolPayload::Function {
+        arguments: json!({ "command": "old", "workdir": "/tmp" }).to_string(),
+    };
+    let updated = json!({ "command": "rtk git status -- 'a b'" });
+    let handler = ShellCommandHandler {
+        backend: super::ShellCommandBackend::Classic,
+    };
+    handler
+        .apply_pre_tool_use_rewrite(&mut payload, &updated)
+        .expect("rewrite should succeed");
+    let ToolPayload::Function { arguments } = &payload else {
+        panic!("expected function payload");
+    };
+    let parsed: serde_json::Value = serde_json::from_str(arguments).unwrap();
+    assert_eq!(parsed["command"], "rtk git status -- 'a b'");
+    assert_eq!(parsed["workdir"], "/tmp");
+}
+
 #[tokio::test]
 async fn build_post_tool_use_payload_uses_tool_output_wire_value() {
     let payload = ToolPayload::Function {

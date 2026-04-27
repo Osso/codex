@@ -75,6 +75,78 @@ fn shell_command_payload_command(payload: &ToolPayload) -> Option<String> {
         .map(|params| params.command)
 }
 
+/// Extracts the rewritten command string from `hookSpecificOutput.updatedInput`.
+/// PreToolUse hooks see `tool_input: { "command": "..." }` for shell-shaped
+/// tools, so the rewrite must echo the same shape back.
+fn extract_rewritten_command(updated_input: &JsonValue) -> Result<&str, String> {
+    updated_input
+        .get("command")
+        .and_then(JsonValue::as_str)
+        .ok_or_else(|| "updatedInput is missing a string `command` field".to_string())
+}
+
+/// Rewrites the `command` argv of a shell-shaped payload (ShellHandler /
+/// LocalShell), shlex-splitting the rewritten string. Rewrites that don't
+/// round-trip through shlex are rejected so the model sees a clear error
+/// instead of a silently mangled command.
+fn apply_argv_command_rewrite(
+    payload: &mut ToolPayload,
+    updated_input: &JsonValue,
+) -> Result<(), String> {
+    let command = extract_rewritten_command(updated_input)?;
+    let argv = shlex::split(command)
+        .ok_or_else(|| format!("rewritten command failed to shlex-split: {command}"))?;
+    if argv.is_empty() {
+        return Err("rewritten command must contain at least one token".to_string());
+    }
+    match payload {
+        // ShellToolCallParams isn't Serialize, so we mutate the parsed JSON
+        // object directly. This also preserves any unknown fields the model
+        // emitted alongside `command`.
+        ToolPayload::Function { arguments } => {
+            let mut value: JsonValue = serde_json::from_str(arguments)
+                .map_err(|err| format!("failed to parse shell arguments: {err}"))?;
+            let object = value
+                .as_object_mut()
+                .ok_or_else(|| "shell arguments are not a JSON object".to_string())?;
+            object.insert(
+                "command".to_string(),
+                JsonValue::Array(argv.into_iter().map(JsonValue::String).collect()),
+            );
+            *arguments = serde_json::to_string(&value)
+                .map_err(|err| format!("failed to re-serialize shell arguments: {err}"))?;
+            Ok(())
+        }
+        ToolPayload::LocalShell { params } => {
+            params.command = argv;
+            Ok(())
+        }
+        _ => Err("payload kind does not support shell command rewrites".to_string()),
+    }
+}
+
+/// Rewrites the single-string `command` of a `shell_command` payload
+/// (`ShellCommandHandler`). The body is preserved verbatim — no shell parsing —
+/// because the field is consumed by `$SHELL -c <string>`.
+fn apply_string_command_rewrite(
+    payload: &mut ToolPayload,
+    updated_input: &JsonValue,
+) -> Result<(), String> {
+    let command = extract_rewritten_command(updated_input)?;
+    let ToolPayload::Function { arguments } = payload else {
+        return Err("shell_command rewrite requires a Function payload".to_string());
+    };
+    let mut value: JsonValue = serde_json::from_str(arguments)
+        .map_err(|err| format!("failed to parse shell_command arguments: {err}"))?;
+    let object = value
+        .as_object_mut()
+        .ok_or_else(|| "shell_command arguments are not a JSON object".to_string())?;
+    object.insert("command".to_string(), JsonValue::String(command.to_string()));
+    *arguments = serde_json::to_string(&value)
+        .map_err(|err| format!("failed to re-serialize shell_command arguments: {err}"))?;
+    Ok(())
+}
+
 struct RunExecLikeArgs {
     tool_name: String,
     exec_params: ExecParams,
@@ -212,6 +284,14 @@ impl ToolHandler for ShellHandler {
         })
     }
 
+    fn apply_pre_tool_use_rewrite(
+        &self,
+        payload: &mut ToolPayload,
+        updated_input: &JsonValue,
+    ) -> Result<(), String> {
+        apply_argv_command_rewrite(payload, updated_input)
+    }
+
     fn post_tool_use_payload(
         &self,
         invocation: &ToolInvocation,
@@ -324,6 +404,14 @@ impl ToolHandler for ShellCommandHandler {
             tool_name: HookToolName::bash(),
             tool_input: serde_json::json!({ "command": command }),
         })
+    }
+
+    fn apply_pre_tool_use_rewrite(
+        &self,
+        payload: &mut ToolPayload,
+        updated_input: &JsonValue,
+    ) -> Result<(), String> {
+        apply_string_command_rewrite(payload, updated_input)
     }
 
     fn post_tool_use_payload(

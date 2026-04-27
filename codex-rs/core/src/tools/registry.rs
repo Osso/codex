@@ -69,6 +69,18 @@ pub trait ToolHandler: Send + Sync {
         None
     }
 
+    /// Applies a PreToolUse hook rewrite to the in-flight payload before
+    /// dispatch. The default implementation drops the rewrite — only handlers
+    /// whose hook input shape matches the rewrite (currently shell-shaped
+    /// payloads) override it.
+    fn apply_pre_tool_use_rewrite(
+        &self,
+        _payload: &mut ToolPayload,
+        _updated_input: &Value,
+    ) -> Result<(), String> {
+        Ok(())
+    }
+
     fn post_tool_use_payload(
         &self,
         _invocation: &ToolInvocation,
@@ -165,6 +177,12 @@ trait AnyToolHandler: Send + Sync {
 
     fn pre_tool_use_payload(&self, invocation: &ToolInvocation) -> Option<PreToolUsePayload>;
 
+    fn apply_pre_tool_use_rewrite(
+        &self,
+        payload: &mut ToolPayload,
+        updated_input: &Value,
+    ) -> Result<(), String>;
+
     fn create_diff_consumer(&self) -> Option<Box<dyn ToolArgumentDiffConsumer>>;
     fn handle_any<'a>(
         &'a self,
@@ -186,6 +204,14 @@ where
 
     fn pre_tool_use_payload(&self, invocation: &ToolInvocation) -> Option<PreToolUsePayload> {
         ToolHandler::pre_tool_use_payload(self, invocation)
+    }
+
+    fn apply_pre_tool_use_rewrite(
+        &self,
+        payload: &mut ToolPayload,
+        updated_input: &Value,
+    ) -> Result<(), String> {
+        ToolHandler::apply_pre_tool_use_rewrite(self, payload, updated_input)
     }
 
     fn create_diff_consumer(&self) -> Option<Box<dyn ToolArgumentDiffConsumer>> {
@@ -263,7 +289,7 @@ impl ToolRegistry {
     )]
     pub(crate) async fn dispatch_any(
         &self,
-        invocation: ToolInvocation,
+        mut invocation: ToolInvocation,
     ) -> Result<AnyToolResult, FunctionCallError> {
         let tool_name = invocation.tool_name.clone();
         let display_name = tool_name.display();
@@ -349,19 +375,29 @@ impl ToolRegistry {
             return Err(err);
         }
 
-        if let Some(pre_tool_use_payload) = handler.pre_tool_use_payload(&invocation)
-            && let Some(message) = run_pre_tool_use_hooks(
+        if let Some(pre_tool_use_payload) = handler.pre_tool_use_payload(&invocation) {
+            let hook_result = run_pre_tool_use_hooks(
                 &invocation.session,
                 &invocation.turn,
                 invocation.call_id.clone(),
                 &pre_tool_use_payload.tool_name,
                 &pre_tool_use_payload.tool_input,
             )
-            .await
-        {
-            let err = FunctionCallError::RespondToModel(message);
-            dispatch_trace.record_failed(&err);
-            return Err(err);
+            .await;
+            if let Some(message) = hook_result.block_message {
+                let err = FunctionCallError::RespondToModel(message);
+                dispatch_trace.record_failed(&err);
+                return Err(err);
+            }
+            if let Some(updated_input) = hook_result.updated_input
+                && let Err(err) =
+                    handler.apply_pre_tool_use_rewrite(&mut invocation.payload, &updated_input)
+            {
+                let message = format!("PreToolUse hook rewrite failed: {err}");
+                let err = FunctionCallError::RespondToModel(message);
+                dispatch_trace.record_failed(&err);
+                return Err(err);
+            }
         }
 
         let is_mutating = handler.is_mutating(&invocation).await;

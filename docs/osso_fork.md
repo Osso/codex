@@ -428,6 +428,60 @@ doesn't accidentally resurrect one half of the pair.
 
 ---
 
+## 17. PreToolUse command rewrites
+
+**Purpose.** Honor Claude's `hookSpecificOutput.updatedInput` field on
+`PreToolUse` so external hooks (notably `claude-bash-hook` aliases like
+`rtk`) can rewrite a shell command before codex dispatches it. Without this
+the only options were allow / block; with it a hook can transparently
+substitute `git status` for `rtk git status`.
+
+**Behavior details worth preserving.**
+- `permissionDecision: allow` is now treated as a no-op rather than as an
+  unsupported field, so a hook can return Claude's full schema unchanged
+  (codex's normal permission flow still runs). Only `Ask` is rejected.
+- A rewrite is dropped if the same hook also blocks; block wins.
+- First hook in the run that emits `updatedInput` wins. Subsequent hooks
+  see the original input, not the rewrite (chained rewrites would require
+  a stable ordering policy we don't expose).
+- Two shell payload shapes are supported:
+  - `ShellHandler` (`Vec<String>` argv) splits the rewritten command via
+    `shlex::split`.
+  - `ShellCommandHandler` (single `String`) copies verbatim.
+- Rewrites mutate the invocation's parsed JSON `Value` directly rather
+  than re-serializing typed params (the protocol params types only derive
+  `Deserialize`), which has the side benefit of preserving any unknown
+  fields the model emitted.
+- A rewrite that fails to apply (missing `command` field, `shlex::split`
+  failure, unsupported payload variant) surfaces as
+  `PreToolUse hook rewrite failed: <reason>` — block-style, not silent.
+
+**Key files.**
+- `codex-rs/hooks/src/engine/output_parser.rs` (parse `updatedInput`,
+  relax `Allow` rejection)
+- `codex-rs/hooks/src/events/pre_tool_use.rs` (thread `updated_input`
+  through `PreToolUseOutcome`, "first rewrite wins" rule)
+- `codex-rs/core/src/hook_runtime.rs` (`PreToolUseHookResult` carries
+  both `block_message` and `updated_input`; rewrite is dropped on block)
+- `codex-rs/core/src/tools/registry.rs` (`apply_pre_tool_use_rewrite`
+  trait method on `ToolHandler` / `AnyToolHandler`; default no-op)
+- `codex-rs/core/src/tools/handlers/shell.rs` (impls for `ShellHandler` /
+  `ShellCommandHandler` plus the JSON `Value` mutation helpers)
+
+**Tests to re-run.**
+- `cargo test -p codex-hooks output_parser`
+- `cargo test -p codex-hooks pre_tool_use`
+- `cargo test -p codex-core tools::handlers::shell_tests`
+
+**Rebase risk.** Medium. The trait addition on `ToolHandler` is upstream's
+extension point; if upstream renames the dispatcher or splits the trait,
+re-port the default no-op and the two shell impls. The output_parser
+schema relaxation is the most fragile piece — upstream may re-tighten
+unsupported-field validation, in which case re-add an explicit allow-list
+for `updatedInput` and `permissionDecision: allow`.
+
+---
+
 ## Rebase checklist
 
 Before declaring a rebase clean, walk this list:
