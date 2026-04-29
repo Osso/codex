@@ -37,6 +37,7 @@ pub struct PreToolUseOutcome {
     pub hook_events: Vec<HookCompletedEvent>,
     pub should_block: bool,
     pub block_reason: Option<String>,
+    pub approval_reason: Option<String>,
     /// Rewritten tool input from the first hook that returned
     /// `hookSpecificOutput.updatedInput`. Codex applies it to the invocation
     /// before dispatch — currently only Bash payloads honor the rewrite.
@@ -47,6 +48,7 @@ pub struct PreToolUseOutcome {
 struct PreToolUseHandlerData {
     should_block: bool,
     block_reason: Option<String>,
+    approval_reason: Option<String>,
     updated_input: Option<Value>,
 }
 
@@ -83,6 +85,7 @@ pub(crate) async fn run(
             hook_events: Vec::new(),
             should_block: false,
             block_reason: None,
+            approval_reason: None,
             updated_input: None,
         };
     }
@@ -114,6 +117,9 @@ pub(crate) async fn run(
     let block_reason = results
         .iter()
         .find_map(|result| result.data.block_reason.clone());
+    let approval_reason = results
+        .iter()
+        .find_map(|result| result.data.approval_reason.clone());
     // First hook to emit a rewrite wins. Subsequent hooks see the original
     // input, not the rewrite — chained rewrites would hide whichever hook ran
     // last from log review and require a stable ordering policy we don't
@@ -131,6 +137,7 @@ pub(crate) async fn run(
             .collect(),
         should_block,
         block_reason,
+        approval_reason,
         updated_input,
     }
 }
@@ -169,6 +176,7 @@ fn parse_completed(
     let mut status = HookRunStatus::Completed;
     let mut should_block = false;
     let mut block_reason = None;
+    let mut approval_reason = None;
     let mut updated_input = None;
 
     match run_result.error.as_deref() {
@@ -200,6 +208,12 @@ fn parse_completed(
                         status = HookRunStatus::Blocked;
                         should_block = true;
                         block_reason = Some(reason.clone());
+                        entries.push(HookOutputEntry {
+                            kind: HookOutputEntryKind::Feedback,
+                            text: reason,
+                        });
+                    } else if let Some(reason) = parsed.approval_reason {
+                        approval_reason = Some(reason.clone());
                         entries.push(HookOutputEntry {
                             kind: HookOutputEntryKind::Feedback,
                             text: reason,
@@ -259,6 +273,7 @@ fn parse_completed(
         data: PreToolUseHandlerData {
             should_block,
             block_reason,
+            approval_reason,
             updated_input,
         },
     }
@@ -269,6 +284,7 @@ fn serialization_failure_outcome(hook_events: Vec<HookCompletedEvent>) -> PreToo
         hook_events,
         should_block: false,
         block_reason: None,
+        approval_reason: None,
         updated_input: None,
     }
 }
@@ -356,6 +372,7 @@ mod tests {
             PreToolUseHandlerData {
                 should_block: true,
                 block_reason: Some("do not run that".to_string()),
+                approval_reason: None,
                 updated_input: None,
             }
         );
@@ -386,6 +403,7 @@ mod tests {
             PreToolUseHandlerData {
                 should_block: true,
                 block_reason: Some("do not run that".to_string()),
+                approval_reason: None,
                 updated_input: None,
             }
         );
@@ -400,7 +418,7 @@ mod tests {
     }
 
     #[test]
-    fn unsupported_permission_decision_fails_open() {
+    fn permission_decision_ask_requests_approval() {
         let parsed = parse_completed(
             &handler(),
             run_result(
@@ -416,15 +434,47 @@ mod tests {
             PreToolUseHandlerData {
                 should_block: false,
                 block_reason: None,
+                approval_reason: Some("please confirm".to_string()),
                 updated_input: None,
             }
         );
-        assert_eq!(parsed.completed.run.status, HookRunStatus::Failed);
+        assert_eq!(parsed.completed.run.status, HookRunStatus::Completed);
         assert_eq!(
             parsed.completed.run.entries,
             vec![HookOutputEntry {
-                kind: HookOutputEntryKind::Error,
-                text: "PreToolUse hook returned unsupported permissionDecision:ask".to_string(),
+                kind: HookOutputEntryKind::Feedback,
+                text: "please confirm".to_string(),
+            }]
+        );
+    }
+
+    #[test]
+    fn permission_decision_ask_without_reason_uses_default_approval_reason() {
+        let parsed = parse_completed(
+            &handler(),
+            run_result(
+                Some(0),
+                r#"{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask"}}"#,
+                "",
+            ),
+            Some("turn-1".to_string()),
+        );
+
+        assert_eq!(
+            parsed.data,
+            PreToolUseHandlerData {
+                should_block: false,
+                block_reason: None,
+                approval_reason: Some("PreToolUse hook requested approval".to_string()),
+                updated_input: None,
+            }
+        );
+        assert_eq!(parsed.completed.run.status, HookRunStatus::Completed);
+        assert_eq!(
+            parsed.completed.run.entries,
+            vec![HookOutputEntry {
+                kind: HookOutputEntryKind::Feedback,
+                text: "PreToolUse hook requested approval".to_string(),
             }]
         );
     }
@@ -442,6 +492,7 @@ mod tests {
             PreToolUseHandlerData {
                 should_block: false,
                 block_reason: None,
+                approval_reason: None,
                 updated_input: None,
             }
         );
@@ -472,6 +523,7 @@ mod tests {
             PreToolUseHandlerData {
                 should_block: false,
                 block_reason: None,
+                approval_reason: None,
                 updated_input: None,
             }
         );
@@ -502,6 +554,7 @@ mod tests {
             PreToolUseHandlerData {
                 should_block: false,
                 block_reason: None,
+                approval_reason: None,
                 updated_input: Some(serde_json::json!({"command": "rtk git status"})),
             }
         );
@@ -522,6 +575,7 @@ mod tests {
             PreToolUseHandlerData {
                 should_block: false,
                 block_reason: None,
+                approval_reason: None,
                 updated_input: None,
             }
         );
@@ -542,6 +596,7 @@ mod tests {
             PreToolUseHandlerData {
                 should_block: false,
                 block_reason: None,
+                approval_reason: None,
                 updated_input: None,
             }
         );
@@ -568,6 +623,7 @@ mod tests {
             PreToolUseHandlerData {
                 should_block: true,
                 block_reason: Some("blocked by policy".to_string()),
+                approval_reason: None,
                 updated_input: None,
             }
         );

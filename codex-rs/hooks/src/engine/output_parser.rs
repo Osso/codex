@@ -16,6 +16,7 @@ pub(crate) struct SessionStartOutput {
 pub(crate) struct PreToolUseOutput {
     pub universal: UniversalOutput,
     pub block_reason: Option<String>,
+    pub approval_reason: Option<String>,
     pub invalid_reason: Option<String>,
     /// Rewritten tool input from `hookSpecificOutput.updatedInput`.
     ///
@@ -113,23 +114,38 @@ pub(crate) fn parse_pre_tool_use(stdout: &str) -> Option<PreToolUseOutput> {
             unsupported_pre_tool_use_legacy_decision(decision.as_ref(), reason.as_deref())
         }
     });
-    let block_reason = if invalid_reason.is_none() {
+    let (block_reason, approval_reason) = if invalid_reason.is_none() {
         if use_hook_specific_decision {
-            hook_specific_output.and_then(|output| match output.permission_decision {
-                Some(PreToolUsePermissionDecisionWire::Deny) => output
-                    .permission_decision_reason
-                    .as_deref()
-                    .and_then(trimmed_reason),
-                _ => None,
-            })
+            match hook_specific_output.and_then(|output| {
+                output.permission_decision.as_ref().map(|decision| {
+                    (
+                        decision,
+                        output
+                            .permission_decision_reason
+                            .as_deref()
+                            .and_then(trimmed_reason),
+                    )
+                })
+            }) {
+                Some((PreToolUsePermissionDecisionWire::Deny, reason)) => (reason, None),
+                Some((PreToolUsePermissionDecisionWire::Ask, reason)) => (
+                    None,
+                    Some(
+                        reason.unwrap_or_else(|| "PreToolUse hook requested approval".to_string()),
+                    ),
+                ),
+                Some((PreToolUsePermissionDecisionWire::Allow, _)) | None => (None, None),
+            }
         } else {
             match decision.as_ref() {
-                Some(PreToolUseDecisionWire::Block) => reason.as_deref().and_then(trimmed_reason),
-                Some(PreToolUseDecisionWire::Approve) | None => None,
+                Some(PreToolUseDecisionWire::Block) => {
+                    (reason.as_deref().and_then(trimmed_reason), None)
+                }
+                Some(PreToolUseDecisionWire::Approve) | None => (None, None),
             }
         }
     } else {
-        None
+        (None, None)
     };
     let updated_input = if invalid_reason.is_none() {
         hook_specific_output.and_then(|output| output.updated_input.clone())
@@ -140,6 +156,7 @@ pub(crate) fn parse_pre_tool_use(stdout: &str) -> Option<PreToolUseOutput> {
     Some(PreToolUseOutput {
         universal,
         block_reason,
+        approval_reason,
         invalid_reason,
         updated_input,
     })
@@ -368,9 +385,7 @@ fn unsupported_pre_tool_use_hook_specific_output(
         // open) so hooks like `claude-bash-hook` can return their full Claude
         // schema unchanged when paired with codex.
         Some(PreToolUsePermissionDecisionWire::Allow) | None => None,
-        Some(PreToolUsePermissionDecisionWire::Ask) => {
-            Some("PreToolUse hook returned unsupported permissionDecision:ask".to_string())
-        }
+        Some(PreToolUsePermissionDecisionWire::Ask) => None,
         Some(PreToolUsePermissionDecisionWire::Deny) => {
             if output
                 .permission_decision_reason

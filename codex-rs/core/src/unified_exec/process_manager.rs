@@ -27,6 +27,7 @@ use crate::tools::runtimes::unified_exec::UnifiedExecRequest as UnifiedExecToolR
 use crate::tools::runtimes::unified_exec::UnifiedExecRuntime;
 use crate::tools::sandboxing::ToolCtx;
 use crate::tools::sandboxing::ToolError;
+use crate::tools::sandboxing::require_exec_approval_for_pre_tool_use;
 use crate::unified_exec::ExecCommandRequest;
 use crate::unified_exec::MAX_UNIFIED_EXEC_PROCESSES;
 use crate::unified_exec::MAX_YIELD_TIME_MS;
@@ -805,6 +806,11 @@ impl UnifiedExecProcessManager {
                 prefix_rule: request.prefix_rule.clone(),
             })
             .await;
+        let exec_approval_requirement = require_exec_approval_for_pre_tool_use(
+            exec_approval_requirement,
+            context.turn.approval_policy.value(),
+            request.pre_tool_use_approval_reason.clone(),
+        );
         let req = UnifiedExecToolRequest {
             command: request.command.clone(),
             hook_command: request.hook_command.clone(),

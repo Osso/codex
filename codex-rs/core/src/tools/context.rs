@@ -54,6 +54,7 @@ pub struct ToolInvocation {
     pub tool_name: ToolName,
     pub source: ToolCallSource,
     pub payload: ToolPayload,
+    pub pre_tool_use_approval_reason: Option<String>,
 }
 
 #[derive(Clone, Debug)]

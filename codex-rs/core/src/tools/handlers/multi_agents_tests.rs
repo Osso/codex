@@ -74,6 +74,7 @@ fn invocation(
         tool_name: codex_tools::ToolName::plain(tool_name),
         source: crate::tools::context::ToolCallSource::Direct,
         payload,
+        pre_tool_use_approval_reason: None,
     }
 }
 

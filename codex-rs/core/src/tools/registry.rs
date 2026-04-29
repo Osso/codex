@@ -389,6 +389,9 @@ impl ToolRegistry {
                 dispatch_trace.record_failed(&err);
                 return Err(err);
             }
+            if let Some(approval_reason) = hook_result.approval_reason {
+                invocation.pre_tool_use_approval_reason = Some(approval_reason);
+            }
             if let Some(updated_input) = hook_result.updated_input
                 && let Err(err) =
                     handler.apply_pre_tool_use_rewrite(&mut invocation.payload, &updated_input)

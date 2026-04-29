@@ -35,6 +35,7 @@ use crate::tools::runtimes::shell::ShellRequest;
 use crate::tools::runtimes::shell::ShellRuntime;
 use crate::tools::runtimes::shell::ShellRuntimeBackend;
 use crate::tools::sandboxing::ToolCtx;
+use crate::tools::sandboxing::require_exec_approval_for_pre_tool_use;
 use codex_features::Feature;
 use codex_protocol::models::PermissionProfile;
 use codex_protocol::protocol::ExecCommandSource;
@@ -141,7 +142,10 @@ fn apply_string_command_rewrite(
     let object = value
         .as_object_mut()
         .ok_or_else(|| "shell_command arguments are not a JSON object".to_string())?;
-    object.insert("command".to_string(), JsonValue::String(command.to_string()));
+    object.insert(
+        "command".to_string(),
+        JsonValue::String(command.to_string()),
+    );
     *arguments = serde_json::to_string(&value)
         .map_err(|err| format!("failed to re-serialize shell_command arguments: {err}"))?;
     Ok(())
@@ -159,6 +163,7 @@ struct RunExecLikeArgs {
     call_id: String,
     freeform: bool,
     shell_runtime_backend: ShellRuntimeBackend,
+    pre_tool_use_approval_reason: Option<String>,
 }
 
 impl ShellHandler {
@@ -316,6 +321,7 @@ impl ToolHandler for ShellHandler {
             call_id,
             tool_name,
             payload,
+            pre_tool_use_approval_reason,
             ..
         } = invocation;
 
@@ -338,6 +344,7 @@ impl ToolHandler for ShellHandler {
                     call_id,
                     freeform: false,
                     shell_runtime_backend: ShellRuntimeBackend::Generic,
+                    pre_tool_use_approval_reason: pre_tool_use_approval_reason.clone(),
                 })
                 .await
             }
@@ -356,6 +363,7 @@ impl ToolHandler for ShellHandler {
                     call_id,
                     freeform: false,
                     shell_runtime_backend: ShellRuntimeBackend::Generic,
+                    pre_tool_use_approval_reason,
                 })
                 .await
             }
@@ -438,6 +446,7 @@ impl ToolHandler for ShellCommandHandler {
             call_id,
             tool_name,
             payload,
+            pre_tool_use_approval_reason,
             ..
         } = invocation;
 
@@ -478,6 +487,7 @@ impl ToolHandler for ShellCommandHandler {
             call_id,
             freeform: true,
             shell_runtime_backend: self.shell_runtime_backend(),
+            pre_tool_use_approval_reason,
         })
         .await
     }
@@ -497,6 +507,7 @@ impl ShellHandler {
             call_id,
             freeform,
             shell_runtime_backend,
+            pre_tool_use_approval_reason,
         } = args;
 
         let mut exec_params = exec_params;
@@ -608,6 +619,11 @@ impl ShellHandler {
                 prefix_rule,
             })
             .await;
+        let exec_approval_requirement = require_exec_approval_for_pre_tool_use(
+            exec_approval_requirement,
+            turn.approval_policy.value(),
+            pre_tool_use_approval_reason,
+        );
 
         let req = ShellRequest {
             command: exec_params.command.clone(),

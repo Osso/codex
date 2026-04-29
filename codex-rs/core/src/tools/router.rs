@@ -300,6 +300,7 @@ impl ToolRouter {
             tool_name,
             source,
             payload,
+            pre_tool_use_approval_reason: None,
         };
 
         self.registry.dispatch_any(invocation).await

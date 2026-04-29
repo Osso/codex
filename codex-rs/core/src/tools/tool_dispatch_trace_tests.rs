@@ -300,6 +300,7 @@ fn test_invocation_with_payload(
         tool_name,
         source,
         payload,
+        pre_tool_use_approval_reason: None,
     }
 }
 

@@ -32,6 +32,7 @@ async fn multi_agent_v2_request_user_input_rejects_subagent_threads() {
         call_id: "call-1".to_string(),
         tool_name: codex_tools::ToolName::plain(REQUEST_USER_INPUT_TOOL_NAME),
         source: crate::tools::context::ToolCallSource::Direct,
+        pre_tool_use_approval_reason: None,
         payload: ToolPayload::Function {
             arguments: json!({
                 "questions": [{

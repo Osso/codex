@@ -37,6 +37,8 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
 
+use crate::exec_policy::prompt_is_rejected_by_policy;
+
 #[derive(Clone, Default, Debug)]
 pub(crate) struct ApprovalStore {
     // Store serialized keys for generic caching across requests.
@@ -192,6 +194,41 @@ impl ExecApprovalRequirement {
             } => Some(prefix),
             _ => None,
         }
+    }
+}
+
+pub(crate) fn require_exec_approval_for_pre_tool_use(
+    requirement: ExecApprovalRequirement,
+    approval_policy: AskForApproval,
+    reason: Option<String>,
+) -> ExecApprovalRequirement {
+    let Some(reason) = reason else {
+        return requirement;
+    };
+
+    if let Some(rejection_reason) =
+        prompt_is_rejected_by_policy(approval_policy, /*prompt_is_rule*/ true)
+    {
+        return ExecApprovalRequirement::Forbidden {
+            reason: rejection_reason.to_string(),
+        };
+    }
+
+    match requirement {
+        ExecApprovalRequirement::Forbidden { reason } => {
+            ExecApprovalRequirement::Forbidden { reason }
+        }
+        ExecApprovalRequirement::Skip {
+            proposed_execpolicy_amendment,
+            ..
+        }
+        | ExecApprovalRequirement::NeedsApproval {
+            proposed_execpolicy_amendment,
+            ..
+        } => ExecApprovalRequirement::NeedsApproval {
+            reason: Some(reason),
+            proposed_execpolicy_amendment,
+        },
     }
 }
 

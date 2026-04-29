@@ -144,6 +144,7 @@ mod tests {
                 tool_name: codex_tools::ToolName::namespaced("mcp__memory__", "create_entities"),
                 source: ToolCallSource::Direct,
                 payload,
+                pre_tool_use_approval_reason: None,
             }),
             Some(PreToolUsePayload {
                 tool_name: HookToolName::new("mcp__memory__create_entities"),
@@ -192,6 +193,7 @@ mod tests {
             tool_name: codex_tools::ToolName::namespaced("mcp__filesystem__", "read_file"),
             source: ToolCallSource::Direct,
             payload,
+            pre_tool_use_approval_reason: None,
         };
         assert_eq!(
             McpHandler.post_tool_use_payload(&invocation, &output),

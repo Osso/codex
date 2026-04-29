@@ -137,6 +137,7 @@ pub(crate) async fn run_pending_session_start_hooks(
 /// honor the rewrite.
 pub(crate) struct PreToolUseHookResult {
     pub block_message: Option<String>,
+    pub approval_reason: Option<String>,
     pub updated_input: Option<Value>,
 }
 
@@ -171,6 +172,7 @@ pub(crate) async fn run_pre_tool_use_hooks(
         hook_events,
         should_block,
         block_reason,
+        approval_reason,
         updated_input,
     } = sess.hooks().run_pre_tool_use(request).await;
     emit_hook_completed_events(sess, turn_context, hook_events).await;
@@ -202,6 +204,7 @@ pub(crate) async fn run_pre_tool_use_hooks(
 
     PreToolUseHookResult {
         block_message,
+        approval_reason,
         updated_input,
     }
 }
