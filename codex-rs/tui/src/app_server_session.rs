@@ -54,15 +54,6 @@ use codex_app_server_protocol::ThreadMemoryModeSetParams;
 use codex_app_server_protocol::ThreadMemoryModeSetResponse;
 use codex_app_server_protocol::ThreadReadParams;
 use codex_app_server_protocol::ThreadReadResponse;
-use codex_app_server_protocol::ThreadRealtimeAppendAudioParams;
-use codex_app_server_protocol::ThreadRealtimeAppendAudioResponse;
-use codex_app_server_protocol::ThreadRealtimeAppendTextParams;
-use codex_app_server_protocol::ThreadRealtimeAppendTextResponse;
-use codex_app_server_protocol::ThreadRealtimeStartParams;
-use codex_app_server_protocol::ThreadRealtimeStartResponse;
-use codex_app_server_protocol::ThreadRealtimeStartTransport;
-use codex_app_server_protocol::ThreadRealtimeStopParams;
-use codex_app_server_protocol::ThreadRealtimeStopResponse;
 use codex_app_server_protocol::ThreadResumeParams;
 use codex_app_server_protocol::ThreadResumeResponse;
 use codex_app_server_protocol::ThreadRollbackParams;
@@ -92,10 +83,6 @@ use codex_protocol::openai_models::ModelPreset;
 use codex_protocol::openai_models::ModelUpgrade;
 use codex_protocol::openai_models::ReasoningEffortPreset;
 use codex_protocol::protocol::AskForApproval;
-use codex_protocol::protocol::ConversationAudioParams;
-use codex_protocol::protocol::ConversationStartParams;
-use codex_protocol::protocol::ConversationStartTransport;
-use codex_protocol::protocol::ConversationTextParams;
 use codex_protocol::protocol::CreditsSnapshot;
 use codex_protocol::protocol::GuardianAssessmentEvent;
 use codex_protocol::protocol::RateLimitSnapshot;
@@ -832,92 +819,6 @@ impl AppServerSession {
             })
             .await
             .wrap_err("config/batchWrite failed while reloading user config in TUI")?;
-        Ok(())
-    }
-
-    pub(crate) async fn thread_realtime_start(
-        &mut self,
-        thread_id: ThreadId,
-        params: ConversationStartParams,
-    ) -> Result<()> {
-        let request_id = self.next_request_id();
-        let _: ThreadRealtimeStartResponse = self
-            .client
-            .request_typed(ClientRequest::ThreadRealtimeStart {
-                request_id,
-                params: ThreadRealtimeStartParams {
-                    thread_id: thread_id.to_string(),
-                    output_modality: params.output_modality,
-                    prompt: params.prompt,
-                    session_id: params.session_id,
-                    voice: params.voice,
-                    transport: params.transport.map(|transport| match transport {
-                        ConversationStartTransport::Websocket => {
-                            ThreadRealtimeStartTransport::Websocket
-                        }
-                        ConversationStartTransport::Webrtc { sdp } => {
-                            ThreadRealtimeStartTransport::Webrtc { sdp }
-                        }
-                    }),
-                },
-            })
-            .await
-            .wrap_err("thread/realtime/start failed in TUI")?;
-        Ok(())
-    }
-
-    pub(crate) async fn thread_realtime_audio(
-        &mut self,
-        thread_id: ThreadId,
-        params: ConversationAudioParams,
-    ) -> Result<()> {
-        let request_id = self.next_request_id();
-        let _: ThreadRealtimeAppendAudioResponse = self
-            .client
-            .request_typed(ClientRequest::ThreadRealtimeAppendAudio {
-                request_id,
-                params: ThreadRealtimeAppendAudioParams {
-                    thread_id: thread_id.to_string(),
-                    audio: params.frame.into(),
-                },
-            })
-            .await
-            .wrap_err("thread/realtime/appendAudio failed in TUI")?;
-        Ok(())
-    }
-
-    pub(crate) async fn thread_realtime_text(
-        &mut self,
-        thread_id: ThreadId,
-        params: ConversationTextParams,
-    ) -> Result<()> {
-        let request_id = self.next_request_id();
-        let _: ThreadRealtimeAppendTextResponse = self
-            .client
-            .request_typed(ClientRequest::ThreadRealtimeAppendText {
-                request_id,
-                params: ThreadRealtimeAppendTextParams {
-                    thread_id: thread_id.to_string(),
-                    text: params.text,
-                },
-            })
-            .await
-            .wrap_err("thread/realtime/appendText failed in TUI")?;
-        Ok(())
-    }
-
-    pub(crate) async fn thread_realtime_stop(&mut self, thread_id: ThreadId) -> Result<()> {
-        let request_id = self.next_request_id();
-        let _: ThreadRealtimeStopResponse = self
-            .client
-            .request_typed(ClientRequest::ThreadRealtimeStop {
-                request_id,
-                params: ThreadRealtimeStopParams {
-                    thread_id: thread_id.to_string(),
-                },
-            })
-            .await
-            .wrap_err("thread/realtime/stop failed in TUI")?;
         Ok(())
     }
 

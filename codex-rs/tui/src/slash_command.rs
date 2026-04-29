@@ -58,8 +58,6 @@ pub enum SlashCommand {
     Stop,
     Clear,
     Personality,
-    Realtime,
-    Settings,
     TestApproval,
     #[strum(serialize = "subagents")]
     MultiAgents,
@@ -106,8 +104,6 @@ impl SlashCommand {
                 "toggle Fast mode to enable fastest inference with increased plan usage"
             }
             SlashCommand::Personality => "choose a communication style for Codex",
-            SlashCommand::Realtime => "toggle realtime voice mode (experimental)",
-            SlashCommand::Settings => "configure realtime microphone/speaker",
             SlashCommand::Plan => "switch to Plan mode",
             SlashCommand::Collab => "change collaboration mode (experimental)",
             SlashCommand::Agent | SlashCommand::MultiAgents => "switch the active agent thread",
@@ -202,8 +198,6 @@ impl SlashCommand {
             | SlashCommand::Side => true,
             SlashCommand::Rollout => true,
             SlashCommand::TestApproval => true,
-            SlashCommand::Realtime => true,
-            SlashCommand::Settings => true,
             SlashCommand::Collab => true,
             SlashCommand::Agent | SlashCommand::MultiAgents => true,
             SlashCommand::Statusline => false,

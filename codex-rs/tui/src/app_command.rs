@@ -11,9 +11,6 @@ use codex_protocol::mcp::RequestId as McpRequestId;
 use codex_protocol::models::PermissionProfile;
 use codex_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
 use codex_protocol::protocol::AskForApproval;
-use codex_protocol::protocol::ConversationAudioParams;
-use codex_protocol::protocol::ConversationStartParams;
-use codex_protocol::protocol::ConversationTextParams;
 use codex_protocol::protocol::Op;
 use codex_protocol::protocol::ReviewDecision;
 use codex_protocol::protocol::ReviewRequest;
@@ -32,10 +29,6 @@ pub(crate) struct AppCommand(Op);
 pub(crate) enum AppCommandView<'a> {
     Interrupt,
     CleanBackgroundTerminals,
-    RealtimeConversationStart(&'a ConversationStartParams),
-    RealtimeConversationAudio(&'a ConversationAudioParams),
-    RealtimeConversationText(&'a ConversationTextParams),
-    RealtimeConversationClose,
     RunUserShellCommand {
         command: &'a str,
     },
@@ -117,19 +110,6 @@ impl AppCommand {
 
     pub(crate) fn clean_background_terminals() -> Self {
         Self(Op::CleanBackgroundTerminals)
-    }
-
-    pub(crate) fn realtime_conversation_start(params: ConversationStartParams) -> Self {
-        Self(Op::RealtimeConversationStart(params))
-    }
-
-    #[cfg_attr(target_os = "linux", allow(dead_code))]
-    pub(crate) fn realtime_conversation_audio(params: ConversationAudioParams) -> Self {
-        Self(Op::RealtimeConversationAudio(params))
-    }
-
-    pub(crate) fn realtime_conversation_close() -> Self {
-        Self(Op::RealtimeConversationClose)
     }
 
     pub(crate) fn run_user_shell_command(command: String) -> Self {
@@ -278,16 +258,6 @@ impl AppCommand {
         match &self.0 {
             Op::Interrupt => AppCommandView::Interrupt,
             Op::CleanBackgroundTerminals => AppCommandView::CleanBackgroundTerminals,
-            Op::RealtimeConversationStart(params) => {
-                AppCommandView::RealtimeConversationStart(params)
-            }
-            Op::RealtimeConversationAudio(params) => {
-                AppCommandView::RealtimeConversationAudio(params)
-            }
-            Op::RealtimeConversationText(params) => {
-                AppCommandView::RealtimeConversationText(params)
-            }
-            Op::RealtimeConversationClose => AppCommandView::RealtimeConversationClose,
             Op::RunUserShellCommand { command } => AppCommandView::RunUserShellCommand { command },
             Op::UserTurn {
                 items,

@@ -375,8 +375,6 @@ pub(crate) struct ChatComposer {
     plugins_command_enabled: bool,
     fast_command_enabled: bool,
     personality_command_enabled: bool,
-    realtime_conversation_enabled: bool,
-    audio_device_selection_enabled: bool,
     windows_degraded_sandbox_active: bool,
     side_conversation_active: bool,
     is_zellij: bool,
@@ -435,8 +433,6 @@ impl ChatComposer {
             plugins_command_enabled: self.plugins_command_enabled,
             fast_command_enabled: self.fast_command_enabled,
             personality_command_enabled: self.personality_command_enabled,
-            realtime_conversation_enabled: self.realtime_conversation_enabled,
-            audio_device_selection_enabled: self.audio_device_selection_enabled,
             allow_elevate_sandbox: self.windows_degraded_sandbox_active,
             side_conversation_active: self.side_conversation_active,
         }
@@ -520,8 +516,6 @@ impl ChatComposer {
             plugins_command_enabled: false,
             fast_command_enabled: false,
             personality_command_enabled: false,
-            realtime_conversation_enabled: false,
-            audio_device_selection_enabled: false,
             windows_degraded_sandbox_active: false,
             side_conversation_active: false,
             is_zellij: matches!(
@@ -615,14 +609,6 @@ impl ChatComposer {
 
     pub fn set_personality_command_enabled(&mut self, enabled: bool) {
         self.personality_command_enabled = enabled;
-    }
-
-    pub fn set_realtime_conversation_enabled(&mut self, enabled: bool) {
-        self.realtime_conversation_enabled = enabled;
-    }
-
-    pub fn set_audio_device_selection_enabled(&mut self, enabled: bool) {
-        self.audio_device_selection_enabled = enabled;
     }
 
     pub fn set_side_conversation_active(&mut self, active: bool) {
@@ -3476,16 +3462,12 @@ impl ChatComposer {
                     let plugins_command_enabled = self.plugins_command_enabled;
                     let fast_command_enabled = self.fast_command_enabled;
                     let personality_command_enabled = self.personality_command_enabled;
-                    let realtime_conversation_enabled = self.realtime_conversation_enabled;
-                    let audio_device_selection_enabled = self.audio_device_selection_enabled;
                     let mut command_popup = CommandPopup::new(CommandPopupFlags {
                         collaboration_modes_enabled,
                         connectors_enabled,
                         plugins_command_enabled,
                         fast_command_enabled,
                         personality_command_enabled,
-                        realtime_conversation_enabled,
-                        audio_device_selection_enabled,
                         windows_degraded_sandbox_active: self.windows_degraded_sandbox_active,
                         side_conversation_active: self.side_conversation_active,
                     });

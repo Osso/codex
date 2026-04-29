@@ -7,13 +7,10 @@
 pub(super) use super::*;
 pub(super) use crate::app_event::AppEvent;
 pub(super) use crate::app_event::ExitMode;
-#[cfg(not(target_os = "linux"))]
-pub(super) use crate::app_event::RealtimeAudioDeviceKind;
 pub(super) use crate::app_event_sender::AppEventSender;
 pub(super) use crate::bottom_pane::LocalImageAttachment;
 pub(super) use crate::bottom_pane::MentionBinding;
 pub(super) use crate::bottom_pane::QueuedInputAction;
-pub(super) use crate::chatwidget::realtime::RealtimeConversationPhase;
 pub(super) use crate::history_cell::UserHistoryCell;
 pub(super) use crate::legacy_core::config::Config;
 pub(super) use crate::legacy_core::config::ConfigBuilder;
@@ -183,9 +180,6 @@ pub(super) use codex_protocol::protocol::RateLimitReachedType;
 pub(super) use codex_protocol::protocol::RateLimitSnapshot;
 pub(super) use codex_protocol::protocol::RateLimitWindow;
 pub(super) use codex_protocol::protocol::ReadOnlyAccess;
-pub(super) use codex_protocol::protocol::RealtimeConversationClosedEvent;
-pub(super) use codex_protocol::protocol::RealtimeConversationRealtimeEvent;
-pub(super) use codex_protocol::protocol::RealtimeEvent;
 pub(super) use codex_protocol::protocol::ReviewRequest;
 pub(super) use codex_protocol::protocol::ReviewTarget;
 pub(super) use codex_protocol::protocol::SessionConfiguredEvent;

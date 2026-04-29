@@ -304,7 +304,6 @@ pub(super) async fn make_chatwidget_manual(
         status_line_branch_pending: false,
         status_line_branch_lookup_complete: false,
         external_editor_state: ExternalEditorState::Closed,
-        realtime_conversation: RealtimeConversationUiState::default(),
         last_rendered_user_message_event: None,
         last_non_retry_error: None,
     };
@@ -332,21 +331,6 @@ pub(super) fn next_interrupt_op(op_rx: &mut tokio::sync::mpsc::UnboundedReceiver
             Ok(_) => continue,
             Err(TryRecvError::Empty) => panic!("expected interrupt op but queue was empty"),
             Err(TryRecvError::Disconnected) => panic!("expected interrupt op but channel closed"),
-        }
-    }
-}
-
-pub(super) fn next_realtime_close_op(op_rx: &mut tokio::sync::mpsc::UnboundedReceiver<Op>) {
-    loop {
-        match op_rx.try_recv() {
-            Ok(Op::RealtimeConversationClose) => return,
-            Ok(_) => continue,
-            Err(TryRecvError::Empty) => {
-                panic!("expected realtime close op but queue was empty")
-            }
-            Err(TryRecvError::Disconnected) => {
-                panic!("expected realtime close op but channel closed")
-            }
         }
     }
 }

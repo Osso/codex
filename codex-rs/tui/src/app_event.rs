@@ -43,32 +43,7 @@ use codex_protocol::config_types::ServiceTier;
 use codex_protocol::openai_models::ReasoningEffort;
 use codex_protocol::protocol::AskForApproval;
 use codex_protocol::protocol::SandboxPolicy;
-use codex_realtime_webrtc::RealtimeWebrtcEvent;
-use codex_realtime_webrtc::RealtimeWebrtcSessionHandle;
-
 use crate::history_cell::HistoryCell;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum RealtimeAudioDeviceKind {
-    Microphone,
-    Speaker,
-}
-
-impl RealtimeAudioDeviceKind {
-    pub(crate) fn title(self) -> &'static str {
-        match self {
-            Self::Microphone => "Microphone",
-            Self::Speaker => "Speaker",
-        }
-    }
-
-    pub(crate) fn noun(self) -> &'static str {
-        match self {
-            Self::Microphone => "microphone",
-            Self::Speaker => "speaker",
-        }
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
@@ -397,34 +372,6 @@ pub(crate) enum AppEvent {
         service_tier: Option<ServiceTier>,
     },
 
-    /// Open the device picker for a realtime microphone or speaker.
-    OpenRealtimeAudioDeviceSelection {
-        kind: RealtimeAudioDeviceKind,
-    },
-
-    /// Persist the selected realtime microphone or speaker to top-level config.
-    #[cfg_attr(target_os = "linux", allow(dead_code))]
-    PersistRealtimeAudioDeviceSelection {
-        kind: RealtimeAudioDeviceKind,
-        name: Option<String>,
-    },
-
-    /// Restart the selected realtime microphone or speaker locally.
-    RestartRealtimeAudioDevice {
-        kind: RealtimeAudioDeviceKind,
-    },
-
-    /// Result of creating a TUI-owned realtime WebRTC offer.
-    RealtimeWebrtcOfferCreated {
-        result: Result<RealtimeWebrtcOffer, String>,
-    },
-
-    /// Peer-connection lifecycle event from a TUI-owned realtime WebRTC session.
-    RealtimeWebrtcEvent(RealtimeWebrtcEvent),
-
-    /// Local microphone level from a TUI-owned realtime WebRTC session.
-    RealtimeWebrtcLocalAudioLevel(u16),
-
     /// Open the reasoning selection popup after picking a model.
     OpenReasoningPopup {
         model: ModelPreset,
@@ -595,14 +542,6 @@ pub(crate) enum AppEvent {
     /// Re-open the permissions presets popup.
     OpenPermissionsPopup,
 
-    /// Live update for the in-progress voice recording placeholder. Carries
-    /// the placeholder `id` and the text to display (e.g., an ASCII meter).
-    #[cfg(not(target_os = "linux"))]
-    UpdateRecordingMeter {
-        id: String,
-        text: String,
-    },
-
     /// Open the branch picker option from the review popup.
     OpenReviewBranchPicker(PathBuf),
 
@@ -678,12 +617,6 @@ pub(crate) enum AppEvent {
     SyntaxThemeSelected {
         name: String,
     },
-}
-
-#[derive(Debug)]
-pub(crate) struct RealtimeWebrtcOffer {
-    pub(crate) offer_sdp: String,
-    pub(crate) handle: RealtimeWebrtcSessionHandle,
 }
 
 /// The exit strategy requested by the UI layer.

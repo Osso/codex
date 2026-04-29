@@ -641,28 +641,6 @@ impl App {
                     .await?;
                 Ok(true)
             }
-            AppCommandView::RealtimeConversationStart(params) => {
-                app_server
-                    .thread_realtime_start(thread_id, params.clone())
-                    .await?;
-                Ok(true)
-            }
-            AppCommandView::RealtimeConversationAudio(params) => {
-                app_server
-                    .thread_realtime_audio(thread_id, params.clone())
-                    .await?;
-                Ok(true)
-            }
-            AppCommandView::RealtimeConversationText(params) => {
-                app_server
-                    .thread_realtime_text(thread_id, params.clone())
-                    .await?;
-                Ok(true)
-            }
-            AppCommandView::RealtimeConversationClose => {
-                app_server.thread_realtime_stop(thread_id).await?;
-                Ok(true)
-            }
             AppCommandView::RunUserShellCommand { command } => {
                 app_server
                     .thread_shell_command(thread_id, command.to_string())
