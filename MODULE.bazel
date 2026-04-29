@@ -183,25 +183,6 @@ crate.from_cargo(
     ],
     use_experimental_platforms = True,
 )
-crate.from_cargo(
-    name = "argument_comment_lint_crates",
-    cargo_lock = "//tools/argument-comment-lint:Cargo.lock",
-    cargo_toml = "//tools/argument-comment-lint:Cargo.toml",
-    platform_triples = [
-        "aarch64-unknown-linux-gnu",
-        "aarch64-unknown-linux-musl",
-        "aarch64-apple-darwin",
-        "aarch64-pc-windows-msvc",
-        "aarch64-pc-windows-gnullvm",
-        "x86_64-unknown-linux-gnu",
-        "x86_64-unknown-linux-musl",
-        "x86_64-apple-darwin",
-        "x86_64-pc-windows-msvc",
-        "x86_64-pc-windows-gnullvm",
-    ],
-    use_experimental_platforms = True,
-)
-
 bazel_dep(name = "zstd", version = "1.5.7")
 
 crate.annotation(
@@ -239,7 +220,6 @@ crate.annotation(
 )
 
 inject_repo(crate, "zstd")
-use_repo(crate, "argument_comment_lint_crates")
 
 bazel_dep(name = "bzip2", version = "1.0.8.bcr.3")
 single_version_override(
