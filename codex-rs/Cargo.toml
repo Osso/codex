@@ -10,7 +10,6 @@ members = [
     "app-server-client",
     "app-server-protocol",
     "app-server-test-client",
-    "debug-client",
     "apply-patch",
     "arg0",
     "feedback",
@@ -38,7 +37,6 @@ members = [
     "exec",
     "exec-server",
     "execpolicy",
-    "execpolicy-legacy",
     "keyring-store",
     "file-search",
     "linux-sandbox",
@@ -63,7 +61,6 @@ members = [
     "otel",
     "tui",
     "tools",
-    "v8-poc",
     "utils/absolute-path",
     "utils/cargo-bin",
     "git-utils",
@@ -205,7 +202,6 @@ codex-utils-sleep-inhibitor = { path = "utils/sleep-inhibitor" }
 codex-utils-stream-parser = { path = "utils/stream-parser" }
 codex-utils-string = { path = "utils/string" }
 codex-utils-template = { path = "utils/template" }
-codex-v8-poc = { path = "v8-poc" }
 codex-windows-sandbox = { path = "windows-sandbox-rs" }
 core_test_support = { path = "core/tests/common" }
 mcp_test_support = { path = "mcp-server/tests/common" }
@@ -447,7 +443,8 @@ ignored = [
 [profile.dev]
 # Keep line tables/backtraces while avoiding expensive full variable debug info
 # across local dev builds.
-debug = 1
+debug = "line-tables-only"
+split-debuginfo = "unpacked"
 
 [profile.dev-small]
 inherits = "dev"
