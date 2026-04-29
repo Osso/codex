@@ -1665,7 +1665,6 @@ dependencies = [
  "codex-features",
  "codex-login",
  "codex-mcp",
- "codex-mcp-server",
  "codex-model-provider",
  "codex-models-manager",
  "codex-protocol",
@@ -2332,39 +2331,6 @@ dependencies = [
  "tokio-util",
  "tracing",
  "url",
-]
-
-[[package]]
-name = "codex-mcp-server"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "codex-arg0",
- "codex-config",
- "codex-core",
- "codex-exec-server",
- "codex-features",
- "codex-login",
- "codex-models-manager",
- "codex-protocol",
- "codex-shell-command",
- "codex-utils-absolute-path",
- "codex-utils-cli",
- "codex-utils-json-to-toml",
- "core_test_support",
- "mcp_test_support",
- "os_info",
- "pretty_assertions",
- "rmcp",
- "schemars 0.8.22",
- "serde",
- "serde_json",
- "shlex",
- "tempfile",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "wiremock",
 ]
 
 [[package]]
@@ -7274,26 +7240,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.114",
-]
-
-[[package]]
-name = "mcp_test_support"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "codex-login",
- "codex-mcp-server",
- "codex-terminal-detection",
- "codex-utils-cargo-bin",
- "core_test_support",
- "os_info",
- "pretty_assertions",
- "rmcp",
- "serde",
- "serde_json",
- "shlex",
- "tokio",
- "wiremock",
 ]
 
 [[package]]

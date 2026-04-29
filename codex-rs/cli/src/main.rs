@@ -125,9 +125,6 @@ enum Subcommand {
     /// Manage Codex plugins.
     Plugin(PluginCli),
 
-    /// Start Codex as an MCP server (stdio).
-    McpServer,
-
     /// [experimental] Run the app server or related tooling.
     AppServer(AppServerCommand),
 
@@ -786,14 +783,6 @@ async fn cli_main(arg0_paths: Arg0DispatchPaths) -> anyhow::Result<()> {
                 root_config_overrides.clone(),
             );
             codex_exec::run_main(exec_cli, arg0_paths.clone()).await?;
-        }
-        Some(Subcommand::McpServer) => {
-            reject_remote_mode_for_subcommand(
-                root_remote.as_deref(),
-                root_remote_auth_token_env.as_deref(),
-                "mcp-server",
-            )?;
-            codex_mcp_server::run_main(arg0_paths.clone(), root_config_overrides).await?;
         }
         Some(Subcommand::Mcp(mut mcp_cli)) => {
             reject_remote_mode_for_subcommand(
