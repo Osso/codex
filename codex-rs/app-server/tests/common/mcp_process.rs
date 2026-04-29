@@ -206,7 +206,7 @@ impl McpProcess {
         let mut process = cmd
             .kill_on_drop(true)
             .spawn()
-            .context("codex-mcp-server proc should start")?;
+            .context("codex-app-server proc should start")?;
         let stdin = process
             .stdin
             .take()
