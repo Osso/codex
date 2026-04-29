@@ -1457,7 +1457,6 @@ dependencies = [
  "codex-app-server-transport",
  "codex-arg0",
  "codex-backend-client",
- "codex-chatgpt",
  "codex-cloud-requirements",
  "codex-config",
  "codex-core",
@@ -1729,29 +1728,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "codex-chatgpt"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "clap",
- "codex-app-server-protocol",
- "codex-connectors",
- "codex-core",
- "codex-core-plugins",
- "codex-git-utils",
- "codex-login",
- "codex-model-provider",
- "codex-plugin",
- "codex-utils-cargo-bin",
- "codex-utils-cli",
- "pretty_assertions",
- "serde",
- "serde_json",
- "tempfile",
- "tokio",
-]
-
-[[package]]
 name = "codex-cli"
 version = "0.0.0"
 dependencies = [
@@ -1760,12 +1736,12 @@ dependencies = [
  "assert_matches",
  "clap",
  "clap_complete",
+ "codex-api",
  "codex-app-server",
  "codex-app-server-daemon",
  "codex-app-server-protocol",
  "codex-app-server-test-client",
  "codex-arg0",
- "codex-chatgpt",
  "codex-config",
  "codex-core",
  "codex-core-plugins",
@@ -3149,11 +3125,11 @@ dependencies = [
  "codex-app-server-client",
  "codex-app-server-protocol",
  "codex-arg0",
- "codex-chatgpt",
  "codex-cli",
  "codex-cloud-requirements",
  "codex-config",
  "codex-connectors",
+ "codex-core",
  "codex-core-plugins",
  "codex-core-skills",
  "codex-exec-server",
