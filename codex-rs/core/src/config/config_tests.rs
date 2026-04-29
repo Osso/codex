@@ -474,116 +474,16 @@ fn rejects_provider_aws_for_custom_provider() {
 name = "Custom Provider"
 
 [model_providers.custom.aws]
-profile = "codex-bedrock"
+profile = "my-aws-profile"
 "#,
     )
     .unwrap_err();
 
     assert!(
         err.to_string().contains(
-            "model_providers.custom: provider aws is only supported for `amazon-bedrock`"
+            "model_providers.custom: provider aws is not supported for custom providers"
         )
     );
-}
-
-#[test]
-fn accepts_amazon_bedrock_aws_profile_override() {
-    let cfg = toml::from_str::<ConfigToml>(
-        r#"
-[model_providers.amazon-bedrock.aws]
-profile = "codex-bedrock"
-region = "us-west-2"
-"#,
-    )
-    .expect("Amazon Bedrock AWS overrides should deserialize");
-
-    assert_eq!(
-        cfg.model_providers
-            .get("amazon-bedrock")
-            .and_then(|provider| provider.aws.as_ref())
-            .and_then(|aws| aws.profile.as_deref()),
-        Some("codex-bedrock")
-    );
-    assert_eq!(
-        cfg.model_providers
-            .get("amazon-bedrock")
-            .and_then(|provider| provider.aws.as_ref())
-            .and_then(|aws| aws.region.as_deref()),
-        Some("us-west-2")
-    );
-}
-
-#[tokio::test]
-async fn load_config_applies_amazon_bedrock_aws_profile_override() {
-    let cfg = toml::from_str::<ConfigToml>(
-        r#"
-model_provider = "amazon-bedrock"
-
-[model_providers.amazon-bedrock.aws]
-profile = "codex-bedrock"
-region = "us-west-2"
-"#,
-    )
-    .expect("Amazon Bedrock AWS overrides should deserialize");
-
-    let config = Config::load_from_base_config_with_overrides(
-        cfg,
-        ConfigOverrides::default(),
-        tempdir().expect("tempdir").abs(),
-    )
-    .await
-    .expect("load config");
-
-    assert_eq!(config.model_provider_id, "amazon-bedrock");
-    assert_eq!(
-        config
-            .model_provider
-            .aws
-            .as_ref()
-            .and_then(|aws| aws.profile.as_deref()),
-        Some("codex-bedrock")
-    );
-    assert_eq!(
-        config
-            .model_provider
-            .aws
-            .as_ref()
-            .and_then(|aws| aws.region.as_deref()),
-        Some("us-west-2")
-    );
-}
-
-#[tokio::test]
-async fn load_config_rejects_unsupported_amazon_bedrock_overrides() {
-    let cfg = toml::from_str::<ConfigToml>(
-        r#"
-model_provider = "amazon-bedrock"
-
-[model_providers.amazon-bedrock]
-name = "Custom Bedrock"
-base_url = "https://bedrock.example.com/v1"
-requires_openai_auth = true
-supports_websockets = true
-
-[model_providers.amazon-bedrock.aws]
-profile = "codex-bedrock"
-region = "us-west-2"
-"#,
-    )
-    .expect("Amazon Bedrock unsupported overrides should deserialize");
-
-    let err = Config::load_from_base_config_with_overrides(
-        cfg,
-        ConfigOverrides::default(),
-        tempdir().expect("tempdir").abs(),
-    )
-    .await
-    .unwrap_err();
-
-    assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
-    assert!(err.to_string().contains(
-        "model_providers.amazon-bedrock only supports changing `aws.profile` and `aws.region`; other non-default provider fields are not supported"
-    ));
 }
 
 #[test]
