@@ -494,8 +494,7 @@ jobs:
           ./scripts/stage_npm_packages.py \
             --release-version "$RELEASE_VERSION" \
             --package codex \
-            --package codex-responses-api-proxy \
-            --package codex-sdk
+            --package codex-responses-api-proxy
 
       - name: Stage installer scripts
         run: |
@@ -578,7 +577,6 @@ jobs:
             "codex-npm-darwin-*-${version}.tgz"
             "codex-npm-win32-*-${version}.tgz"
             "codex-responses-api-proxy-npm-${version}.tgz"
-            "codex-sdk-npm-${version}.tgz"
           )
           for pattern in "${patterns[@]}"; do
             gh release download "$tag" \
@@ -616,7 +614,7 @@ jobs:
                 platform="${platform%-${VERSION}.tgz}"
                 tag="${prefix}${platform}"
                 ;;
-              codex-npm-"${VERSION}".tgz|codex-responses-api-proxy-npm-"${VERSION}".tgz|codex-sdk-npm-"${VERSION}".tgz)
+              codex-npm-"${VERSION}".tgz|codex-responses-api-proxy-npm-"${VERSION}".tgz)
                 tag="${NPM_TAG}"
                 ;;
               *)

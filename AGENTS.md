@@ -20,14 +20,6 @@ In the codex-rs folder where the rust code lives:
 - Prefer private modules and explicitly exported public crate API.
 - If you change `ConfigToml` or nested config types, run `just write-config-schema` to update `codex-rs/core/config.schema.json`.
 - When working with MCP tool calls, prefer using `codex-rs/codex-mcp/src/mcp_connection_manager.rs` to handle mutation of tools and tool calls. Aim to minimize the footprint of changes and leverage existing abstractions rather than plumbing code through multiple levels of function calls.
-- If you change Rust dependencies (`Cargo.toml` or `Cargo.lock`), run `just bazel-lock-update` from the
-  repo root to refresh `MODULE.bazel.lock`, and include that lockfile update in the same change.
-- After dependency changes, run `just bazel-lock-check` from the repo root so lockfile drift is caught
-  locally before CI.
-- Bazel does not automatically make source-tree files available to compile-time Rust file access. If
-  you add `include_str!`, `include_bytes!`, `sqlx::migrate!`, or similar build-time file or
-  directory reads, update the crate's `BUILD.bazel` (`compile_data`, `build_script_data`, or test
-  data) or Bazel may fail even when Cargo passes.
 - Do not create small helper methods that are referenced only once.
 - Avoid large modules:
   - Prefer adding new modules instead of growing existing ones.
@@ -128,11 +120,10 @@ If you don’t have the tool:
 - Prefer deep equals comparisons whenever possible. Perform `assert_eq!()` on entire objects, rather than individual fields.
 - Avoid mutating process environment in tests; prefer passing environment-derived flags or dependencies from above.
 
-### Spawning workspace binaries in tests (Cargo vs Bazel)
+### Spawning workspace binaries in tests
 
-- Prefer `codex_utils_cargo_bin::cargo_bin("...")` over `assert_cmd::Command::cargo_bin(...)` or `escargot` when tests need to spawn first-party binaries.
-  - Under Bazel, binaries and resources may live under runfiles; use `codex_utils_cargo_bin::cargo_bin` to resolve absolute paths that remain stable after `chdir`.
-- When locating fixture files or test resources under Bazel, avoid `env!("CARGO_MANIFEST_DIR")`. Prefer `codex_utils_cargo_bin::find_resource!` so paths resolve correctly under both Cargo and Bazel runfiles.
+- Prefer `codex_utils_cargo_bin::cargo_bin("...")` over `assert_cmd::Command::cargo_bin(...)` or `escargot` when tests need to spawn first-party binaries; it resolves absolute paths that remain stable after `chdir`.
+- When locating fixture files or test resources, prefer `codex_utils_cargo_bin::find_resource!` over `env!("CARGO_MANIFEST_DIR")`.
 
 ### Integration tests (core)
 
