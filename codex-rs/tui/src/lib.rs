@@ -148,6 +148,7 @@ mod text_formatting;
 mod theme_picker;
 mod tooltips;
 mod tui;
+mod tui_connectors;
 mod ui_consts;
 pub(crate) mod update_action;
 pub use update_action::UpdateAction;
