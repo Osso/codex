@@ -2227,7 +2227,6 @@ dependencies = [
  "codex-memories-write",
  "codex-models-manager",
  "codex-protocol",
- "codex-responses-api-proxy",
  "codex-rmcp-client",
  "codex-rollout-trace",
  "codex-sandboxing",
@@ -2664,15 +2663,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "codex-debug-client"
+name = "codex-device-key"
 version = "0.0.0"
 dependencies = [
- "anyhow",
- "clap",
- "codex-app-server-protocol",
+ "base64 0.22.1",
+ "p256",
  "pretty_assertions",
+ "rand 0.9.3",
  "serde",
  "serde_json",
+ "thiserror 2.0.18",
+ "url",
 ]
 
 [[package]]
@@ -2773,26 +2774,6 @@ dependencies = [
  "starlark",
  "tempfile",
  "thiserror 2.0.18",
-]
-
-[[package]]
-name = "codex-execpolicy-legacy"
-version = "0.0.0"
-dependencies = [
- "allocative",
- "anyhow",
- "clap",
- "derive_more 2.1.1",
- "env_logger",
- "log",
- "multimap",
- "path-absolutize",
- "regex-lite",
- "serde",
- "serde_json",
- "serde_with",
- "starlark",
- "tempfile",
 ]
 
 [[package]]
@@ -3423,23 +3404,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "codex-responses-api-proxy"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "clap",
- "codex-process-hardening",
- "ctor 0.6.3",
- "libc",
- "pretty_assertions",
- "reqwest",
- "serde",
- "serde_json",
- "tiny_http",
- "zeroize",
-]
-
-[[package]]
 name = "codex-rmcp-client"
 version = "0.0.0"
 dependencies = [
@@ -4043,14 +4007,6 @@ name = "codex-utils-template"
 version = "0.0.0"
 dependencies = [
  "pretty_assertions",
-]
-
-[[package]]
-name = "codex-v8-poc"
-version = "0.0.0"
-dependencies = [
- "pretty_assertions",
- "v8",
 ]
 
 [[package]]
@@ -5382,7 +5338,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a1c3cc8e57274ec99de65301228b537f1e4eedc1b8e0f9411c6caac8ae7308f"
 dependencies = [
  "log",
- "regex",
 ]
 
 [[package]]
@@ -5400,7 +5355,6 @@ dependencies = [
  "anstream",
  "anstyle",
  "env_filter",
- "jiff",
  "log",
 ]
 
@@ -9524,24 +9478,6 @@ name = "pastey"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b867cad97c0791bbd3aaa6472142568c6c9e8f71937e98379f584cfb0cf35bec"
-
-[[package]]
-name = "path-absolutize"
-version = "3.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4af381fe79fa195b4909485d99f73a80792331df0625188e707854f0b3383f5"
-dependencies = [
- "path-dedot",
-]
-
-[[package]]
-name = "path-dedot"
-version = "3.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07ba0ad7e047712414213ff67533e6dd477af0a4e1d14fb52343e53d30ea9397"
-dependencies = [
- "once_cell",
-]
 
 [[package]]
 name = "pathdiff"

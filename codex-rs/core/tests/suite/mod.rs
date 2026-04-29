@@ -83,7 +83,6 @@ mod request_permissions;
 mod request_permissions_tool;
 mod request_plugin_install;
 mod request_user_input;
-mod responses_api_proxy_headers;
 mod resume;
 mod resume_warning;
 mod review;

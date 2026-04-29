@@ -42,7 +42,6 @@ codex-mcp = { workspace = true }
 codex-mcp-server = { workspace = true }
 codex-models-manager = { workspace = true }
 codex-protocol = { workspace = true }
-codex-responses-api-proxy = { workspace = true }
 codex-rmcp-client = { workspace = true }
 codex-rollout-trace = { workspace = true }
 codex-sandboxing = { workspace = true }
