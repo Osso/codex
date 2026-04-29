@@ -13,7 +13,6 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 CODEX_CLI_ROOT = SCRIPT_DIR.parent
 REPO_ROOT = CODEX_CLI_ROOT.parent
 RESPONSES_API_PROXY_NPM_ROOT = REPO_ROOT / "codex-rs" / "responses-api-proxy" / "npm"
-CODEX_SDK_ROOT = REPO_ROOT / "sdk" / "typescript"
 CODEX_NPM_NAME = "@openai/codex"
 
 # `npm_name` is the local optional-dependency alias consumed by `bin/codex.js`.
@@ -76,7 +75,6 @@ PACKAGE_NATIVE_COMPONENTS: dict[str, list[str]] = {
     "codex-win32-x64": ["codex", "rg", "codex-windows-sandbox-setup", "codex-command-runner"],
     "codex-win32-arm64": ["codex", "rg", "codex-windows-sandbox-setup", "codex-command-runner"],
     "codex-responses-api-proxy": ["codex-responses-api-proxy"],
-    "codex-sdk": [],
 }
 
 PACKAGE_TARGET_FILTERS: dict[str, str] = {
@@ -212,13 +210,6 @@ def main() -> int:
                     "Verify native payload contents:\n"
                     f"    ls {staging_dir_str}/vendor\n\n"
                 )
-            else:
-                print(
-                    f"Staged version {version} for release in {staging_dir_str}\n\n"
-                    "Verify the SDK contents:\n"
-                    f"    ls {staging_dir_str}/dist\n"
-                    "    node -e \"import('./dist/index.js').then(() => console.log('ok'))\"\n\n"
-                )
         else:
             print(f"Staged package in {staging_dir}")
 
@@ -302,9 +293,6 @@ def stage_sources(staging_dir: Path, version: str, package: str) -> None:
             shutil.copy2(readme_src, staging_dir / "README.md")
 
         package_json_path = RESPONSES_API_PROXY_NPM_ROOT / "package.json"
-    elif package == "codex-sdk":
-        package_json_path = CODEX_SDK_ROOT / "package.json"
-        stage_codex_sdk_sources(staging_dir)
     else:
         raise RuntimeError(f"Unknown package '{package}'.")
 
@@ -324,17 +312,6 @@ def stage_sources(staging_dir: Path, version: str, package: str) -> None:
             if platform_package != "codex"
         }
 
-    elif package == "codex-sdk":
-        scripts = package_json.get("scripts")
-        if isinstance(scripts, dict):
-            scripts.pop("prepare", None)
-
-        dependencies = package_json.get("dependencies")
-        if not isinstance(dependencies, dict):
-            dependencies = {}
-        dependencies[CODEX_NPM_NAME] = version
-        package_json["dependencies"] = dependencies
-
     with open(staging_dir / "package.json", "w", encoding="utf-8") as out:
         json.dump(package_json, out, indent=2)
         out.write("\n")
@@ -349,27 +326,6 @@ def compute_platform_package_version(version: str, platform_tag: str) -> str:
 def run_command(cmd: list[str], cwd: Path | None = None) -> None:
     print("+", " ".join(cmd))
     subprocess.run(cmd, cwd=cwd, check=True)
-
-
-def stage_codex_sdk_sources(staging_dir: Path) -> None:
-    package_root = CODEX_SDK_ROOT
-
-    run_command(["pnpm", "install", "--frozen-lockfile"], cwd=package_root)
-    run_command(["pnpm", "run", "build"], cwd=package_root)
-
-    dist_src = package_root / "dist"
-    if not dist_src.exists():
-        raise RuntimeError("codex-sdk build did not produce a dist directory.")
-
-    shutil.copytree(dist_src, staging_dir / "dist")
-
-    readme_src = package_root / "README.md"
-    if readme_src.exists():
-        shutil.copy2(readme_src, staging_dir / "README.md")
-
-    license_src = REPO_ROOT / "LICENSE"
-    if license_src.exists():
-        shutil.copy2(license_src, staging_dir / "LICENSE")
 
 
 def copy_native_binaries(

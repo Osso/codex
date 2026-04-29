@@ -253,13 +253,6 @@ jobs:
           cxxflags="$(sanitize_flags "${CXXFLAGS-}")"
           echo "CFLAGS=${cflags}" >> "$GITHUB_ENV"
           echo "CXXFLAGS=${cxxflags}" >> "$GITHUB_ENV"
-
-      - if: ${{ matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl' }}
-        name: Configure musl rusty_v8 artifact overrides and verify checksums
-        uses: ./.github/actions/setup-rusty-v8-musl
-        with:
-          target: ${{ matrix.target }}
-
       - if: ${{ contains(matrix.target, 'linux') && matrix.bundle == 'primary' }}
         name: Build bwrap and export digest
         shell: bash
@@ -645,8 +638,7 @@ jobs:
           ./scripts/stage_npm_packages.py \
             --release-version "$RELEASE_VERSION" \
             --package codex \
-            --package codex-responses-api-proxy \
-            --package codex-sdk
+            --package codex-responses-api-proxy
 
       - name: Stage installer scripts
         run: |
@@ -729,7 +721,6 @@ jobs:
             "codex-npm-darwin-*-${version}.tgz"
             "codex-npm-win32-*-${version}.tgz"
             "codex-responses-api-proxy-npm-${version}.tgz"
-            "codex-sdk-npm-${version}.tgz"
           )
           for pattern in "${patterns[@]}"; do
             gh release download "$tag" \
@@ -815,7 +806,7 @@ jobs:
                 platform="${platform%-${VERSION}.tgz}"
                 tag="${prefix}${platform}"
                 ;;
-              codex-npm-"${VERSION}".tgz|codex-responses-api-proxy-npm-"${VERSION}".tgz|codex-sdk-npm-"${VERSION}".tgz)
+              codex-npm-"${VERSION}".tgz|codex-responses-api-proxy-npm-"${VERSION}".tgz)
                 tag="${NPM_TAG}"
                 ;;
               *)

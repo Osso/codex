@@ -342,14 +342,10 @@ independent of upstream release machinery.
 - **Release profile tuning** (`codex-rs/Cargo.toml`):
   - LTO disabled for faster local builds.
   - Release codegen units raised to 4.
-- **`shell-tool-mcp/package.json` retained.** Upstream deleted this in
-  `e89e5136bd`; the fork keeps it for the deploy script.
-
 **Tests.** `cargo test -p codex-tui version`.
 
 **Rebase risk.** Medium. Every upstream version bump will conflict with the
-branding split; walk through `version.rs` manually each time. If upstream
-deletes `shell-tool-mcp/` again, restore it or update `deploy.sh` accordingly.
+branding split; walk through `version.rs` manually each time.
 
 ---
 
