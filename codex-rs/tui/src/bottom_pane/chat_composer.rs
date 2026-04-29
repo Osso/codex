@@ -566,6 +566,7 @@ impl ChatComposer {
         self.config.image_paste_enabled = enabled;
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn set_connector_mentions(&mut self, connectors_snapshot: Option<ConnectorsSnapshot>) {
         self.connectors_snapshot = connectors_snapshot;
         self.sync_popups();
@@ -592,6 +593,7 @@ impl ChatComposer {
         self.collaboration_modes_enabled = enabled;
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn set_connectors_enabled(&mut self, enabled: bool) {
         self.connectors_enabled = enabled;
     }

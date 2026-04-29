@@ -178,9 +178,7 @@ impl AppLinkView {
     }
 
     fn refresh_connectors_and_close(&mut self) {
-        self.app_event_tx.send(AppEvent::RefreshConnectors {
-            force_refetch: true,
-        });
+        self.app_event_tx.send(AppEvent::RefreshConnectors);
         if self.is_tool_suggestion() {
             self.resolve_elicitation(ElicitationAction::Accept);
         }
@@ -793,8 +791,8 @@ mod tests {
 
         view.handle_key_event(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
         match rx.try_recv() {
-            Ok(AppEvent::RefreshConnectors { force_refetch }) => {
-                assert!(force_refetch);
+            Ok(AppEvent::RefreshConnectors) => {
+                // expected
             }
             Ok(other) => panic!("unexpected app event: {other:?}"),
             Err(err) => panic!("missing app event: {err}"),

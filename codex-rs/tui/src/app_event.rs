@@ -52,8 +52,8 @@ pub(crate) enum WindowsSandboxEnableMode {
     Legacy,
 }
 
+/// Connector state snapshot used by the @-mention autocomplete in the composer.
 #[derive(Debug, Clone)]
-#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
 pub(crate) struct ConnectorsSnapshot {
     pub(crate) connectors: Vec<AppInfo>,
 }
@@ -178,25 +178,8 @@ pub(crate) enum AppEvent {
         result: Result<AddCreditsNudgeEmailStatus, String>,
     },
 
-    /// Result of prefetching connectors.
-    ConnectorsLoaded {
-        result: Result<ConnectorsSnapshot, String>,
-        is_final: bool,
-    },
-
     /// Result of computing a `/diff` command.
     DiffResult(String),
-
-    /// Open the app link view in the bottom pane.
-    OpenAppLink {
-        app_id: String,
-        title: String,
-        description: Option<String>,
-        instructions: String,
-        url: String,
-        is_installed: bool,
-        is_enabled: bool,
-    },
 
     /// Open the provided URL in the user's browser.
     OpenUrlInBrowser {
@@ -204,9 +187,7 @@ pub(crate) enum AppEvent {
     },
 
     /// Refresh app connector state and mention bindings.
-    RefreshConnectors {
-        force_refetch: bool,
-    },
+    RefreshConnectors,
 
     /// Fetch plugin marketplace state for the provided working directory.
     FetchPluginsList {
@@ -302,9 +283,7 @@ pub(crate) enum AppEvent {
     },
 
     /// Advance the post-install plugin app-auth flow.
-    PluginInstallAuthAdvance {
-        refresh_connectors: bool,
-    },
+    PluginInstallAuthAdvance,
 
     /// Abandon the post-install plugin app-auth flow.
     PluginInstallAuthAbandon,
