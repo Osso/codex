@@ -2462,20 +2462,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "codex-lmstudio"
-version = "0.0.0"
-dependencies = [
- "codex-core",
- "codex-model-provider-info",
- "reqwest",
- "serde_json",
- "tokio",
- "tracing",
- "which 8.0.2",
- "wiremock",
-]
-
-[[package]]
 name = "codex-login"
 version = "0.0.0"
 dependencies = [
@@ -3359,7 +3345,6 @@ name = "codex-utils-oss"
 version = "0.0.0"
 dependencies = [
  "codex-core",
- "codex-lmstudio",
  "codex-model-provider-info",
  "codex-ollama",
 ]
