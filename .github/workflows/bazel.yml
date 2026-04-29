@@ -104,7 +104,6 @@ jobs:
           )
           bazel_test_args=(
             test
-            --test_tag_filters=-argument-comment-lint
             --test_verbose_timeout_warnings
             --build_metadata=COMMIT_SHA=${GITHUB_SHA}
           )
@@ -184,7 +183,6 @@ jobs:
 
           bazel_test_args=(
             test
-            --test_tag_filters=-argument-comment-lint
             --test_verbose_timeout_warnings
             --build_metadata=COMMIT_SHA=${GITHUB_SHA}
             --build_metadata=TAG_windows_native_main=true
