@@ -10,10 +10,6 @@ use crate::bottom_pane::SkillsToggleView;
 use crate::bottom_pane::popup_consts::standard_popup_hint_line;
 use crate::skills_helpers::skill_description;
 use crate::skills_helpers::skill_display_name;
-use codex_app_server_protocol::AppInfo;
-use codex_app_server_protocol::SkillMetadata as ProtocolSkillMetadata;
-use codex_app_server_protocol::SkillsListEntry;
-use codex_app_server_protocol::SkillsListResponse;
 use codex_core_skills::model::SkillDependencies;
 use codex_core_skills::model::SkillInterface;
 use codex_core_skills::model::SkillMetadata;
@@ -296,44 +292,6 @@ pub(crate) fn find_skill_mentions_with_tool_mentions(
     matches
 }
 
-pub(crate) fn find_app_mentions(
-    mentions: &ToolMentions,
-    apps: &[AppInfo],
-    skill_names_lower: &HashSet<String>,
-) -> Vec<AppInfo> {
-    let mut explicit_names = HashSet::new();
-    let mut selected_ids = HashSet::new();
-    for (name, path) in &mentions.linked_paths {
-        if let Some(connector_id) = app_id_from_path(path) {
-            explicit_names.insert(name.clone());
-            selected_ids.insert(connector_id.to_string());
-        }
-    }
-
-    let mut slug_counts: HashMap<String, usize> = HashMap::new();
-    for app in apps.iter().filter(|app| app.is_enabled) {
-        let slug = codex_connectors::metadata::connector_mention_slug(app);
-        *slug_counts.entry(slug).or_insert(0) += 1;
-    }
-
-    for app in apps.iter().filter(|app| app.is_enabled) {
-        let slug = codex_connectors::metadata::connector_mention_slug(app);
-        let slug_count = slug_counts.get(&slug).copied().unwrap_or(0);
-        if mentions.names.contains(&slug)
-            && !explicit_names.contains(&slug)
-            && slug_count == 1
-            && !skill_names_lower.contains(&slug)
-        {
-            selected_ids.insert(app.id.clone());
-        }
-    }
-
-    apps.iter()
-        .filter(|app| app.is_enabled && selected_ids.contains(&app.id))
-        .cloned()
-        .collect()
-}
-
 pub(crate) struct ToolMentions {
     names: HashSet<String>,
     linked_paths: HashMap<String, String>,
@@ -487,9 +445,4 @@ fn is_skill_path(path: &str) -> bool {
 
 fn normalize_skill_path(path: &str) -> &str {
     path.strip_prefix("skill://").unwrap_or(path)
-}
-
-fn app_id_from_path(path: &str) -> Option<&str> {
-    path.strip_prefix("app://")
-        .filter(|value| !value.is_empty())
 }

@@ -165,7 +165,6 @@ mod token_usage;
 mod tooltips;
 mod transcript_reflow;
 mod tui;
-mod tui_connectors;
 mod ui_consts;
 pub(crate) mod update_action;
 pub use update_action::UpdateAction;

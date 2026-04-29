@@ -85,7 +85,6 @@ use crate::token_usage::TokenUsageInfo;
 use crate::version::CODEX_CLI_DISPLAY_VERSION;
 use codex_app_server_protocol::AddCreditsNudgeCreditType;
 use codex_app_server_protocol::AddCreditsNudgeEmailStatus;
-use codex_app_server_protocol::AppInfo;
 use codex_app_server_protocol::AppSummary;
 use codex_app_server_protocol::CodexErrorInfo as AppServerCodexErrorInfo;
 use codex_app_server_protocol::CollabAgentTool;
@@ -121,8 +120,6 @@ use codex_app_server_protocol::Turn;
 use codex_app_server_protocol::TurnCompletedNotification;
 use codex_app_server_protocol::TurnPlanStepStatus;
 use codex_app_server_protocol::TurnStatus;
-use codex_app_server_protocol::UserInput;
-use crate::tui_connectors as connectors;
 use codex_config::ConfigLayerStackOrdering;
 use codex_config::types::ApprovalsReviewer;
 use codex_config::types::Notifications;
@@ -201,7 +198,6 @@ const MEMORIES_ENABLE_NOTICE: &str = "Memories will be enabled in the next sessi
 const PLAN_MODE_REASONING_SCOPE_TITLE: &str = "Apply reasoning change";
 const PLAN_MODE_REASONING_SCOPE_PLAN_ONLY: &str = "Apply to Plan mode override";
 const PLAN_MODE_REASONING_SCOPE_ALL_MODES: &str = "Apply to global default and Plan mode override";
-const CONNECTORS_SELECTION_VIEW_ID: &str = "connectors-selection";
 const TUI_STUB_MESSAGE: &str = "Not available in TUI yet.";
 
 /// Choose the keybinding used to edit the most-recently queued message.
@@ -226,7 +222,6 @@ fn queued_message_edit_hint_binding(
 }
 
 use crate::app_event::AppEvent;
-use crate::app_event::ConnectorsSnapshot;
 use crate::app_event::ExitMode;
 use crate::app_event::RateLimitRefreshOrigin;
 #[cfg(target_os = "windows")]
@@ -239,7 +234,6 @@ use crate::bottom_pane::BottomPane;
 use crate::bottom_pane::BottomPaneParams;
 use crate::bottom_pane::CancellationEvent;
 use crate::bottom_pane::CollaborationModeIndicator;
-use crate::bottom_pane::ColumnWidthMode;
 use crate::bottom_pane::DOUBLE_PRESS_QUIT_SHORTCUT_ENABLED;
 use crate::bottom_pane::ExperimentalFeatureItem;
 use crate::bottom_pane::ExperimentalFeaturesView;
@@ -314,7 +308,6 @@ mod hooks;
 mod skills;
 mod slash_dispatch;
 use self::skills::collect_tool_mentions;
-use self::skills::find_app_mentions;
 use self::skills::find_skill_mentions_with_tool_mentions;
 mod plugins;
 use self::plugins::PluginsCacheState;
@@ -696,8 +689,6 @@ pub(crate) struct ChatWidget {
     mcp_startup_pending_next_round: HashMap<String, McpStartupStatus>,
     /// Tracks whether the buffered next round has seen any `Starting` update yet.
     mcp_startup_pending_next_round_saw_starting: bool,
-    connectors: ConnectorsState,
-    ide_context: IdeContextState,
     plugins_cache: PluginsCacheState,
     plugins_fetch_state: PluginListFetchState,
     plugin_install_apps_needing_auth: Vec<AppSummary>,
@@ -1905,9 +1896,6 @@ impl ChatWidget {
         }
         self.transcript.saw_copy_source_this_turn = false;
         self.refresh_skills_for_current_cwd(/*force_reload*/ true);
-        if self.connectors_enabled() {
-            self.prefetch_connectors();
-        }
         if let Some(user_message) = self.initial_user_message.take() {
             if self.suppress_initial_user_message_submit {
                 self.initial_user_message = Some(user_message);
@@ -2031,12 +2019,6 @@ impl ChatWidget {
             self.app_event_tx.clone(),
             include_logs,
         );
-        self.bottom_pane.show_view(Box::new(view));
-        self.request_redraw();
-    }
-
-    pub(crate) fn open_app_link_view(&mut self, params: crate::bottom_pane::AppLinkViewParams) {
-        let view = crate::bottom_pane::AppLinkView::new(params, self.app_event_tx.clone());
         self.bottom_pane.show_view(Box::new(view));
         self.request_redraw();
     }
@@ -4813,8 +4795,6 @@ impl ChatWidget {
             mcp_startup_allow_terminal_only_next_round: false,
             mcp_startup_pending_next_round: HashMap::new(),
             mcp_startup_pending_next_round_saw_starting: false,
-            connectors: ConnectorsState::default(),
-            ide_context: IdeContextState::default(),
             plugins_cache: PluginsCacheState::default(),
             plugins_fetch_state: PluginListFetchState::default(),
             plugin_install_apps_needing_auth: Vec::new(),
@@ -4907,9 +4887,6 @@ impl ChatWidget {
         );
         widget.update_collaboration_mode_indicator();
 
-        widget
-            .bottom_pane
-            .set_connectors_enabled(widget.connectors_enabled());
         widget.refresh_status_surfaces();
 
         widget
@@ -5598,15 +5575,10 @@ impl ChatWidget {
             .iter()
             .map(|binding| binding.mention.clone())
             .collect();
-        let mut skill_names_lower: HashSet<String> = HashSet::new();
         let mut selected_skill_paths: HashSet<AbsolutePathBuf> = HashSet::new();
         let mut selected_plugin_ids: HashSet<String> = HashSet::new();
 
         if let Some(skills) = self.bottom_pane.skills() {
-            skill_names_lower = skills
-                .iter()
-                .map(|skill| skill.name.to_ascii_lowercase())
-                .collect();
 
             for binding in &mention_bindings {
                 let path = binding
@@ -5661,41 +5633,6 @@ impl ChatWidget {
                         path: binding.path.clone(),
                     });
                 }
-            }
-        }
-
-        let mut selected_app_ids: HashSet<String> = HashSet::new();
-        if let Some(apps) = self.connectors_for_mentions() {
-            for binding in &mention_bindings {
-                let Some(app_id) = binding
-                    .path
-                    .strip_prefix("app://")
-                    .filter(|id| !id.is_empty())
-                else {
-                    continue;
-                };
-                if !selected_app_ids.insert(app_id.to_string()) {
-                    continue;
-                }
-                if let Some(app) = apps.iter().find(|app| app.id == app_id && app.is_enabled) {
-                    items.push(UserInput::Mention {
-                        name: app.name.clone(),
-                        path: binding.path.clone(),
-                    });
-                }
-            }
-
-            let app_mentions = find_app_mentions(&mentions, apps, &skill_names_lower);
-            for app in app_mentions {
-                let slug = codex_connectors::metadata::connector_mention_slug(&app);
-                if bound_names.contains(&slug) || !selected_app_ids.insert(app.id.clone()) {
-                    continue;
-                }
-                let app_id = app.id.as_str();
-                items.push(UserInput::Mention {
-                    name: app.name.clone(),
-                    path: format!("app://{app_id}"),
-                });
             }
         }
 
@@ -6933,89 +6870,6 @@ impl ChatWidget {
     }
 
     fn stop_rate_limit_poller(&mut self) {}
-
-    pub(crate) fn refresh_connectors(&mut self, force_refetch: bool) {
-        self.prefetch_connectors_with_options(force_refetch);
-    }
-
-    fn prefetch_connectors(&mut self) {
-        self.prefetch_connectors_with_options(/*force_refetch*/ false);
-    }
-
-    fn prefetch_connectors_with_options(&mut self, force_refetch: bool) {
-        if !self.connectors_enabled() {
-            return;
-        }
-        if self.connectors.prefetch_in_flight {
-            if force_refetch {
-                self.connectors.force_refetch_pending = true;
-            }
-            return;
-        }
-
-        self.connectors.prefetch_in_flight = true;
-        if !matches!(self.connectors.cache, ConnectorsCacheState::Ready(_)) {
-            self.connectors.cache = ConnectorsCacheState::Loading;
-        }
-
-        let config = self.config.clone();
-        let environment_manager = Arc::clone(&self.environment_manager);
-        let app_event_tx = self.app_event_tx.clone();
-        tokio::spawn(async move {
-            let accessible_result =
-                match chatgpt_connectors::list_accessible_connectors_from_mcp_tools_with_environment_manager(
-                    &config,
-                    force_refetch,
-                    &environment_manager,
-                )
-                .await
-                {
-                    Ok(connectors) => connectors,
-                    Err(err) => {
-                        app_event_tx.send(AppEvent::ConnectorsLoaded {
-                            result: Err(format!("Failed to load apps: {err}")),
-                            is_final: true,
-                        });
-                        return;
-                    }
-                };
-            let should_schedule_force_refetch =
-                !force_refetch && !accessible_result.codex_apps_ready;
-            let accessible_connectors = accessible_result.connectors;
-
-            app_event_tx.send(AppEvent::ConnectorsLoaded {
-                result: Ok(ConnectorsSnapshot {
-                    connectors: accessible_connectors.clone(),
-                }),
-                is_final: false,
-            });
-
-            let result: Result<ConnectorsSnapshot, String> = async {
-                let all_connectors =
-                    chatgpt_connectors::list_all_connectors_with_options(&config, force_refetch)
-                        .await?;
-                let connectors = chatgpt_connectors::merge_connectors_with_accessible(
-                    all_connectors,
-                    accessible_connectors,
-                    /*all_connectors_loaded*/ true,
-                );
-                Ok(ConnectorsSnapshot { connectors })
-            }
-            .await
-            .map_err(|err: anyhow::Error| format!("Failed to load apps: {err}"));
-
-            app_event_tx.send(AppEvent::ConnectorsLoaded {
-                result,
-                is_final: true,
-            });
-
-            if should_schedule_force_refetch {
-                app_event_tx.send(AppEvent::RefreshConnectors {
-                    force_refetch: true,
-                });
-            }
-        });
-    }
 
     #[cfg_attr(not(test), allow(dead_code))]
     fn prefetch_rate_limits(&mut self) {
@@ -8989,8 +8843,6 @@ impl ChatWidget {
         self.status_account_display = status_account_display;
         self.plan_type = plan_type;
         self.has_chatgpt_account = has_chatgpt_account;
-        self.bottom_pane
-            .set_connectors_enabled(self.connectors_enabled());
     }
 
     pub(crate) fn should_show_fast_status(
@@ -9396,25 +9248,6 @@ impl ChatWidget {
         self.request_redraw();
     }
 
-    fn connectors_enabled(&self) -> bool {
-        self.config.features.enabled(Feature::Apps) && self.has_chatgpt_account
-    }
-
-    fn connectors_for_mentions(&self) -> Option<&[AppInfo]> {
-        if !self.connectors_enabled() {
-            return None;
-        }
-
-        if let Some(snapshot) = &self.connectors.partial_snapshot {
-            return Some(snapshot.connectors.as_slice());
-        }
-
-        match &self.connectors.cache {
-            ConnectorsCacheState::Ready(snapshot) => Some(snapshot.connectors.as_slice()),
-            _ => None,
-        }
-    }
-
     fn plugins_for_mentions(&self) -> Option<&[PluginCapabilitySummary]> {
         if !self.config.features.enabled(Feature::Plugins) {
             return None;
@@ -9542,220 +9375,6 @@ impl ChatWidget {
         self.transcript.active_cell = None;
         self.bump_active_cell_revision();
         self.request_redraw();
-    }
-
-    pub(crate) fn add_connectors_output(&mut self) {
-        if !self.connectors_enabled() {
-            self.add_info_message(
-                "Apps are disabled.".to_string(),
-                Some("Enable the apps feature to use $ or /apps.".to_string()),
-            );
-            return;
-        }
-
-        let connectors_cache = self.connectors.cache.clone();
-        let should_force_refetch = !self.connectors.prefetch_in_flight
-            || matches!(connectors_cache, ConnectorsCacheState::Ready(_));
-        self.prefetch_connectors_with_options(should_force_refetch);
-
-        match connectors_cache {
-            ConnectorsCacheState::Ready(snapshot) => {
-                if snapshot.connectors.is_empty() {
-                    self.add_info_message("No apps available.".to_string(), /*hint*/ None);
-                } else {
-                    self.open_connectors_popup(&snapshot.connectors);
-                }
-            }
-            ConnectorsCacheState::Failed(err) => {
-                self.add_to_history(history_cell::new_error_event(err));
-            }
-            ConnectorsCacheState::Loading | ConnectorsCacheState::Uninitialized => {
-                self.open_connectors_loading_popup();
-            }
-        }
-        self.request_redraw();
-    }
-
-    fn open_connectors_loading_popup(&mut self) {
-        if !self.bottom_pane.replace_selection_view_if_active(
-            CONNECTORS_SELECTION_VIEW_ID,
-            self.connectors_loading_popup_params(),
-        ) {
-            self.bottom_pane
-                .show_selection_view(self.connectors_loading_popup_params());
-        }
-    }
-
-    fn open_connectors_popup(&mut self, connectors: &[AppInfo]) {
-        self.bottom_pane.show_selection_view(
-            self.connectors_popup_params(connectors, /*selected_connector_id*/ None),
-        );
-    }
-
-    fn connectors_loading_popup_params(&self) -> SelectionViewParams {
-        let mut header = ColumnRenderable::new();
-        header.push(Line::from("Apps".bold()));
-        header.push(Line::from("Loading installed and available apps...".dim()));
-
-        SelectionViewParams {
-            view_id: Some(CONNECTORS_SELECTION_VIEW_ID),
-            header: Box::new(header),
-            items: vec![SelectionItem {
-                name: "Loading apps...".to_string(),
-                description: Some("This updates when the full list is ready.".to_string()),
-                is_disabled: true,
-                ..Default::default()
-            }],
-            ..Default::default()
-        }
-    }
-
-    fn connectors_popup_params(
-        &self,
-        connectors: &[AppInfo],
-        selected_connector_id: Option<&str>,
-    ) -> SelectionViewParams {
-        let total = connectors.len();
-        let installed = connectors
-            .iter()
-            .filter(|connector| connector.is_accessible)
-            .count();
-        let mut header = ColumnRenderable::new();
-        header.push(Line::from("Apps".bold()));
-        header.push(Line::from(
-            "Use $ to insert an installed app into your prompt.".dim(),
-        ));
-        header.push(Line::from(
-            format!("Installed {installed} of {total} available apps.").dim(),
-        ));
-        let initial_selected_idx = selected_connector_id.and_then(|selected_connector_id| {
-            connectors
-                .iter()
-                .position(|connector| connector.id == selected_connector_id)
-        });
-        let mut items: Vec<SelectionItem> = Vec::with_capacity(connectors.len());
-        for connector in connectors {
-            let connector_label = codex_connectors::metadata::connector_display_label(connector);
-            let connector_title = connector_label.clone();
-            let link_description = Self::connector_description(connector);
-            let description = Self::connector_brief_description(connector);
-            let status_label = Self::connector_status_label(connector);
-            let search_value = format!("{connector_label} {}", connector.id);
-            let mut item = SelectionItem {
-                name: connector_label,
-                description: Some(description),
-                search_value: Some(search_value),
-                ..Default::default()
-            };
-            let is_installed = connector.is_accessible;
-            let selected_label = if is_installed {
-                format!(
-                    "{status_label}. Press Enter to open the app page to install, manage, or enable/disable this app."
-                )
-            } else {
-                format!("{status_label}. Press Enter to open the app page to install this app.")
-            };
-            let missing_label = format!("{status_label}. App link unavailable.");
-            let instructions = if connector.is_accessible {
-                "Manage this app in your browser."
-            } else {
-                "Install this app in your browser, then reload Codex."
-            };
-            if let Some(install_url) = connector.install_url.clone() {
-                let app_id = connector.id.clone();
-                let is_enabled = connector.is_enabled;
-                let title = connector_title.clone();
-                let instructions = instructions.to_string();
-                let description = link_description.clone();
-                item.actions = vec![Box::new(move |tx| {
-                    tx.send(AppEvent::OpenAppLink {
-                        app_id: app_id.clone(),
-                        title: title.clone(),
-                        description: description.clone(),
-                        instructions: instructions.clone(),
-                        url: install_url.clone(),
-                        is_installed,
-                        is_enabled,
-                    });
-                })];
-                item.dismiss_on_select = true;
-                item.selected_description = Some(selected_label);
-            } else {
-                let missing_label_for_action = missing_label.clone();
-                item.actions = vec![Box::new(move |tx| {
-                    tx.send(AppEvent::InsertHistoryCell(Box::new(
-                        history_cell::new_info_event(
-                            missing_label_for_action.clone(),
-                            /*hint*/ None,
-                        ),
-                    )));
-                })];
-                item.dismiss_on_select = true;
-                item.selected_description = Some(missing_label);
-            }
-            items.push(item);
-        }
-
-        SelectionViewParams {
-            view_id: Some(CONNECTORS_SELECTION_VIEW_ID),
-            header: Box::new(header),
-            footer_hint: Some(self.bottom_pane.standard_popup_hint_line()),
-            items,
-            is_searchable: true,
-            search_placeholder: Some("Type to search apps".to_string()),
-            col_width_mode: ColumnWidthMode::AutoAllRows,
-            initial_selected_idx,
-            ..Default::default()
-        }
-    }
-
-    fn refresh_connectors_popup_if_open(&mut self, connectors: &[AppInfo]) {
-        let selected_connector_id =
-            if let (Some(selected_index), ConnectorsCacheState::Ready(snapshot)) = (
-                self.bottom_pane
-                    .selected_index_for_active_view(CONNECTORS_SELECTION_VIEW_ID),
-                &self.connectors.cache,
-            ) {
-                snapshot
-                    .connectors
-                    .get(selected_index)
-                    .map(|connector| connector.id.as_str())
-            } else {
-                None
-            };
-        let _ = self.bottom_pane.replace_selection_view_if_active(
-            CONNECTORS_SELECTION_VIEW_ID,
-            self.connectors_popup_params(connectors, selected_connector_id),
-        );
-    }
-
-    fn connector_brief_description(connector: &AppInfo) -> String {
-        let status_label = Self::connector_status_label(connector);
-        match Self::connector_description(connector) {
-            Some(description) => format!("{status_label} · {description}"),
-            None => status_label.to_string(),
-        }
-    }
-
-    fn connector_status_label(connector: &AppInfo) -> &'static str {
-        if connector.is_accessible {
-            if connector.is_enabled {
-                "Installed"
-            } else {
-                "Installed · Disabled"
-            }
-        } else {
-            "Can be installed"
-        }
-    }
-
-    fn connector_description(connector: &AppInfo) -> Option<String> {
-        connector
-            .description
-            .as_deref()
-            .map(str::trim)
-            .filter(|description| !description.is_empty())
-            .map(str::to_string)
     }
 
     /// Forward file-search results to the bottom pane.
@@ -10152,100 +9771,6 @@ impl ChatWidget {
     fn on_list_skills(&mut self, ev: SkillsListResponse) {
         self.set_skills_from_response(&ev);
         self.refresh_plugin_mentions();
-    }
-
-    pub(crate) fn on_connectors_loaded(
-        &mut self,
-        result: Result<ConnectorsSnapshot, String>,
-        is_final: bool,
-    ) {
-        let mut trigger_pending_force_refetch = false;
-        if is_final {
-            self.connectors.prefetch_in_flight = false;
-            if self.connectors.force_refetch_pending {
-                self.connectors.force_refetch_pending = false;
-                trigger_pending_force_refetch = true;
-            }
-        }
-
-        match result {
-            Ok(mut snapshot) => {
-                if !is_final {
-                    snapshot.connectors = chatgpt_connectors::merge_connectors_with_accessible(
-                        Vec::new(),
-                        snapshot.connectors,
-                        /*all_connectors_loaded*/ false,
-                    );
-                }
-                snapshot.connectors =
-                    chatgpt_connectors::with_app_enabled_state(snapshot.connectors, &self.config);
-                if let ConnectorsCacheState::Ready(existing_snapshot) = &self.connectors.cache {
-                    let enabled_by_id: HashMap<&str, bool> = existing_snapshot
-                        .connectors
-                        .iter()
-                        .map(|connector| (connector.id.as_str(), connector.is_enabled))
-                        .collect();
-                    for connector in &mut snapshot.connectors {
-                        if let Some(is_enabled) = enabled_by_id.get(connector.id.as_str()) {
-                            connector.is_enabled = *is_enabled;
-                        }
-                    }
-                }
-                if is_final {
-                    self.connectors.partial_snapshot = None;
-                    self.refresh_connectors_popup_if_open(&snapshot.connectors);
-                    self.connectors.cache = ConnectorsCacheState::Ready(snapshot.clone());
-                } else {
-                    self.connectors.partial_snapshot = Some(snapshot.clone());
-                }
-                self.bottom_pane.set_connectors_snapshot(Some(snapshot));
-            }
-            Err(err) => {
-                let partial_snapshot = self.connectors.partial_snapshot.take();
-                if let ConnectorsCacheState::Ready(snapshot) = &self.connectors.cache {
-                    warn!("failed to refresh apps list; retaining current apps snapshot: {err}");
-                    self.bottom_pane
-                        .set_connectors_snapshot(Some(snapshot.clone()));
-                } else if let Some(snapshot) = partial_snapshot {
-                    warn!(
-                        "failed to load full apps list; falling back to installed apps snapshot: {err}"
-                    );
-                    self.refresh_connectors_popup_if_open(&snapshot.connectors);
-                    self.connectors.cache = ConnectorsCacheState::Ready(snapshot.clone());
-                    self.bottom_pane.set_connectors_snapshot(Some(snapshot));
-                } else {
-                    self.connectors.cache = ConnectorsCacheState::Failed(err);
-                    self.bottom_pane.set_connectors_snapshot(/*snapshot*/ None);
-                }
-            }
-        }
-
-        if trigger_pending_force_refetch {
-            self.prefetch_connectors_with_options(/*force_refetch*/ true);
-        }
-    }
-
-    pub(crate) fn update_connector_enabled(&mut self, connector_id: &str, enabled: bool) {
-        let ConnectorsCacheState::Ready(mut snapshot) = self.connectors.cache.clone() else {
-            return;
-        };
-
-        let mut changed = false;
-        for connector in &mut snapshot.connectors {
-            if connector.id == connector_id {
-                changed = connector.is_enabled != enabled;
-                connector.is_enabled = enabled;
-                break;
-            }
-        }
-
-        if !changed {
-            return;
-        }
-
-        self.refresh_connectors_popup_if_open(&snapshot.connectors);
-        self.connectors.cache = ConnectorsCacheState::Ready(snapshot.clone());
-        self.bottom_pane.set_connectors_snapshot(Some(snapshot));
     }
 
     pub(crate) fn refresh_plugin_mentions(&mut self) {

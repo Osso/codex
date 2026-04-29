@@ -903,9 +903,7 @@ impl ChatWidget {
                 description: Some("This app is already installed.".to_string()),
                 selected_description: Some("Advance to the next app.".to_string()),
                 actions: vec![Box::new(|tx| {
-                    tx.send(AppEvent::PluginInstallAuthAdvance {
-                        refresh_connectors: false,
-                    });
+                    tx.send(AppEvent::PluginInstallAuthAdvance);
                 })],
                 ..Default::default()
             });
@@ -919,9 +917,7 @@ impl ChatWidget {
                     "Continue without waiting for refresh to complete.".to_string(),
                 ),
                 actions: vec![Box::new(|tx| {
-                    tx.send(AppEvent::PluginInstallAuthAdvance {
-                        refresh_connectors: true,
-                    });
+                    tx.send(AppEvent::PluginInstallAuthAdvance);
                 })],
                 ..Default::default()
             });
@@ -947,12 +943,9 @@ impl ChatWidget {
         })
     }
 
-    fn plugin_install_auth_app_is_installed(&self, app_id: &str) -> bool {
-        self.connectors_for_mentions().is_some_and(|connectors| {
-            connectors
-                .iter()
-                .any(|connector| connector.id == app_id && connector.is_accessible)
-        })
+    fn plugin_install_auth_app_is_installed(&self, _app_id: &str) -> bool {
+        // Connector listing UI removed; app install status is not tracked.
+        false
     }
 
     fn finish_plugin_install_auth_flow(&mut self, abandoned: bool) {

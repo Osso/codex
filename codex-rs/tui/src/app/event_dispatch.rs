@@ -363,39 +363,13 @@ impl App {
                 ));
                 tui.frame_requester().schedule_frame();
             }
-            AppEvent::OpenAppLink {
-                app_id,
-                title,
-                description,
-                instructions,
-                url,
-                is_installed,
-                is_enabled,
-            } => {
-                self.chat_widget
-                    .open_app_link_view(crate::bottom_pane::AppLinkViewParams {
-                        app_id,
-                        title,
-                        description,
-                        instructions,
-                        url,
-                        is_installed,
-                        is_enabled,
-                        suggest_reason: None,
-                        suggestion_type: None,
-                        elicitation_target: None,
-                    });
-            }
             AppEvent::OpenUrlInBrowser { url } => {
                 self.open_url_in_browser(url);
             }
-            AppEvent::RefreshConnectors { force_refetch } => {
-                self.chat_widget.refresh_connectors(force_refetch);
+            AppEvent::RefreshConnectors => {
+                // Connector listing UI removed; refresh requests are no-ops.
             }
-            AppEvent::PluginInstallAuthAdvance { refresh_connectors } => {
-                if refresh_connectors {
-                    self.chat_widget.refresh_connectors(/*force_refetch*/ true);
-                }
+            AppEvent::PluginInstallAuthAdvance => {
                 self.chat_widget.advance_plugin_install_auth_flow();
             }
             AppEvent::PluginInstallAuthAbandon => {
@@ -723,9 +697,6 @@ impl App {
                     }
                 }
             },
-            AppEvent::ConnectorsLoaded { result, is_final } => {
-                self.chat_widget.on_connectors_loaded(result, is_final);
-            }
             AppEvent::UpdateReasoningEffort(effort) => {
                 self.on_update_reasoning_effort(effort);
             }
@@ -1633,7 +1604,6 @@ impl App {
                     .await
                 {
                     Ok(()) => {
-                        self.chat_widget.update_connector_enabled(&id, enabled);
                         if let Err(err) = self.refresh_in_memory_config_from_disk().await {
                             tracing::warn!(error = %err, "failed to refresh config after app toggle");
                         }

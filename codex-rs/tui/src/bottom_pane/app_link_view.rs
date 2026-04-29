@@ -360,16 +360,8 @@ impl AppLinkView {
         }
     }
 
-    fn complete_external_flow_and_close(&mut self) {
-        let should_refresh_connectors = self
-            .elicitation_target
-            .as_ref()
-            .is_none_or(|target| target.server_name == MCP_CODEX_APPS_SERVER_NAME);
-        if should_refresh_connectors {
-            self.app_event_tx.send(AppEvent::RefreshConnectors {
-                force_refetch: true,
-            });
-        }
+    fn refresh_connectors_and_close(&mut self) {
+        self.app_event_tx.send(AppEvent::RefreshConnectors);
         if self.is_tool_suggestion() {
             self.resolve_elicitation(McpServerElicitationAction::Accept);
         }
@@ -1302,8 +1294,8 @@ mod tests {
 
         view.handle_key_event(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
         match rx.try_recv() {
-            Ok(AppEvent::RefreshConnectors { force_refetch }) => {
-                assert!(force_refetch);
+            Ok(AppEvent::RefreshConnectors) => {
+                // expected
             }
             Ok(other) => panic!("unexpected app event: {other:?}"),
             Err(err) => panic!("missing app event: {err}"),
