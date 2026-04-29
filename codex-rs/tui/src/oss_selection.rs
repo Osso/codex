@@ -2,9 +2,7 @@ use std::io;
 use std::sync::LazyLock;
 
 use crate::legacy_core::config::set_default_oss_provider;
-use codex_model_provider_info::DEFAULT_LMSTUDIO_PORT;
 use codex_model_provider_info::DEFAULT_OLLAMA_PORT;
-use codex_model_provider_info::LMSTUDIO_OSS_PROVIDER_ID;
 use codex_model_provider_info::OLLAMA_OSS_PROVIDER_ID;
 use crossterm::event::Event;
 use crossterm::event::KeyCode;
@@ -61,20 +59,12 @@ struct SelectOption {
 }
 
 static OSS_SELECT_OPTIONS: LazyLock<Vec<SelectOption>> = LazyLock::new(|| {
-    vec![
-        SelectOption {
-            label: Line::from(vec!["L".underlined(), "M Studio".into()]),
-            description: "Local LM Studio server (default port 1234)",
-            key: KeyCode::Char('l'),
-            provider_id: LMSTUDIO_OSS_PROVIDER_ID,
-        },
-        SelectOption {
-            label: Line::from(vec!["O".underlined(), "llama".into()]),
-            description: "Local Ollama server (Responses API, default port 11434)",
-            key: KeyCode::Char('o'),
-            provider_id: OLLAMA_OSS_PROVIDER_ID,
-        },
-    ]
+    vec![SelectOption {
+        label: Line::from(vec!["O".underlined(), "llama".into()]),
+        description: "Local Ollama server (Responses API, default port 11434)",
+        key: KeyCode::Char('o'),
+        provider_id: OLLAMA_OSS_PROVIDER_ID,
+    }]
 });
 
 pub struct OssSelectionWidget<'a> {
@@ -92,12 +82,8 @@ pub struct OssSelectionWidget<'a> {
 }
 
 impl OssSelectionWidget<'_> {
-    fn new(lmstudio_status: ProviderStatus, ollama_status: ProviderStatus) -> io::Result<Self> {
+    fn new(ollama_status: ProviderStatus) -> io::Result<Self> {
         let providers = vec![
-            ProviderOption {
-                name: "LM Studio".to_string(),
-                status: lmstudio_status,
-            },
             ProviderOption {
                 name: "Ollama (Responses)".to_string(),
                 status: ollama_status.clone(),
@@ -198,7 +184,7 @@ impl OssSelectionWidget<'_> {
                 self.send_decision(opt.provider_id.to_string());
             }
             KeyCode::Esc => {
-                self.send_decision(LMSTUDIO_OSS_PROVIDER_ID.to_string());
+                self.send_decision(OLLAMA_OSS_PROVIDER_ID.to_string());
             }
             other => {
                 let normalized = Self::normalize_keycode(other);
@@ -288,26 +274,16 @@ fn get_status_symbol_and_color(status: &ProviderStatus) -> (&'static str, Color)
 }
 
 pub async fn select_oss_provider(codex_home: &std::path::Path) -> io::Result<String> {
-    // Check provider statuses first
-    let lmstudio_status = check_lmstudio_status().await;
+    // Check provider status first
     let ollama_status = check_ollama_status().await;
 
-    // Autoselect if only one is running
-    match (&lmstudio_status, &ollama_status) {
-        (ProviderStatus::Running, ProviderStatus::NotRunning) => {
-            let provider = LMSTUDIO_OSS_PROVIDER_ID.to_string();
-            return Ok(provider);
-        }
-        (ProviderStatus::NotRunning, ProviderStatus::Running) => {
-            let provider = OLLAMA_OSS_PROVIDER_ID.to_string();
-            return Ok(provider);
-        }
-        _ => {
-            // Both running or both not running - show UI
-        }
+    // Autoselect if running
+    if let ProviderStatus::Running = &ollama_status {
+        let provider = OLLAMA_OSS_PROVIDER_ID.to_string();
+        return Ok(provider);
     }
 
-    let mut widget = OssSelectionWidget::new(lmstudio_status, ollama_status)?;
+    let mut widget = OssSelectionWidget::new(ollama_status)?;
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -340,14 +316,6 @@ pub async fn select_oss_provider(codex_home: &std::path::Path) -> io::Result<Str
     }
 
     result
-}
-
-async fn check_lmstudio_status() -> ProviderStatus {
-    match check_port_status(DEFAULT_LMSTUDIO_PORT).await {
-        Ok(true) => ProviderStatus::Running,
-        Ok(false) => ProviderStatus::NotRunning,
-        Err(_) => ProviderStatus::Unknown,
-    }
 }
 
 async fn check_ollama_status() -> ProviderStatus {

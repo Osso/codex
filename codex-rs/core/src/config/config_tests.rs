@@ -51,7 +51,6 @@ use codex_config::types::TuiNotificationSettings;
 use codex_exec_server::LOCAL_FS;
 use codex_features::Feature;
 use codex_features::FeaturesToml;
-use codex_model_provider_info::LMSTUDIO_OSS_PROVIDER_ID;
 use codex_model_provider_info::OLLAMA_OSS_PROVIDER_ID;
 use codex_model_provider_info::WireApi;
 use codex_models_manager::bundled_models_response;
@@ -5936,18 +5935,12 @@ fn test_set_default_oss_provider() -> std::io::Result<()> {
     let content = std::fs::read_to_string(&config_path)?;
     assert!(content.contains("oss_provider = \"ollama\""));
 
-    // Test updating existing config
+    // Test updating existing config with other keys preserved
     std::fs::write(&config_path, "model = \"gpt-4\"\n")?;
-    set_default_oss_provider(codex_home, LMSTUDIO_OSS_PROVIDER_ID)?;
-    let content = std::fs::read_to_string(&config_path)?;
-    assert!(content.contains("oss_provider = \"lmstudio\""));
-    assert!(content.contains("model = \"gpt-4\""));
-
-    // Test overwriting existing oss_provider
     set_default_oss_provider(codex_home, OLLAMA_OSS_PROVIDER_ID)?;
     let content = std::fs::read_to_string(&config_path)?;
     assert!(content.contains("oss_provider = \"ollama\""));
-    assert!(!content.contains("oss_provider = \"lmstudio\""));
+    assert!(content.contains("model = \"gpt-4\""));
 
     // Test invalid provider
     let result = set_default_oss_provider(codex_home, "invalid_provider");
