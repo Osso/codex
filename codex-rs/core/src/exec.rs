@@ -297,7 +297,6 @@ pub async fn process_exec_tool_call(
     permission_profile: &PermissionProfile,
     sandbox_cwd: &AbsolutePathBuf,
     codex_linux_sandbox_exe: &Option<PathBuf>,
-    use_legacy_landlock: bool,
     stdout_stream: Option<StdoutStream>,
 ) -> Result<ExecToolCallOutput> {
     let exec_req = build_exec_request(
@@ -305,7 +304,6 @@ pub async fn process_exec_tool_call(
         permission_profile,
         sandbox_cwd,
         codex_linux_sandbox_exe,
-        use_legacy_landlock,
     )?;
 
     // Route through the sandboxing module for a single, unified execution path.
@@ -319,7 +317,6 @@ pub fn build_exec_request(
     permission_profile: &PermissionProfile,
     sandbox_cwd: &AbsolutePathBuf,
     codex_linux_sandbox_exe: &Option<PathBuf>,
-    use_legacy_landlock: bool,
 ) -> Result<ExecRequest> {
     let ExecParams {
         command,
@@ -380,7 +377,6 @@ pub fn build_exec_request(
             network: network.as_ref(),
             sandbox_policy_cwd: sandbox_cwd,
             codex_linux_sandbox_exe: codex_linux_sandbox_exe.as_deref(),
-            use_legacy_landlock,
             windows_sandbox_level,
             windows_sandbox_private_desktop,
         })

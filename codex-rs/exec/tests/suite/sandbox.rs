@@ -45,7 +45,6 @@ async fn spawn_command_under_sandbox(
         &PermissionProfile::from_legacy_sandbox_policy(sandbox_policy),
         sandbox_cwd,
         &codex_linux_sandbox_exe,
-        /*use_legacy_landlock*/ false,
     )
     .map_err(|err| io::Error::other(err.to_string()))?;
 
@@ -100,7 +99,6 @@ async fn spawn_command_under_sandbox(
         command_cwd,
         &permission_profile,
         sandbox_cwd,
-        /*use_legacy_landlock*/ false,
         stdio_policy,
         /*network*/ None,
         env,

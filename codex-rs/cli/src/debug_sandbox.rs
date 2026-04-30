@@ -279,15 +279,14 @@ async fn run_command_under_sandbox(
             let codex_linux_sandbox_exe = config
                 .codex_linux_sandbox_exe
                 .expect("codex-linux-sandbox executable not found");
-            let use_legacy_landlock = config.features.use_legacy_landlock();
-            let network_sandbox_policy = config.permissions.network_sandbox_policy();
-            let args = create_linux_sandbox_command_args_for_permission_profile(
+            let args = create_linux_sandbox_command_args_for_policies(
+
                 command,
                 cwd.as_path(),
                 &config.permissions.permission_profile(),
                 sandbox_policy_cwd.as_path(),
-                use_legacy_landlock,
-                allow_network_for_proxy(managed_network_requirements_enabled),
+                /*allow_network_for_proxy*/ false,
+
             );
             spawn_debug_sandbox_child(
                 codex_linux_sandbox_exe,

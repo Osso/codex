@@ -25,7 +25,6 @@ fn test_mcp_config(codex_home: PathBuf) -> McpConfig {
         skill_mcp_dependency_install_enabled: true,
         approval_policy: Constrained::allow_any(AskForApproval::OnFailure),
         codex_linux_sandbox_exe: None,
-        use_legacy_landlock: false,
         apps_enabled: false,
         client_elicitation_capability: ElicitationCapability::default(),
         configured_mcp_servers: HashMap::new(),

@@ -319,7 +319,6 @@ impl TurnContext {
                 .config
                 .permissions
                 .windows_sandbox_private_desktop,
-            use_legacy_landlock: self.features.use_legacy_landlock(),
         }
     }
 

@@ -86,7 +86,6 @@ impl ToolOrchestrator {
             manager: attempt.manager,
             sandbox_cwd: attempt.sandbox_cwd,
             codex_linux_sandbox_exe: attempt.codex_linux_sandbox_exe,
-            use_legacy_landlock: attempt.use_legacy_landlock,
             windows_sandbox_level: attempt.windows_sandbox_level,
             windows_sandbox_private_desktop: attempt.windows_sandbox_private_desktop,
             network_denial_cancellation_token: network_approval
@@ -232,9 +231,7 @@ impl ToolOrchestrator {
             ),
         };
 
-        // Platform-specific flag gating is handled by SandboxManager::select_initial.
-        let use_legacy_landlock = turn_ctx.features.use_legacy_landlock();
-        let sandbox_cwd = tool.sandbox_cwd(req).unwrap_or(&turn_ctx.cwd);
+
         let initial_attempt = SandboxAttempt {
             sandbox: initial_sandbox,
             permissions: &turn_ctx.permission_profile,
@@ -242,7 +239,6 @@ impl ToolOrchestrator {
             manager: &self.sandbox,
             sandbox_cwd,
             codex_linux_sandbox_exe: turn_ctx.codex_linux_sandbox_exe.as_ref(),
-            use_legacy_landlock,
             windows_sandbox_level: turn_ctx.windows_sandbox_level,
             windows_sandbox_private_desktop: turn_ctx
                 .config
@@ -360,7 +356,6 @@ impl ToolOrchestrator {
                     manager: &self.sandbox,
                     sandbox_cwd,
                     codex_linux_sandbox_exe: None,
-                    use_legacy_landlock,
                     windows_sandbox_level: turn_ctx.windows_sandbox_level,
                     windows_sandbox_private_desktop: turn_ctx
                         .config

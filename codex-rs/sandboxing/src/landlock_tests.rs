@@ -2,33 +2,20 @@ use super::*;
 use pretty_assertions::assert_eq;
 
 #[test]
-fn legacy_landlock_flag_is_included_when_requested() {
+fn legacy_landlock_flag_is_not_included() {
     let command = vec!["/bin/true".to_string()];
     let command_cwd = Path::new("/tmp/link");
     let cwd = Path::new("/tmp");
 
-    let default_bwrap = create_linux_sandbox_command_args(
-        command.clone(),
-        command_cwd,
-        cwd,
-        /*use_legacy_landlock*/ false,
-        /*allow_network_for_proxy*/ false,
-    );
-    assert_eq!(
-        default_bwrap.contains(&"--use-legacy-landlock".to_string()),
-        false
-    );
-
-    let legacy_landlock = create_linux_sandbox_command_args(
+    let args = create_linux_sandbox_command_args(
         command,
         command_cwd,
         cwd,
-        /*use_legacy_landlock*/ true,
         /*allow_network_for_proxy*/ false,
     );
     assert_eq!(
-        legacy_landlock.contains(&"--use-legacy-landlock".to_string()),
-        true
+        args.contains(&"--use-legacy-landlock".to_string()),
+        false
     );
 }
 
@@ -42,7 +29,6 @@ fn proxy_flag_is_included_when_requested() {
         command,
         command_cwd,
         cwd,
-        /*use_legacy_landlock*/ true,
         /*allow_network_for_proxy*/ true,
     );
     assert_eq!(
@@ -63,7 +49,6 @@ fn permission_profile_flag_is_included() {
         command_cwd,
         &permission_profile,
         cwd,
-        /*use_legacy_landlock*/ true,
         /*allow_network_for_proxy*/ false,
     );
 

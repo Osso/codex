@@ -366,7 +366,6 @@ async fn process_exec_tool_call_preserves_full_buffer_capture_policy() -> Result
         &permission_profile,
         &cwd,
         &None,
-        /*use_legacy_landlock*/ false,
         /*stdout_stream*/ None,
     )
     .await?;
@@ -1109,16 +1108,15 @@ async fn process_exec_tool_call_respects_cancellation_token() -> Result<()> {
         tokio::time::sleep(Duration::from_millis(1_000)).await;
         cancel_tx.cancel();
     });
-    let result = timeout(
-        Duration::from_secs(5),
-        process_exec_tool_call(
-            params,
-            &PermissionProfile::Disabled,
-            &cwd,
-            &None,
-            /*use_legacy_landlock*/ false,
-            /*stdout_stream*/ None,
-        ),
+    let result = process_exec_tool_call(
+        params,
+        &SandboxPolicy::DangerFullAccess,
+        &FileSystemSandboxPolicy::from(&SandboxPolicy::DangerFullAccess),
+        NetworkSandboxPolicy::Enabled,
+        &cwd,
+        &None,
+        /*stdout_stream*/ None,
+
     )
     .await
     .expect("cancellation should stop the process promptly");

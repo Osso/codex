@@ -98,7 +98,6 @@ pub struct SandboxTransformRequest<'a> {
     pub network: Option<&'a NetworkProxy>,
     pub sandbox_policy_cwd: &'a Path,
     pub codex_linux_sandbox_exe: Option<&'a Path>,
-    pub use_legacy_landlock: bool,
     pub windows_sandbox_level: WindowsSandboxLevel,
     pub windows_sandbox_private_desktop: bool,
 }
@@ -177,7 +176,6 @@ impl SandboxManager {
             network,
             sandbox_policy_cwd,
             codex_linux_sandbox_exe,
-            use_legacy_landlock,
             windows_sandbox_level,
             windows_sandbox_private_desktop,
         } = request;
@@ -221,7 +219,6 @@ impl SandboxManager {
                 #[cfg(target_os = "linux")]
                 ensure_linux_bubblewrap_is_supported(
                     &effective_file_system_policy,
-                    use_legacy_landlock,
                     allow_proxy_network,
                     is_wsl1(),
                 )?;
@@ -230,7 +227,6 @@ impl SandboxManager {
                     command.cwd.as_path(),
                     &effective_permission_profile,
                     sandbox_policy_cwd,
-                    use_legacy_landlock,
                     allow_proxy_network,
                 );
                 let mut full_command = Vec::with_capacity(1 + args.len());
@@ -307,12 +303,11 @@ fn compatibility_workspace_write_policy(
 #[cfg(target_os = "linux")]
 fn ensure_linux_bubblewrap_is_supported(
     file_system_sandbox_policy: &FileSystemSandboxPolicy,
-    use_legacy_landlock: bool,
     allow_network_for_proxy: bool,
     is_wsl1: bool,
 ) -> Result<(), SandboxTransformError> {
-    let requires_bubblewrap = !use_legacy_landlock
-        && (!file_system_sandbox_policy.has_full_disk_write_access() || allow_network_for_proxy);
+    let requires_bubblewrap =
+        !file_system_sandbox_policy.has_full_disk_write_access() || allow_network_for_proxy;
     if is_wsl1 && requires_bubblewrap {
         return Err(SandboxTransformError::Wsl1UnsupportedForBubblewrap);
     }

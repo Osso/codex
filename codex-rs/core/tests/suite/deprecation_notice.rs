@@ -16,7 +16,6 @@ use core_test_support::test_codex::TestCodex;
 use core_test_support::test_codex::test_codex;
 use core_test_support::wait_for_event_match;
 use pretty_assertions::assert_eq;
-use std::collections::BTreeMap;
 use toml::Value as TomlValue;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -110,48 +109,6 @@ async fn emits_deprecation_notice_for_experimental_instructions_file() -> anyhow
         Some(
             "Move the setting to `model_instructions_file` in config.toml (or under a profile) to load instructions from a file."
         ),
-    );
-
-    Ok(())
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn emits_deprecation_notice_for_use_legacy_landlock() -> anyhow::Result<()> {
-    skip_if_no_network!(Ok(()));
-
-    let server = start_mock_server().await;
-
-    let mut builder = test_codex().with_config(|config| {
-        let mut entries = BTreeMap::new();
-        entries.insert("use_legacy_landlock".to_string(), true);
-        let mut features = config.features.get().clone();
-        features.apply_map(&entries);
-        config
-            .features
-            .set(features)
-            .expect("test config should allow managed feature map updates");
-    });
-
-    let TestCodex { codex, .. } = builder.build(&server).await?;
-
-    let notice = wait_for_event_match(&codex, |event| match event {
-        EventMsg::DeprecationNotice(ev)
-            if ev.summary.contains("[features].use_legacy_landlock") =>
-        {
-            Some(ev.clone())
-        }
-        _ => None,
-    })
-    .await;
-
-    let DeprecationNoticeEvent { summary, details } = notice;
-    assert_eq!(
-        summary,
-        "`[features].use_legacy_landlock` is deprecated and will be removed soon.".to_string(),
-    );
-    assert_eq!(
-        details.as_deref(),
-        Some("Remove this setting to stop opting into the legacy Linux sandbox behavior."),
     );
 
     Ok(())

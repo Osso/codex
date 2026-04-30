@@ -25,7 +25,6 @@ pub async fn spawn_command_under_linux_sandbox<P>(
     command_cwd: AbsolutePathBuf,
     permission_profile: &PermissionProfile,
     sandbox_policy_cwd: &AbsolutePathBuf,
-    use_legacy_landlock: bool,
     stdio_policy: StdioPolicy,
     network: Option<&NetworkProxy>,
     env: HashMap<String, String>,
@@ -39,7 +38,6 @@ where
         command_cwd.as_path(),
         permission_profile,
         sandbox_policy_cwd,
-        use_legacy_landlock,
         allow_network_for_proxy(/*enforce_managed_network*/ false),
     );
     let codex_linux_sandbox_exe = codex_linux_sandbox_exe.as_ref();

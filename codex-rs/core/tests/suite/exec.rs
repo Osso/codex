@@ -54,7 +54,6 @@ where
         &PermissionProfile::read_only(),
         &cwd,
         &None,
-        /*use_legacy_landlock*/ false,
         /*stdout_stream*/ None,
     )
     .await

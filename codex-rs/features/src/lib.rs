@@ -109,9 +109,6 @@ pub enum Feature {
     /// Removed legacy Linux bubblewrap opt-in flag retained as a no-op so old
     /// wrappers and config can still parse it.
     UseLinuxSandboxBwrap,
-    /// Use the legacy Landlock Linux sandbox fallback instead of the default
-    /// bubblewrap pipeline.
-    UseLegacyLandlock,
     /// Allow the model to request approval and propose exec rules.
     RequestRule,
     /// Enable Windows sandbox (restricted token) on Windows.
@@ -317,10 +314,6 @@ impl Features {
         self.enabled(Feature::Apps) && has_chatgpt_auth
     }
 
-    pub fn use_legacy_landlock(&self) -> bool {
-        self.enabled(Feature::UseLegacyLandlock)
-    }
-
     pub fn enable(&mut self, f: Feature) -> &mut Self {
         self.enabled.insert(f);
         self
@@ -381,12 +374,6 @@ impl Features {
                 }
                 "image_detail_original" => {
                     continue;
-                }
-                "use_legacy_landlock" => {
-                    self.record_legacy_usage_force(
-                        "features.use_legacy_landlock",
-                        Feature::UseLegacyLandlock,
-                    );
                 }
                 _ => {}
             }
@@ -454,19 +441,6 @@ impl Features {
 fn legacy_usage_notice(alias: &str, feature: Feature) -> (String, Option<String>) {
     let canonical = feature.key();
     match feature {
-        Feature::UseLegacyLandlock => {
-            let label = match alias {
-                "features.use_legacy_landlock" | "use_legacy_landlock" => {
-                    "[features].use_legacy_landlock"
-                }
-                _ => alias,
-            };
-            let summary = format!("`{label}` is deprecated and will be removed soon.");
-            let details =
-                "Remove this setting to stop opting into the legacy Linux sandbox behavior."
-                    .to_string();
-            (summary, Some(details))
-        }
         _ => {
             let label = if alias.contains('.') || alias.starts_with('[') {
                 alias.to_string()
@@ -764,12 +738,6 @@ pub const FEATURES: &[FeatureSpec] = &[
         id: Feature::UseLinuxSandboxBwrap,
         key: "use_linux_sandbox_bwrap",
         stage: Stage::Removed,
-        default_enabled: false,
-    },
-    FeatureSpec {
-        id: Feature::UseLegacyLandlock,
-        key: "use_legacy_landlock",
-        stage: Stage::Deprecated,
         default_enabled: false,
     },
     FeatureSpec {

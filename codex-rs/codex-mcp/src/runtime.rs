@@ -24,8 +24,6 @@ pub struct SandboxState {
     pub sandbox_policy: SandboxPolicy,
     pub codex_linux_sandbox_exe: Option<PathBuf>,
     pub sandbox_cwd: PathBuf,
-    #[serde(default)]
-    pub use_legacy_landlock: bool,
 }
 
 /// Runtime placement information used when starting MCP server transports.

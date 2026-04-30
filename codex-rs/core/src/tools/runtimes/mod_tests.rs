@@ -112,7 +112,6 @@ async fn explicit_escalation_prepares_exec_without_managed_network() -> anyhow::
         manager: &manager,
         sandbox_cwd: &cwd,
         codex_linux_sandbox_exe: None,
-        use_legacy_landlock: false,
         windows_sandbox_level: WindowsSandboxLevel::Disabled,
         windows_sandbox_private_desktop: false,
         network_denial_cancellation_token: None,
