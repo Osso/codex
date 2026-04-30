@@ -753,8 +753,7 @@ impl App {
                             "elevated"
                         } else {
                             "unelevated"
-                        })
-                        .clear_legacy_windows_sandbox_keys();
+                        });
                     match builder.apply().await {
                         Ok(()) => {
                             if elevated_enabled {

@@ -2246,11 +2246,6 @@ trust_level = "untrusted"
     async fn read_session_cwd_prefers_sqlite_when_thread_id_present() -> std::io::Result<()> {
         let temp_dir = TempDir::new()?;
         let mut config = build_config(&temp_dir).await?;
-        config
-            .features
-            .enable(Feature::Sqlite)
-            .expect("test config should allow sqlite");
-
         let thread_id = ThreadId::new();
         let rollout_cwd = temp_dir.path().join("rollout-cwd");
         let sqlite_cwd = temp_dir.path().join("sqlite-cwd");

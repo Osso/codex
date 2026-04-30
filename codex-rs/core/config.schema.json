@@ -387,12 +387,6 @@
             "default_mode_request_user_input": {
               "type": "boolean"
             },
-            "elevated_windows_sandbox": {
-              "type": "boolean"
-            },
-            "enable_experimental_windows_sandbox": {
-              "type": "boolean"
-            },
             "enable_fanout": {
               "type": "boolean"
             },
@@ -406,9 +400,6 @@
               "type": "boolean"
             },
             "experimental_use_unified_exec_tool": {
-              "type": "boolean"
-            },
-            "experimental_windows_sandbox": {
               "type": "boolean"
             },
             "external_migration": {
@@ -504,9 +495,6 @@
             "skill_mcp_dependency_install": {
               "type": "boolean"
             },
-            "sqlite": {
-              "type": "boolean"
-            },
             "steer": {
               "type": "boolean"
             },
@@ -535,9 +523,6 @@
               "type": "boolean"
             },
             "unified_exec": {
-              "type": "boolean"
-            },
-            "use_legacy_landlock": {
               "type": "boolean"
             },
             "use_linux_sandbox_bwrap": {
@@ -2543,12 +2528,6 @@
         "default_mode_request_user_input": {
           "type": "boolean"
         },
-        "elevated_windows_sandbox": {
-          "type": "boolean"
-        },
-        "enable_experimental_windows_sandbox": {
-          "type": "boolean"
-        },
         "enable_fanout": {
           "type": "boolean"
         },
@@ -2562,9 +2541,6 @@
           "type": "boolean"
         },
         "experimental_use_unified_exec_tool": {
-          "type": "boolean"
-        },
-        "experimental_windows_sandbox": {
           "type": "boolean"
         },
         "external_migration": {
@@ -2660,9 +2636,6 @@
         "skill_mcp_dependency_install": {
           "type": "boolean"
         },
-        "sqlite": {
-          "type": "boolean"
-        },
         "steer": {
           "type": "boolean"
         },
@@ -2691,9 +2664,6 @@
           "type": "boolean"
         },
         "unified_exec": {
-          "type": "boolean"
-        },
-        "use_legacy_landlock": {
           "type": "boolean"
         },
         "use_linux_sandbox_bwrap": {

@@ -39,12 +39,7 @@ use uuid::Uuid;
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn new_thread_is_recorded_in_state_db() -> Result<()> {
     let server = start_mock_server().await;
-    let mut builder = test_codex().with_config(|config| {
-        config
-            .features
-            .enable(Feature::Sqlite)
-            .expect("test config should allow feature update");
-    });
+    let mut builder = test_codex();
     let test = builder.build(&server).await?;
 
     let thread_id = test.session_configured.session_id;
@@ -176,12 +171,6 @@ async fn backfill_scans_existing_rollouts() -> Result<()> {
                 .collect::<Vec<_>>()
                 .join("\n");
             fs::write(&rollout_path, format!("{jsonl}\n")).expect("should write rollout file");
-        })
-        .with_config(|config| {
-            config
-                .features
-                .enable(Feature::Sqlite)
-                .expect("test config should allow feature update");
         });
 
     let test = builder.build(&server).await?;
@@ -240,12 +229,7 @@ async fn user_messages_persist_in_state_db() -> Result<()> {
     )
     .await;
 
-    let mut builder = test_codex().with_config(|config| {
-        config
-            .features
-            .enable(Feature::Sqlite)
-            .expect("test config should allow feature update");
-    });
+    let mut builder = test_codex();
     let test = builder.build(&server).await?;
 
     let db_path = codex_state::state_db_path(test.config.sqlite_home.as_path());
@@ -295,10 +279,6 @@ async fn web_search_marks_thread_memory_mode_polluted_when_configured() -> Resul
     .await;
 
     let mut builder = test_codex().with_config(|config| {
-        config
-            .features
-            .enable(Feature::Sqlite)
-            .expect("test config should allow feature update");
         config.memories.disable_on_external_context = true;
     });
     let test = builder.build(&server).await?;
@@ -353,10 +333,6 @@ async fn mcp_call_marks_thread_memory_mode_polluted_when_configured() -> Result<
 
     let rmcp_test_server_bin = stdio_server_bin()?;
     let mut builder = test_codex().with_config(move |config| {
-        config
-            .features
-            .enable(Feature::Sqlite)
-            .expect("test config should allow feature update");
         config.memories.disable_on_external_context = true;
 
         let mut servers = config.mcp_servers.get().clone();
@@ -465,12 +441,7 @@ async fn tool_call_logs_include_thread_id() -> Result<()> {
     )
     .await;
 
-    let mut builder = test_codex().with_config(|config| {
-        config
-            .features
-            .enable(Feature::Sqlite)
-            .expect("test config should allow feature update");
-    });
+    let mut builder = test_codex();
     let test = builder.build(&server).await?;
     let db = test.codex.state_db().expect("state db enabled");
     let expected_thread_id = test.session_configured.session_id.to_string();

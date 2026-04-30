@@ -644,15 +644,7 @@ impl Codex {
                 Some(codex_config::types::WindowsSandboxModeToml::Unelevated) => {
                     WindowsSandboxLevel::RestrictedToken
                 }
-                None => {
-                    if config.features.enabled(Feature::WindowsSandboxElevated) {
-                        WindowsSandboxLevel::Elevated
-                    } else if config.features.enabled(Feature::WindowsSandbox) {
-                        WindowsSandboxLevel::RestrictedToken
-                    } else {
-                        WindowsSandboxLevel::Disabled
-                    }
-                }
+                None => WindowsSandboxLevel::Disabled,
             },
             cwd: config.cwd.clone(),
             codex_home: config.codex_home.clone(),

@@ -139,12 +139,6 @@ impl App {
                 vec![key.to_string()]
             }
         };
-        let windows_sandbox_changed = updates.iter().any(|(feature, _)| {
-            matches!(
-                feature,
-                Feature::WindowsSandbox | Feature::WindowsSandboxElevated
-            )
-        });
         let mut approval_policy_override = None;
         let mut approvals_reviewer_override = None;
         let mut sandbox_policy_override = None;
@@ -344,30 +338,6 @@ impl App {
             if submitted && let Some(op) = replay_state_op.as_ref() {
                 self.note_active_thread_outbound_op(op).await;
                 self.refresh_pending_thread_approvals().await;
-            }
-        }
-
-        if windows_sandbox_changed {
-            #[cfg(target_os = "windows")]
-            {
-                let windows_sandbox_level = WindowsSandboxLevel::from_config(&self.config);
-                self.app_event_tx.send(AppEvent::CodexOp(
-                    AppCommand::override_turn_context(
-                        /*cwd*/ None,
-                        /*approval_policy*/ None,
-                        /*approvals_reviewer*/ None,
-                        /*sandbox_policy*/ None,
-                        #[cfg(target_os = "windows")]
-                        Some(windows_sandbox_level),
-                        /*model*/ None,
-                        /*effort*/ None,
-                        /*summary*/ None,
-                        /*service_tier*/ None,
-                        /*collaboration_mode*/ None,
-                        /*personality*/ None,
-                    )
-                    .into_core(),
-                ));
             }
         }
 

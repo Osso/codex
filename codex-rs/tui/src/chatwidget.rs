@@ -9397,19 +9397,6 @@ impl ChatWidget {
             self.turn_sleep_inhibitor
                 .set_turn_running(self.agent_turn_running);
         }
-        #[cfg(target_os = "windows")]
-        if matches!(
-            feature,
-            Feature::WindowsSandbox | Feature::WindowsSandboxElevated
-        ) {
-            self.bottom_pane.set_windows_degraded_sandbox_active(
-                crate::legacy_core::windows_sandbox::ELEVATED_SANDBOX_NUX_ENABLED
-                    && matches!(
-                        crate::legacy_core::config::windows_sandbox_level_from_config(&self.config),
-                        WindowsSandboxLevel::RestrictedToken
-                    ),
-            );
-        }
         enabled
     }
 
