@@ -1573,7 +1573,6 @@ dependencies = [
  "codex-models-manager",
  "codex-protocol",
  "codex-rmcp-client",
- "codex-rollout-trace",
  "codex-sandboxing",
  "codex-state",
  "codex-stdio-to-uds",
@@ -2592,12 +2591,8 @@ dependencies = [
  "anyhow",
  "codex-code-mode",
  "codex-protocol",
- "pretty_assertions",
  "serde",
  "serde_json",
- "tempfile",
- "tracing",
- "uuid",
 ]
 
 [[package]]
