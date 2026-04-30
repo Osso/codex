@@ -1974,41 +1974,8 @@ async fn feedback_enabled_defaults_to_true() -> std::io::Result<()> {
 fn web_search_mode_defaults_to_none_if_unset() {
     let cfg = ConfigToml::default();
     let profile = ConfigProfile::default();
-    let features = Features::with_defaults();
 
-    assert_eq!(resolve_web_search_mode(&cfg, &profile, &features), None);
-}
-
-#[test]
-fn web_search_mode_prefers_profile_over_legacy_flags() {
-    let cfg = ConfigToml::default();
-    let profile = ConfigProfile {
-        web_search: Some(WebSearchMode::Live),
-        ..Default::default()
-    };
-    let mut features = Features::with_defaults();
-    features.enable(Feature::WebSearchCached);
-
-    assert_eq!(
-        resolve_web_search_mode(&cfg, &profile, &features),
-        Some(WebSearchMode::Live)
-    );
-}
-
-#[test]
-fn web_search_mode_disabled_overrides_legacy_request() {
-    let cfg = ConfigToml {
-        web_search: Some(WebSearchMode::Disabled),
-        ..Default::default()
-    };
-    let profile = ConfigProfile::default();
-    let mut features = Features::with_defaults();
-    features.enable(Feature::WebSearchRequest);
-
-    assert_eq!(
-        resolve_web_search_mode(&cfg, &profile, &features),
-        Some(WebSearchMode::Disabled)
-    );
+    assert_eq!(resolve_web_search_mode(&cfg, &profile), None);
 }
 
 #[test]

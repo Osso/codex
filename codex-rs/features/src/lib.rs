@@ -98,13 +98,6 @@ pub enum Feature {
     ExecPermissionApprovals,
     /// Expose the built-in request_permissions tool.
     RequestPermissionsTool,
-    /// Allow the model to request web searches that fetch live content.
-    WebSearchRequest,
-    /// Allow the model to request web searches that fetch cached content.
-    /// Takes precedence over `WebSearchRequest`.
-    WebSearchCached,
-    /// Legacy search-tool feature flag kept for backward compatibility.
-    SearchTool,
     /// Removed legacy Linux bubblewrap opt-in flag retained as a no-op so old
     /// wrappers and config can still parse it.
     UseLinuxSandboxBwrap,
@@ -253,7 +246,6 @@ pub struct Features {
 #[derive(Debug, Clone, Default)]
 pub struct FeatureOverrides {
     pub include_apply_patch_tool: Option<bool>,
-    pub web_search_request: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -271,14 +263,6 @@ impl FeatureOverrides {
             ..Default::default()
         }
         .apply(features);
-        if let Some(enabled) = self.web_search_request {
-            if enabled {
-                features.enable(Feature::WebSearchRequest);
-            } else {
-                features.disable(Feature::WebSearchRequest);
-            }
-            features.record_legacy_usage("web_search_request", Feature::WebSearchRequest);
-        }
     }
 }
 
@@ -355,18 +339,6 @@ impl Features {
     pub fn apply_map(&mut self, m: &BTreeMap<String, bool>) {
         for (k, v) in m {
             match k.as_str() {
-                "web_search_request" => {
-                    self.record_legacy_usage_force(
-                        "features.web_search_request",
-                        Feature::WebSearchRequest,
-                    );
-                }
-                "web_search_cached" => {
-                    self.record_legacy_usage_force(
-                        "features.web_search_cached",
-                        Feature::WebSearchCached,
-                    );
-                }
                 "tui_app_server" => {
                     continue;
                 }
@@ -449,21 +421,6 @@ impl Features {
 fn legacy_usage_notice(alias: &str, feature: Feature) -> (String, Option<String>) {
     let canonical = feature.key();
     match feature {
-        Feature::WebSearchRequest | Feature::WebSearchCached => {
-            let label = match alias {
-                "web_search" => "[features].web_search",
-                "features.web_search_request" | "web_search_request" => {
-                    "[features].web_search_request"
-                }
-                "features.web_search_cached" | "web_search_cached" => {
-                    "[features].web_search_cached"
-                }
-                _ => alias,
-            };
-            let summary =
-                format!("`{label}` is deprecated because web search is enabled by default.");
-            (summary, Some(web_search_details().to_string()))
-        }
         Feature::UseLegacyLandlock => {
             let label = match alias {
                 "features.use_legacy_landlock" | "use_legacy_landlock" => {
@@ -494,10 +451,6 @@ fn legacy_usage_notice(alias: &str, feature: Feature) -> (String, Option<String>
             (summary, details)
         }
     }
-}
-
-fn web_search_details() -> &'static str {
-    "Set `web_search` to `\"live\"`, `\"cached\"`, or `\"disabled\"` at the top level (or under a profile) in config.toml if you want to override it."
 }
 
 /// Keys accepted in `[features]` tables.
@@ -649,24 +602,6 @@ pub const FEATURES: &[FeatureSpec] = &[
         id: Feature::JsReplToolsOnly,
         key: "js_repl_tools_only",
         stage: Stage::UnderDevelopment,
-        default_enabled: false,
-    },
-    FeatureSpec {
-        id: Feature::WebSearchRequest,
-        key: "web_search_request",
-        stage: Stage::Deprecated,
-        default_enabled: false,
-    },
-    FeatureSpec {
-        id: Feature::WebSearchCached,
-        key: "web_search_cached",
-        stage: Stage::Deprecated,
-        default_enabled: false,
-    },
-    FeatureSpec {
-        id: Feature::SearchTool,
-        key: "search_tool",
-        stage: Stage::Removed,
         default_enabled: false,
     },
     // Experimental program. Rendered in the `/experimental` menu for users.
