@@ -1,4 +1,6 @@
 use super::*;
+use crate::CodexThread;
+use crate::session::turn_context::TurnContext;
 use crate::ThreadManager;
 use crate::config::AgentRoleConfig;
 use crate::config::DEFAULT_AGENT_MAX_DEPTH;

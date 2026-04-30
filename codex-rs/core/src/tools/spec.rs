@@ -65,6 +65,22 @@ pub(crate) fn build_specs_with_discoverable_tools(
     extension_tool_bundles: &[ExtensionToolBundle],
     dynamic_tools: &[DynamicToolSpec],
 ) -> ToolRegistryBuilder {
+    use crate::tools::handlers::ApplyPatchHandler;
+    use crate::tools::handlers::CodeModeExecuteHandler;
+    use crate::tools::handlers::CodeModeWaitHandler;
+    use crate::tools::handlers::DynamicToolHandler;
+    use crate::tools::handlers::JsReplHandler;
+    use crate::tools::handlers::JsReplResetHandler;
+    use crate::tools::handlers::ListDirHandler;
+    use crate::tools::handlers::McpHandler;
+    use crate::tools::handlers::McpResourceHandler;
+    use crate::tools::handlers::PlanHandler;
+    use crate::tools::handlers::RequestPermissionsHandler;
+    use crate::tools::handlers::RequestUserInputHandler;
+    use crate::tools::handlers::TestSyncHandler;
+    use crate::tools::handlers::ToolSearchHandler;
+    use crate::tools::handlers::ToolSuggestHandler;
+
     use crate::tools::handlers::UnavailableToolHandler;
     use crate::tools::handlers::UnifiedExecHandler;
     use crate::tools::handlers::ViewImageHandler;
@@ -124,8 +140,32 @@ pub(crate) fn build_specs_with_discoverable_tools(
             tool_search_entries: &tool_search_entries,
         },
     );
-    let mut existing_spec_names = builder
-        .specs()
+    let unified_exec_handler = Arc::new(UnifiedExecHandler);
+    let plan_handler = Arc::new(PlanHandler);
+    let apply_patch_handler = Arc::new(ApplyPatchHandler);
+    let dynamic_tool_handler = Arc::new(DynamicToolHandler);
+    let view_image_handler = Arc::new(ViewImageHandler);
+    let mcp_handler = Arc::new(McpHandler);
+    let mcp_resource_handler = Arc::new(McpResourceHandler);
+    let request_permissions_handler = Arc::new(RequestPermissionsHandler);
+    let request_user_input_handler = Arc::new(RequestUserInputHandler {
+        default_mode_request_user_input: config.default_mode_request_user_input,
+    });
+    let deferred_dynamic_tools = dynamic_tools
+        .iter()
+        .filter(|tool| tool.defer_loading)
+        .cloned()
+        .collect::<Vec<_>>();
+    let mut tool_search_handler = None;
+    let tool_suggest_handler = Arc::new(ToolSuggestHandler);
+    let code_mode_handler = Arc::new(CodeModeExecuteHandler);
+    let code_mode_wait_handler = Arc::new(CodeModeWaitHandler);
+    let js_repl_handler = Arc::new(JsReplHandler);
+    let js_repl_reset_handler = Arc::new(JsReplResetHandler);
+    let unavailable_tool_handler = Arc::new(UnavailableToolHandler);
+    let mut existing_spec_names = plan
+        .specs
+
         .iter()
         .map(|configured_tool| configured_tool.name().to_string())
         .collect::<HashSet<_>>();
@@ -192,12 +232,6 @@ pub(crate) fn build_specs_with_discoverable_tools(
             }
             ToolHandlerKind::SendMessageV2 => {
                 builder.register_handler(handler.name, Arc::new(SendMessageHandlerV2));
-            }
-            ToolHandlerKind::Shell => {
-                builder.register_handler(handler.name, shell_handler.clone());
-            }
-            ToolHandlerKind::ShellCommand => {
-                builder.register_handler(handler.name, shell_command_handler.clone());
             }
             ToolHandlerKind::SpawnAgentV2 => {
                 builder.register_handler(handler.name, Arc::new(SpawnAgentHandlerV2));

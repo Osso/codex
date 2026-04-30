@@ -202,24 +202,13 @@ impl ToolsConfig {
                 ShellCommandBackendConfig::Classic
             };
         let unified_exec_enabled = features.enabled(Feature::UnifiedExec);
-        let model_shell_type = match model_info.shell_type {
-            ConfigShellToolType::UnifiedExec if !unified_exec_enabled => {
-                ConfigShellToolType::ShellCommand
-            }
-            other => other,
-        };
-        let shell_type = if !features.enabled(Feature::ShellTool) {
-            ConfigShellToolType::Disabled
-        } else if features.enabled(Feature::ShellZshFork) {
-            ConfigShellToolType::ShellCommand
-        } else if unified_exec_enabled {
-            if codex_utils_pty::conpty_supported() {
-                ConfigShellToolType::UnifiedExec
-            } else {
-                ConfigShellToolType::ShellCommand
-            }
+        let shell_type = if features.enabled(Feature::ShellTool)
+            && unified_exec_enabled
+            && codex_utils_pty::conpty_supported()
+        {
+            ConfigShellToolType::UnifiedExec
         } else {
-            model_shell_type
+            ConfigShellToolType::Disabled
         };
 
         let apply_patch_tool_type = model_info

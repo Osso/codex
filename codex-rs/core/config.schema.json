@@ -484,6 +484,7 @@
             "multi_agent": {
               "type": "boolean"
             },
+
             "multi_agent_v2": {
               "$ref": "#/definitions/FeatureToml_for_MultiAgentV2ConfigToml"
             },
@@ -2656,6 +2657,7 @@
           },
           "description": "Keybinding overrides for the TUI.\n\nThis supports rebinding selected actions globally and by context. Context bindings take precedence over `global` bindings."
         },
+
         "model_availability_nux": {
           "allOf": [
             {
@@ -4126,6 +4128,7 @@
         "multi_agent": {
           "type": "boolean"
         },
+
         "multi_agent_v2": {
           "$ref": "#/definitions/FeatureToml_for_MultiAgentV2ConfigToml"
         },
