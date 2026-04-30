@@ -365,7 +365,6 @@ async fn process_exec_tool_call_preserves_full_buffer_capture_policy() -> Result
         NetworkSandboxPolicy::Enabled,
         &cwd,
         &None,
-        /*use_legacy_landlock*/ false,
         /*stdout_stream*/ None,
     )
     .await?;
@@ -1033,7 +1032,6 @@ async fn process_exec_tool_call_respects_cancellation_token() -> Result<()> {
         NetworkSandboxPolicy::Enabled,
         &cwd,
         &None,
-        /*use_legacy_landlock*/ false,
         /*stdout_stream*/ None,
     )
     .await;

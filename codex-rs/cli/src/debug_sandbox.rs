@@ -220,7 +220,6 @@ async fn run_command_under_sandbox(
             let codex_linux_sandbox_exe = config
                 .codex_linux_sandbox_exe
                 .expect("codex-linux-sandbox executable not found");
-            let use_legacy_landlock = config.features.use_legacy_landlock();
             let args = create_linux_sandbox_command_args_for_policies(
                 command,
                 cwd.as_path(),
@@ -228,7 +227,6 @@ async fn run_command_under_sandbox(
                 &config.permissions.file_system_sandbox_policy,
                 config.permissions.network_sandbox_policy,
                 sandbox_policy_cwd.as_path(),
-                use_legacy_landlock,
                 /*allow_network_for_proxy*/ false,
             );
             let network_policy = config.permissions.network_sandbox_policy;

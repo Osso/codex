@@ -146,7 +146,6 @@ fn file_system_sandbox_context_uses_active_attempt() {
         manager: &manager,
         sandbox_cwd: &path,
         codex_linux_sandbox_exe: None,
-        use_legacy_landlock: true,
         windows_sandbox_level: WindowsSandboxLevel::RestrictedToken,
         windows_sandbox_private_desktop: true,
     };
@@ -170,7 +169,6 @@ fn file_system_sandbox_context_uses_active_attempt() {
         WindowsSandboxLevel::RestrictedToken
     );
     assert_eq!(sandbox.windows_sandbox_private_desktop, true);
-    assert_eq!(sandbox.use_legacy_landlock, true);
 }
 
 #[test]
@@ -201,7 +199,6 @@ fn no_sandbox_attempt_has_no_file_system_context() {
         manager: &manager,
         sandbox_cwd: &path,
         codex_linux_sandbox_exe: None,
-        use_legacy_landlock: false,
         windows_sandbox_level: WindowsSandboxLevel::Disabled,
         windows_sandbox_private_desktop: false,
     };

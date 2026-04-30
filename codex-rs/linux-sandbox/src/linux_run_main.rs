@@ -54,12 +54,6 @@ pub struct LandlockCommand {
     #[arg(long = "network-sandbox-policy", hide = true)]
     pub network_sandbox_policy: Option<NetworkSandboxPolicy>,
 
-    /// Opt-in: use the legacy Landlock Linux sandbox fallback.
-    ///
-    /// When not set, the helper uses the default bubblewrap pipeline.
-    #[arg(long = "use-legacy-landlock", hide = true, default_value_t = false)]
-    pub use_legacy_landlock: bool,
-
     /// Internal: apply seccomp and `no_new_privs` in the already-sandboxed
     /// process, then exec the user command.
     ///
@@ -105,7 +99,6 @@ pub fn run_main() -> ! {
         sandbox_policy,
         file_system_sandbox_policy,
         network_sandbox_policy,
-        use_legacy_landlock,
         apply_seccomp_then_exec,
         allow_network_for_proxy,
         proxy_route_spec,
@@ -116,7 +109,7 @@ pub fn run_main() -> ! {
     if command.is_empty() {
         panic!("No command specified to execute.");
     }
-    ensure_inner_stage_mode_is_valid(apply_seccomp_then_exec, use_legacy_landlock);
+    ensure_inner_stage_mode_is_valid(apply_seccomp_then_exec);
     let EffectiveSandboxPolicies {
         sandbox_policy,
         file_system_sandbox_policy,
@@ -128,12 +121,6 @@ pub fn run_main() -> ! {
         network_sandbox_policy,
     )
     .unwrap_or_else(|err| panic!("{err}"));
-    ensure_legacy_landlock_mode_supports_policy(
-        use_legacy_landlock,
-        &file_system_sandbox_policy,
-        network_sandbox_policy,
-        &sandbox_policy_cwd,
-    );
 
     // Inner stage: apply seccomp/no_new_privs after bubblewrap has already
     // established the filesystem view.
@@ -174,51 +161,35 @@ pub fn run_main() -> ! {
         exec_or_panic(command);
     }
 
-    if !use_legacy_landlock {
-        // Outer stage: bubblewrap first, then re-enter this binary in the
-        // sandboxed environment to apply seccomp. This path never falls back
-        // to legacy Landlock on failure.
-        let proxy_route_spec =
-            if allow_network_for_proxy {
-                Some(prepare_host_proxy_route_spec().unwrap_or_else(|err| {
-                    panic!("failed to prepare host proxy routing bridge: {err}")
-                }))
-            } else {
-                None
-            };
-        let inner = build_inner_seccomp_command(InnerSeccompCommandArgs {
-            sandbox_policy_cwd: &sandbox_policy_cwd,
-            command_cwd: command_cwd.as_deref(),
-            sandbox_policy: &sandbox_policy,
-            file_system_sandbox_policy: &file_system_sandbox_policy,
-            network_sandbox_policy,
-            allow_network_for_proxy,
-            proxy_route_spec,
-            command,
-        });
-        run_bwrap_with_proc_fallback(
-            &sandbox_policy_cwd,
-            command_cwd.as_deref(),
-            &file_system_sandbox_policy,
-            network_sandbox_policy,
-            inner,
-            !no_proc,
-            allow_network_for_proxy,
-        );
-    }
-
-    // Legacy path: Landlock enforcement only, when bwrap sandboxing is not enabled.
-    if let Err(e) = apply_sandbox_policy_to_current_thread(
-        &sandbox_policy,
+    // Outer stage: bubblewrap first, then re-enter this binary in the
+    // sandboxed environment to apply seccomp.
+    let proxy_route_spec =
+        if allow_network_for_proxy {
+            Some(prepare_host_proxy_route_spec().unwrap_or_else(|err| {
+                panic!("failed to prepare host proxy routing bridge: {err}")
+            }))
+        } else {
+            None
+        };
+    let inner = build_inner_seccomp_command(InnerSeccompCommandArgs {
+        sandbox_policy_cwd: &sandbox_policy_cwd,
+        command_cwd: command_cwd.as_deref(),
+        sandbox_policy: &sandbox_policy,
+        file_system_sandbox_policy: &file_system_sandbox_policy,
         network_sandbox_policy,
-        &sandbox_policy_cwd,
-        /*apply_landlock_fs*/ true,
         allow_network_for_proxy,
-        /*proxy_routed_network*/ false,
-    ) {
-        panic!("error applying legacy Linux sandbox restrictions: {e:?}");
-    }
-    exec_or_panic(command);
+        proxy_route_spec,
+        command,
+    });
+    run_bwrap_with_proc_fallback(
+        &sandbox_policy_cwd,
+        command_cwd.as_deref(),
+        &file_system_sandbox_policy,
+        network_sandbox_policy,
+        inner,
+        !no_proc,
+        allow_network_for_proxy,
+    );
 }
 
 #[derive(Debug, Clone)]
@@ -376,26 +347,9 @@ fn file_system_sandbox_policies_match_semantics(
             == derived.get_unreadable_roots_with_cwd(sandbox_policy_cwd)
 }
 
-fn ensure_inner_stage_mode_is_valid(apply_seccomp_then_exec: bool, use_legacy_landlock: bool) {
-    if apply_seccomp_then_exec && use_legacy_landlock {
-        panic!("--apply-seccomp-then-exec is incompatible with --use-legacy-landlock");
-    }
-}
-
-fn ensure_legacy_landlock_mode_supports_policy(
-    use_legacy_landlock: bool,
-    file_system_sandbox_policy: &FileSystemSandboxPolicy,
-    network_sandbox_policy: NetworkSandboxPolicy,
-    sandbox_policy_cwd: &Path,
-) {
-    if use_legacy_landlock
-        && file_system_sandbox_policy
-            .needs_direct_runtime_enforcement(network_sandbox_policy, sandbox_policy_cwd)
-    {
-        panic!(
-            "split sandbox policies requiring direct runtime enforcement are incompatible with --use-legacy-landlock"
-        );
-    }
+fn ensure_inner_stage_mode_is_valid(apply_seccomp_then_exec: bool) {
+    // Currently no incompatible combinations; kept for future validations.
+    let _ = apply_seccomp_then_exec;
 }
 
 fn run_bwrap_with_proc_fallback(

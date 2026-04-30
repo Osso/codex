@@ -52,8 +52,6 @@ pub struct FileSystemSandboxContext {
     pub windows_sandbox_level: WindowsSandboxLevel,
     #[serde(default)]
     pub windows_sandbox_private_desktop: bool,
-    #[serde(default)]
-    pub use_legacy_landlock: bool,
 }
 
 impl FileSystemSandboxContext {
@@ -85,7 +83,6 @@ impl FileSystemSandboxContext {
             cwd,
             windows_sandbox_level: WindowsSandboxLevel::Disabled,
             windows_sandbox_private_desktop: false,
-            use_legacy_landlock: false,
         }
     }
 

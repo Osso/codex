@@ -53,11 +53,7 @@ impl FileSystemSandboxRunner {
     ) -> Result<FsHelperPayload, JSONRPCErrorError> {
         let cwd = sandbox_cwd(sandbox)?;
         let mut file_system_policy = sandbox.permissions.file_system_sandbox_policy();
-        let helper_read_roots = if sandbox.use_legacy_landlock {
-            Vec::new()
-        } else {
-            helper_read_roots(&self.runtime_paths)
-        };
+        let helper_read_roots = helper_read_roots(&self.runtime_paths);
         add_helper_runtime_permissions(&mut file_system_policy, &helper_read_roots, cwd.as_path());
         normalize_file_system_policy_root_aliases(&mut file_system_policy);
         let network_policy = NetworkSandboxPolicy::Restricted;
@@ -109,7 +105,6 @@ impl FileSystemSandboxRunner {
                 network: None,
                 sandbox_policy_cwd: cwd.as_path(),
                 codex_linux_sandbox_exe: self.runtime_paths.codex_linux_sandbox_exe.as_deref(),
-                use_legacy_landlock: sandbox_context.use_legacy_landlock,
                 windows_sandbox_level: sandbox_context.windows_sandbox_level,
                 windows_sandbox_private_desktop: sandbox_context.windows_sandbox_private_desktop,
             })

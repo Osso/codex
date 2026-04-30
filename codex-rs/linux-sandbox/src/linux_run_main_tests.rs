@@ -484,55 +484,7 @@ fn resolve_sandbox_policies_accepts_semantically_equivalent_workspace_write_inpu
 }
 
 #[test]
-fn apply_seccomp_then_exec_with_legacy_landlock_panics() {
-    let result = std::panic::catch_unwind(|| {
-        ensure_inner_stage_mode_is_valid(
-            /*apply_seccomp_then_exec*/ true, /*use_legacy_landlock*/ true,
-        )
-    });
-    assert!(result.is_err());
-}
-
-#[test]
-fn legacy_landlock_rejects_split_only_filesystem_policies() {
-    let temp_dir = tempfile::TempDir::new().expect("tempdir");
-    let docs = temp_dir.path().join("docs");
-    std::fs::create_dir_all(&docs).expect("create docs");
-    let docs = AbsolutePathBuf::from_absolute_path(&docs).expect("absolute docs");
-    let policy = FileSystemSandboxPolicy::restricted(vec![
-        codex_protocol::permissions::FileSystemSandboxEntry {
-            path: codex_protocol::permissions::FileSystemPath::Special {
-                value: codex_protocol::permissions::FileSystemSpecialPath::Root,
-            },
-            access: codex_protocol::permissions::FileSystemAccessMode::Read,
-        },
-        codex_protocol::permissions::FileSystemSandboxEntry {
-            path: codex_protocol::permissions::FileSystemPath::Path { path: docs },
-            access: codex_protocol::permissions::FileSystemAccessMode::Write,
-        },
-    ]);
-
-    let result = std::panic::catch_unwind(|| {
-        ensure_legacy_landlock_mode_supports_policy(
-            /*use_legacy_landlock*/ true,
-            &policy,
-            NetworkSandboxPolicy::Restricted,
-            temp_dir.path(),
-        );
-    });
-
-    assert!(result.is_err());
-}
-
-#[test]
-fn valid_inner_stage_modes_do_not_panic() {
-    ensure_inner_stage_mode_is_valid(
-        /*apply_seccomp_then_exec*/ false, /*use_legacy_landlock*/ false,
-    );
-    ensure_inner_stage_mode_is_valid(
-        /*apply_seccomp_then_exec*/ false, /*use_legacy_landlock*/ true,
-    );
-    ensure_inner_stage_mode_is_valid(
-        /*apply_seccomp_then_exec*/ true, /*use_legacy_landlock*/ false,
-    );
+fn inner_stage_mode_does_not_panic() {
+    ensure_inner_stage_mode_is_valid(/*apply_seccomp_then_exec*/ false);
+    ensure_inner_stage_mode_is_valid(/*apply_seccomp_then_exec*/ true);
 }

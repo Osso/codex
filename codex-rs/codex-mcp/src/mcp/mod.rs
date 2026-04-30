@@ -125,8 +125,6 @@ pub struct McpConfig {
     pub approval_policy: Constrained<AskForApproval>,
     /// Optional path to `codex-linux-sandbox` for sandboxed MCP tool execution.
     pub codex_linux_sandbox_exe: Option<PathBuf>,
-    /// Whether to use legacy Landlock behavior in the MCP sandbox state.
-    pub use_legacy_landlock: bool,
     /// Whether the app MCP integration is enabled by config.
     ///
     /// ChatGPT auth is checked separately at runtime before the built-in apps

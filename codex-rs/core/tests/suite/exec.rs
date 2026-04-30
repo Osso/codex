@@ -60,7 +60,6 @@ where
         NetworkSandboxPolicy::from(&policy),
         &cwd,
         &None,
-        /*use_legacy_landlock*/ false,
         /*stdout_stream*/ None,
     )
     .await
