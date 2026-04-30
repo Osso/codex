@@ -292,7 +292,7 @@ touch a file upstream also edits.
 
 ## 11. App-server & MCP robustness fixes
 
-**Purpose.** Three independent bug fixes:
+**Purpose.** Four independent bug fixes:
 
 - **Preserve MCP startup status notifications under backpressure.** When the
   app-server client is slow to drain, startup notifications are queued rather
@@ -305,8 +305,22 @@ touch a file upstream also edits.
 - **Gate login issuer override to debug builds.** The app-server login issuer
   override is only honored in debug builds so production/release builds do not
   accidentally trust a test issuer (`codex-rs/app-server/src/codex_message_processor.rs`).
+- **Reset the TUI status timer for MCP startup rounds.** When MCP startup begins
+  while another task is already running, the bottom-pane status row now restarts
+  its elapsed timer instead of showing the older task's elapsed time as
+  `Booting MCP server: ... (18s · esc to interrupt)`. Direct `regex-replace`
+  stdio checks confirmed the server starts and lists tools in ~3-4ms; the
+  visible delay was inherited UI state, not MCP startup latency. Key files:
+  `codex-rs/tui/src/status_indicator_widget.rs`,
+  `codex-rs/tui/src/bottom_pane/mod.rs`,
+  `codex-rs/tui/src/chatwidget.rs`, and
+  `codex-rs/core/src/telemetry.rs` (timing-only runtime metrics are no longer
+  treated as empty).
 
-**Tests.** `cargo test -p codex-app-server suite::auth suite::v2::account`.
+**Tests.**
+- `cargo test -p codex-app-server suite::auth suite::v2::account`
+- `cargo test -p codex-tui`
+- `cargo test -p codex-core runtime_metrics_summary_is_not_empty_when_only_timing_fields_are_set`
 
 **Rebase risk.** Medium — upstream owns both files heavily. Carry forward as
 surgical hunks.

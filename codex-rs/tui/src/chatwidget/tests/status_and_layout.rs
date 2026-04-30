@@ -2240,7 +2240,7 @@ async fn runtime_metrics_websocket_timing_logs_and_final_separator_sums_totals()
         }
     }
     let final_separator = final_separator.expect("expected final separator with runtime metrics");
-    assert!(final_separator.contains("TTFT: 80ms (iapi)"));
+    assert!(final_separator.contains("TTFT: 200ms (iapi)"));
     assert!(final_separator.contains("TBT: 50ms (service)"));
 }
 
