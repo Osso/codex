@@ -6,15 +6,12 @@ use codex_config::types::WindowsSandboxModeToml;
 use codex_features::Feature;
 use codex_features::Features;
 use codex_features::FeaturesToml;
-use codex_login::default_client::originator;
-use codex_utils_string::sanitize_metric_tag_value;
 use codex_protocol::config_types::WindowsSandboxLevel;
 use codex_protocol::protocol::SandboxPolicy;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
-use std::time::Instant;
 
 /// Kill switch for the elevated sandbox NUX on Windows.
 ///
@@ -281,27 +278,16 @@ pub struct WindowsSandboxSetupRequest {
 }
 
 pub async fn run_windows_sandbox_setup(request: WindowsSandboxSetupRequest) -> anyhow::Result<()> {
-    let start = Instant::now();
     let mode = request.mode;
-    let originator_tag = sanitize_metric_tag_value(originator().value.as_str());
     let result = run_windows_sandbox_setup_and_persist(request).await;
 
     match result {
         Ok(()) => {
-            emit_windows_sandbox_setup_success_metrics(
-                mode,
-                originator_tag.as_str(),
-                start.elapsed(),
-            );
+            emit_windows_sandbox_setup_success_metrics(mode, "", std::time::Duration::ZERO);
             Ok(())
         }
         Err(err) => {
-            emit_windows_sandbox_setup_failure_metrics(
-                mode,
-                originator_tag.as_str(),
-                start.elapsed(),
-                &err,
-            );
+            emit_windows_sandbox_setup_failure_metrics(mode, "", std::time::Duration::ZERO, &err);
             Err(err)
         }
     }
@@ -359,84 +345,18 @@ async fn run_windows_sandbox_setup_and_persist(
 }
 
 fn emit_windows_sandbox_setup_success_metrics(
-    mode: WindowsSandboxSetupMode,
-    originator_tag: &str,
-    duration: std::time::Duration,
+    _mode: WindowsSandboxSetupMode,
+    _originator_tag: &str,
+    _duration: std::time::Duration,
 ) {
-    let Some(metrics) = crate::telemetry::global() else {
-        return;
-    };
-    let mode_tag = windows_sandbox_setup_mode_tag(mode);
-    let _ = metrics.record_duration(
-        "codex.windows_sandbox.setup_duration_ms",
-        duration,
-        &[
-            ("result", "success"),
-            ("originator", originator_tag),
-            ("mode", mode_tag),
-        ],
-    );
-    let _ = metrics.counter(
-        "codex.windows_sandbox.setup_success",
-        /*inc*/ 1,
-        &[("originator", originator_tag), ("mode", mode_tag)],
-    );
 }
 
 fn emit_windows_sandbox_setup_failure_metrics(
-    mode: WindowsSandboxSetupMode,
-    originator_tag: &str,
-    duration: std::time::Duration,
+    _mode: WindowsSandboxSetupMode,
+    _originator_tag: &str,
+    _duration: std::time::Duration,
     _err: &anyhow::Error,
 ) {
-    let Some(metrics) = crate::telemetry::global() else {
-        return;
-    };
-    let mode_tag = windows_sandbox_setup_mode_tag(mode);
-    let _ = metrics.record_duration(
-        "codex.windows_sandbox.setup_duration_ms",
-        duration,
-        &[
-            ("result", "failure"),
-            ("originator", originator_tag),
-            ("mode", mode_tag),
-        ],
-    );
-    let _ = metrics.counter(
-        "codex.windows_sandbox.setup_failure",
-        /*inc*/ 1,
-        &[("originator", originator_tag), ("mode", mode_tag)],
-    );
-
-    if matches!(mode, WindowsSandboxSetupMode::Elevated) {
-        #[cfg(target_os = "windows")]
-        {
-            let mut failure_tags: Vec<(&str, &str)> = vec![("originator", originator_tag)];
-            let mut code_tag: Option<String> = None;
-            let mut message_tag: Option<String> = None;
-            if let Some((code, message)) = elevated_setup_failure_details(_err) {
-                code_tag = Some(code);
-                message_tag = Some(message);
-            }
-            if let Some(code) = code_tag.as_deref() {
-                failure_tags.push(("code", code));
-            }
-            if let Some(message) = message_tag.as_deref() {
-                failure_tags.push(("message", message));
-            }
-            let _ = metrics.counter(
-                elevated_setup_failure_metric_name(_err),
-                /*inc*/ 1,
-                &failure_tags,
-            );
-        }
-    } else {
-        let _ = metrics.counter(
-            "codex.windows_sandbox.legacy_setup_preflight_failed",
-            /*inc*/ 1,
-            &[("originator", originator_tag)],
-        );
-    }
 }
 
 fn windows_sandbox_setup_mode_tag(mode: WindowsSandboxSetupMode) -> &'static str {
