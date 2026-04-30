@@ -391,17 +391,13 @@ fn from_sources_applies_base_profile_and_overrides() {
             include_apply_patch_tool: Some(true),
             ..Default::default()
         },
-        FeatureOverrides {
-            web_search_request: Some(false),
-            ..Default::default()
-        },
+        FeatureOverrides::default(),
     );
 
     assert_eq!(features.enabled(Feature::Plugins), true);
     assert_eq!(features.enabled(Feature::CodeModeOnly), true);
     assert_eq!(features.enabled(Feature::CodeMode), true);
     assert_eq!(features.enabled(Feature::ApplyPatchFreeform), true);
-    assert_eq!(features.enabled(Feature::WebSearchRequest), false);
 }
 
 #[test]

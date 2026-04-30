@@ -536,9 +536,6 @@
             "runtime_metrics": {
               "type": "boolean"
             },
-            "search_tool": {
-              "type": "boolean"
-            },
             "shell_snapshot": {
               "type": "boolean"
             },
@@ -594,15 +591,6 @@
               "type": "boolean"
             },
             "use_linux_sandbox_bwrap": {
-              "type": "boolean"
-            },
-            "web_search": {
-              "type": "boolean"
-            },
-            "web_search_cached": {
-              "type": "boolean"
-            },
-            "web_search_request": {
               "type": "boolean"
             },
             "workspace_dependencies": {
@@ -4177,9 +4165,6 @@
         "runtime_metrics": {
           "type": "boolean"
         },
-        "search_tool": {
-          "type": "boolean"
-        },
         "shell_snapshot": {
           "type": "boolean"
         },
@@ -4235,15 +4220,6 @@
           "type": "boolean"
         },
         "use_linux_sandbox_bwrap": {
-          "type": "boolean"
-        },
-        "web_search": {
-          "type": "boolean"
-        },
-        "web_search_cached": {
-          "type": "boolean"
-        },
-        "web_search_request": {
           "type": "boolean"
         },
         "workspace_dependencies": {
