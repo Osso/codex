@@ -24,6 +24,11 @@ encoding_rs = { workspace = true }
 globset = { workspace = true }
 icu_decimal = { workspace = true }
 icu_locale_core = { workspace = true }
+# Required for the `sync` feature: makes icu_decimal::DecimalFormatter's
+# internal Yoke use Arc (Sync) instead of Rc, which is needed for the
+# `static FORMATTER: OnceLock<DecimalFormatter>` in src/num_format.rs.
+# cargo-machete misses this because no symbols are imported.
+icu_provider = { workspace = true, features = ["sync"] }
 quick-xml = { workspace = true, features = ["serialize"] }
 reqwest = { workspace = true }
 schemars = { workspace = true }
@@ -57,4 +62,8 @@ tempfile = { workspace = true }
 # Required because:
 # `icu_provider`: contains a required `sync` feature for `icu_decimal`
 # `strum`: as strum_macros in non-nightly builds
+ignored = ["icu_provider", "strum"]
+
+[package.metadata.cargo-machete]
+# Same reasons as cargo-shear above.
 ignored = ["icu_provider", "strum"]
