@@ -1538,11 +1538,7 @@ async fn spawn_thread_subagent_uses_role_specific_nickname_candidates() {
 
 #[tokio::test]
 async fn resume_thread_subagent_restores_stored_nickname_and_role() {
-    let (home, mut config) = test_config().await;
-    config
-        .features
-        .enable(Feature::Sqlite)
-        .expect("test config should allow sqlite");
+    let (home, config) = test_config().await;
     let state_db = init_state_db(&config).await;
     let manager = ThreadManager::with_models_provider_home_and_state_for_tests(
         CodexAuth::from_api_key("dummy"),

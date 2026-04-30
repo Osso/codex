@@ -777,7 +777,6 @@ fn test_build_specs_agent_job_worker_tools_enabled() {
     let mut features = Features::with_defaults();
     features.enable(Feature::SpawnCsv);
     features.normalize_dependencies();
-    features.enable(Feature::Sqlite);
     let available_models = Vec::new();
     let tools_config = ToolsConfig::new(&ToolsConfigParams {
         model_info: &model_info,

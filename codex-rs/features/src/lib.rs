@@ -111,18 +111,14 @@ pub enum Feature {
     UseLinuxSandboxBwrap,
     /// Allow the model to request approval and propose exec rules.
     RequestRule,
-    /// Enable Windows sandbox (restricted token) on Windows.
-    WindowsSandbox,
-    /// Use the elevated Windows sandbox pipeline (setup + runner).
-    WindowsSandboxElevated,
 /// Experimental shell snapshotting.
     ShellSnapshot,
     /// Enable git commit attribution guidance via model instructions.
     CodexGitCommit,
     /// Enable runtime metrics snapshots via a manual reader.
     RuntimeMetrics,
-    /// Persist rollout metadata to a local SQLite database.
-    Sqlite,
+    /// Enable thread lifecycle analytics emitted via the app-server analytics pipeline.
+    GeneralAnalytics,
     /// Enable startup memory extraction and file-backed memory consolidation.
     MemoryTool,
     /// Enable the Chronicle sidecar for passive screen-context memories.
@@ -677,9 +673,9 @@ pub const FEATURES: &[FeatureSpec] = &[
         default_enabled: false,
     },
     FeatureSpec {
-        id: Feature::Sqlite,
-        key: "sqlite",
-        stage: Stage::Removed,
+        id: Feature::GeneralAnalytics,
+        key: "general_analytics",
+        stage: Stage::Stable,
         default_enabled: true,
     },
     FeatureSpec {
@@ -743,18 +739,6 @@ pub const FEATURES: &[FeatureSpec] = &[
     FeatureSpec {
         id: Feature::RequestRule,
         key: "request_rule",
-        stage: Stage::Removed,
-        default_enabled: false,
-    },
-    FeatureSpec {
-        id: Feature::WindowsSandbox,
-        key: "experimental_windows_sandbox",
-        stage: Stage::Removed,
-        default_enabled: false,
-    },
-    FeatureSpec {
-        id: Feature::WindowsSandboxElevated,
-        key: "elevated_windows_sandbox",
         stage: Stage::Removed,
         default_enabled: false,
     },

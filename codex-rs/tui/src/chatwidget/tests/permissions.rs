@@ -65,33 +65,6 @@ async fn approvals_selection_popup_snapshot() {
     assert_chatwidget_snapshot!("approvals_selection_popup", popup);
 }
 
-#[cfg(target_os = "windows")]
-#[tokio::test]
-#[serial]
-async fn approvals_selection_popup_snapshot_windows_degraded_sandbox() {
-    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
-
-    chat.config.notices.hide_full_access_warning = None;
-    chat.set_feature_enabled(Feature::WindowsSandbox, /*enabled*/ true);
-    chat.set_feature_enabled(Feature::WindowsSandboxElevated, /*enabled*/ false);
-
-    chat.open_approvals_popup();
-
-    let popup = render_bottom_popup(&chat, /*width*/ 80);
-    assert!(
-        popup.contains("Default (non-admin sandbox)"),
-        "expected degraded sandbox label in approvals popup: {popup}"
-    );
-    assert!(
-        popup.contains("/setup-default-sandbox"),
-        "expected setup hint in approvals popup: {popup}"
-    );
-    assert!(
-        popup.contains("non-admin sandbox"),
-        "expected degraded sandbox note in approvals popup: {popup}"
-    );
-}
-
 #[tokio::test]
 async fn preset_matching_accepts_workspace_write_with_extra_roots() {
     let preset = builtin_approval_presets()
@@ -175,71 +148,6 @@ async fn full_access_confirmation_popup_snapshot() {
     assert_chatwidget_snapshot!("full_access_confirmation_popup", popup);
 }
 
-#[cfg(target_os = "windows")]
-#[tokio::test]
-async fn windows_auto_mode_prompt_requests_enabling_sandbox_feature() {
-    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
-
-    let preset = builtin_approval_presets()
-        .into_iter()
-        .find(|preset| preset.id == "auto")
-        .expect("auto preset");
-    chat.open_windows_sandbox_enable_prompt(preset);
-
-    let popup = render_bottom_popup(&chat, /*width*/ 120);
-    assert!(
-        popup.contains("requires Administrator permissions"),
-        "expected auto mode prompt to mention Administrator permissions, popup: {popup}"
-    );
-    assert!(
-        popup.contains("Use non-admin sandbox"),
-        "expected auto mode prompt to include non-admin fallback option, popup: {popup}"
-    );
-}
-
-#[cfg(target_os = "windows")]
-#[tokio::test]
-async fn startup_prompts_for_windows_sandbox_when_agent_requested() {
-    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
-
-    chat.set_feature_enabled(Feature::WindowsSandbox, /*enabled*/ false);
-    chat.set_feature_enabled(Feature::WindowsSandboxElevated, /*enabled*/ false);
-
-    chat.maybe_prompt_windows_sandbox_enable(/*show_now*/ true);
-
-    let popup = render_bottom_popup(&chat, /*width*/ 120);
-    assert!(
-        popup.contains("requires Administrator permissions"),
-        "expected startup prompt to mention Administrator permissions: {popup}"
-    );
-    assert!(
-        popup.contains("Set up default sandbox"),
-        "expected startup prompt to offer default sandbox setup: {popup}"
-    );
-    assert!(
-        popup.contains("Use non-admin sandbox"),
-        "expected startup prompt to offer non-admin fallback: {popup}"
-    );
-    assert!(
-        popup.contains("Quit"),
-        "expected startup prompt to offer quit action: {popup}"
-    );
-}
-
-#[cfg(target_os = "windows")]
-#[tokio::test]
-async fn startup_does_not_prompt_for_windows_sandbox_when_not_requested() {
-    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
-
-    chat.set_feature_enabled(Feature::WindowsSandbox, /*enabled*/ false);
-    chat.set_feature_enabled(Feature::WindowsSandboxElevated, /*enabled*/ false);
-    chat.maybe_prompt_windows_sandbox_enable(/*show_now*/ false);
-
-    assert!(
-        chat.bottom_pane.no_modal_or_popup_active(),
-        "expected no startup sandbox NUX popup when startup trigger is false"
-    );
-}
 
 #[tokio::test]
 async fn approvals_popup_shows_disabled_presets() {

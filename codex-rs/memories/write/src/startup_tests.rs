@@ -297,10 +297,6 @@ async fn build_test_codex(
     test_codex()
         .with_home(home)
         .with_config(|config| {
-            config
-                .features
-                .enable(Feature::Sqlite)
-                .expect("test config should allow feature update");
             config.memories.max_raw_memories_for_consolidation = 1;
         })
         .build(server)
