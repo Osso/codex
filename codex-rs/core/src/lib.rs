@@ -176,6 +176,9 @@ mod state;
 mod tasks;
 mod user_shell_command;
 pub mod util;
+pub use util::FeedbackRequestTags;
+pub use util::emit_feedback_request_tags;
+pub use util::emit_feedback_request_tags_with_auth_env;
 
 pub use attestation::AttestationContext;
 pub use attestation::AttestationProvider;

@@ -32,7 +32,7 @@ async fn experimental_mode_plan_is_ignored_on_startup() {
         enhanced_keys_supported: false,
         has_chatgpt_account: false,
         model_catalog: test_model_catalog(&cfg),
-        feedback: codex_feedback::CodexFeedback::new(),
+        feedback: codex_app_server_client::CodexFeedback::new(),
         is_first_run: true,
         status_account_display: None,
         runtime_model_provider_base_url: None,
@@ -1732,8 +1732,7 @@ async fn feedback_upload_consent_popup_snapshot() {
         chat.app_event_tx.clone(),
         crate::app_event::FeedbackCategory::Bug,
         chat.current_rollout_path.clone(),
-        Some("auto-review-rollout-thread-1.jsonl".to_string()),
-        &codex_feedback::FeedbackDiagnostics::new(vec![codex_feedback::FeedbackDiagnostic {
+        &codex_app_server_client::FeedbackDiagnostics::new(vec![codex_app_server_client::FeedbackDiagnostic {
             headline: "Proxy environment variables are set and may affect connectivity."
                 .to_string(),
             details: vec!["HTTPS_PROXY = hello".to_string()],
@@ -1752,8 +1751,7 @@ async fn feedback_good_result_consent_popup_includes_connectivity_diagnostics_fi
         chat.app_event_tx.clone(),
         crate::app_event::FeedbackCategory::GoodResult,
         chat.current_rollout_path.clone(),
-        Some("auto-review-rollout-thread-1.jsonl".to_string()),
-        &codex_feedback::FeedbackDiagnostics::new(vec![codex_feedback::FeedbackDiagnostic {
+        &codex_app_server_client::FeedbackDiagnostics::new(vec![codex_app_server_client::FeedbackDiagnostic {
             headline: "Proxy environment variables are set and may affect connectivity."
                 .to_string(),
             details: vec!["HTTPS_PROXY = hello".to_string()],

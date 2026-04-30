@@ -66,7 +66,7 @@ use codex_chatgpt::workspace_settings;
 use codex_core::ThreadManager;
 use codex_core::config::Config;
 use codex_exec_server::EnvironmentManager;
-use codex_feedback::CodexFeedback;
+use codex_features::Feature;
 use codex_login::AuthManager;
 use codex_login::auth::ExternalAuth;
 use codex_login::auth::ExternalAuthRefreshContext;
@@ -256,7 +256,6 @@ pub(crate) struct MessageProcessorArgs {
     pub(crate) config: Arc<Config>,
     pub(crate) config_manager: ConfigManager,
     pub(crate) environment_manager: Arc<EnvironmentManager>,
-    pub(crate) feedback: CodexFeedback,
     pub(crate) log_db: Option<LogDbLayer>,
     pub(crate) state_db: Option<StateDbHandle>,
     pub(crate) config_warnings: Vec<ConfigWarningNotification>,
@@ -279,7 +278,6 @@ impl MessageProcessor {
             config,
             config_manager,
             environment_manager,
-            feedback,
             log_db,
             state_db,
             config_warnings,
@@ -318,44 +316,14 @@ impl MessageProcessor {
             .set_analytics_events_client(analytics_events_client.clone());
         let skills_watcher = SkillsWatcher::new(thread_manager.skills_manager(), outgoing.clone());
 
-        let pending_thread_unloads = Arc::new(Mutex::new(HashSet::new()));
-        let thread_watch_manager =
-            crate::thread_status::ThreadWatchManager::new_with_outgoing(outgoing.clone());
-        let thread_list_state_permit = Arc::new(Semaphore::new(/*permits*/ 1));
-        let workspace_settings_cache =
-            Arc::new(workspace_settings::WorkspaceSettingsCache::default());
-        let account_processor = AccountRequestProcessor::new(
-            auth_manager.clone(),
-            Arc::clone(&thread_manager),
-            outgoing.clone(),
-            Arc::clone(&config),
-            config_manager.clone(),
-        );
-        let apps_processor = AppsRequestProcessor::new(
-            auth_manager.clone(),
-            Arc::clone(&thread_manager),
-            outgoing.clone(),
-            config_manager.clone(),
-            Arc::clone(&workspace_settings_cache),
-        );
-        let catalog_processor = CatalogRequestProcessor::new(
-            auth_manager.clone(),
-            Arc::clone(&thread_manager),
-            Arc::clone(&config),
-            config_manager.clone(),
-            Arc::clone(&workspace_settings_cache),
-        );
-        let command_exec_processor = CommandExecRequestProcessor::new(
-            arg0_paths.clone(),
-            Arc::clone(&config),
-            outgoing.clone(),
-        );
-        let process_exec_processor = ProcessExecRequestProcessor::new(outgoing.clone());
-        let feedback_processor = FeedbackRequestProcessor::new(
-            auth_manager.clone(),
-            Arc::clone(&thread_manager),
-            Arc::clone(&config),
-            feedback,
+        let codex_message_processor = CodexMessageProcessor::new(CodexMessageProcessorArgs {
+            auth_manager: auth_manager.clone(),
+            thread_manager: Arc::clone(&thread_manager),
+            outgoing: outgoing.clone(),
+            analytics_events_client: analytics_events_client.clone(),
+            arg0_paths,
+            config: Arc::clone(&config),
+            config_manager: config_manager.clone(),
             log_db,
             state_db.clone(),
         );
