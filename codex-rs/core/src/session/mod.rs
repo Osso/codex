@@ -303,7 +303,6 @@ use crate::tools::network_approval::build_network_policy_decider;
 use crate::tools::parallel::ToolCallRuntime;
 use crate::tools::sandboxing::ApprovalStore;
 use crate::turn_timing::TurnTimingState;
-use crate::turn_timing::record_turn_ttfm_metric;
 use crate::unified_exec::UnifiedExecProcessManager;
 use crate::windows_sandbox::WindowsSandboxLevelExt;
 use codex_git_utils::get_git_repo_root;
@@ -1641,7 +1640,6 @@ impl Session {
         turn_context: &TurnContext,
         item: TurnItem,
     ) {
-        record_turn_ttfm_metric(turn_context, &item).await;
         self.send_event(
             turn_context,
             EventMsg::ItemCompleted(ItemCompletedEvent {

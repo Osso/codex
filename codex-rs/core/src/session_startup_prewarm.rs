@@ -13,9 +13,6 @@ use crate::session::INITIAL_SUBMIT_ID;
 use crate::session::session::Session;
 use crate::session::turn::build_prompt;
 use crate::session::turn::built_tools;
-use crate::telemetry::STARTUP_PREWARM_AGE_AT_FIRST_TURN_METRIC;
-use crate::telemetry::STARTUP_PREWARM_DURATION_METRIC;
-use crate::telemetry::SessionTelemetry;
 use codex_protocol::error::Result as CodexResult;
 use codex_protocol::models::BaseInstructions;
 
@@ -49,7 +46,6 @@ impl SessionStartupPrewarmHandle {
 
     async fn resolve(
         self,
-        session_telemetry: &SessionTelemetry,
         cancellation_token: &CancellationToken,
     ) -> SessionStartupPrewarmResolution {
         let Self {
@@ -60,7 +56,7 @@ impl SessionStartupPrewarmHandle {
         let age_at_first_turn = started_at.elapsed();
         let remaining = timeout.saturating_sub(age_at_first_turn);
 
-        let resolution = if task.is_finished() {
+        if task.is_finished() {
             Self::resolution_from_join_result(task.await, started_at)
         } else {
             match tokio::select! {
@@ -78,52 +74,7 @@ impl SessionStartupPrewarmHandle {
                 }
                 None => {
                     task.abort();
-                    session_telemetry.record_duration(
-                        STARTUP_PREWARM_AGE_AT_FIRST_TURN_METRIC,
-                        age_at_first_turn,
-                        &[("status", "cancelled")],
-                    );
-                    session_telemetry.record_duration(
-                        STARTUP_PREWARM_DURATION_METRIC,
-                        started_at.elapsed(),
-                        &[("status", "cancelled")],
-                    );
-                    return SessionStartupPrewarmResolution::Cancelled;
-                }
-            }
-        };
-
-        match resolution {
-            SessionStartupPrewarmResolution::Cancelled => {
-                SessionStartupPrewarmResolution::Cancelled
-            }
-            SessionStartupPrewarmResolution::Ready(prewarmed_session) => {
-                session_telemetry.record_duration(
-                    STARTUP_PREWARM_AGE_AT_FIRST_TURN_METRIC,
-                    age_at_first_turn,
-                    &[("status", "consumed")],
-                );
-                SessionStartupPrewarmResolution::Ready(prewarmed_session)
-            }
-            SessionStartupPrewarmResolution::Unavailable {
-                status,
-                prewarm_duration,
-            } => {
-                session_telemetry.record_duration(
-                    STARTUP_PREWARM_AGE_AT_FIRST_TURN_METRIC,
-                    age_at_first_turn,
-                    &[("status", status)],
-                );
-                if let Some(prewarm_duration) = prewarm_duration {
-                    session_telemetry.record_duration(
-                        STARTUP_PREWARM_DURATION_METRIC,
-                        prewarm_duration,
-                        &[("status", status)],
-                    );
-                }
-                SessionStartupPrewarmResolution::Unavailable {
-                    status,
-                    prewarm_duration,
+                    SessionStartupPrewarmResolution::Cancelled
                 }
             }
         }
@@ -157,20 +108,11 @@ impl SessionStartupPrewarmHandle {
 
 impl Session {
     pub(crate) async fn schedule_startup_prewarm(self: &Arc<Self>, base_instructions: String) {
-        let session_telemetry = self.services.session_telemetry.clone();
         let websocket_connect_timeout = self.provider().await.websocket_connect_timeout();
         let started_at = Instant::now();
         let startup_prewarm_session = Arc::clone(self);
         let startup_prewarm = tokio::spawn(async move {
-            let result =
-                schedule_startup_prewarm_inner(startup_prewarm_session, base_instructions).await;
-            let status = if result.is_ok() { "ready" } else { "failed" };
-            session_telemetry.record_duration(
-                STARTUP_PREWARM_DURATION_METRIC,
-                started_at.elapsed(),
-                &[("status", status)],
-            );
-            result
+            schedule_startup_prewarm_inner(startup_prewarm_session, base_instructions).await
         });
         self.set_session_startup_prewarm(SessionStartupPrewarmHandle::new(
             startup_prewarm,
@@ -190,9 +132,7 @@ impl Session {
                 prewarm_duration: None,
             };
         };
-        startup_prewarm
-            .resolve(&self.services.session_telemetry, cancellation_token)
-            .await
+        startup_prewarm.resolve(cancellation_token).await
     }
 }
 

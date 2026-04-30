@@ -11,7 +11,6 @@ use codex_app_server_protocol::AuthMode;
 use codex_model_provider::BearerAuthProvider;
 use codex_model_provider_info::WireApi;
 use codex_model_provider_info::create_oss_provider_with_base_url;
-use crate::telemetry::SessionTelemetry;
 use codex_protocol::ThreadId;
 use codex_protocol::openai_models::ModelInfo;
 use codex_protocol::protocol::SessionSource;
@@ -62,21 +61,6 @@ fn test_model_info() -> ModelInfo {
         "experimental_supported_tools": []
     }))
     .expect("deserialize test model info")
-}
-
-fn test_session_telemetry() -> SessionTelemetry {
-    SessionTelemetry::new(
-        ThreadId::new(),
-        "gpt-test",
-        "gpt-test",
-        /*account_id*/ None,
-        /*account_email*/ None,
-        /*auth_mode*/ None,
-        "test-originator".to_string(),
-        /*log_user_prompts*/ false,
-        "test-terminal".to_string(),
-        SessionSource::Cli,
-    )
 }
 
 #[test]
@@ -137,15 +121,9 @@ fn build_ws_client_metadata_includes_window_lineage_and_turn_metadata() {
 async fn summarize_memories_returns_empty_for_empty_input() {
     let client = test_model_client(SessionSource::Cli);
     let model_info = test_model_info();
-    let session_telemetry = test_session_telemetry();
 
     let output = client
-        .summarize_memories(
-            Vec::new(),
-            &model_info,
-            /*effort*/ None,
-            &session_telemetry,
-        )
+        .summarize_memories(Vec::new(), &model_info, /*effort*/ None)
         .await
         .expect("empty summarize request should succeed");
     assert_eq!(output.len(), 0);
