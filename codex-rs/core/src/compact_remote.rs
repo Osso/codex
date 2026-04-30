@@ -26,7 +26,7 @@ use codex_protocol::models::ResponseItem;
 use codex_protocol::protocol::CompactedItem;
 use codex_protocol::protocol::EventMsg;
 use codex_protocol::protocol::TurnStartedEvent;
-use codex_rollout_trace::CompactionCheckpointTracePayload;
+use crate::rollout_trace::CompactionCheckpointTracePayload;
 use futures::TryFutureExt;
 use tokio_util::sync::CancellationToken;
 use tracing::error;

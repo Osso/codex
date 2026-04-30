@@ -23,7 +23,7 @@ use codex_protocol::openai_models::ModelInfo;
 use codex_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
 use codex_protocol::protocol::RolloutItem;
 use codex_protocol::protocol::TokenUsage;
-use codex_rollout_trace::InferenceTraceContext;
+use crate::rollout_trace::InferenceTraceContext;
 use codex_secrets::redact_secrets;
 use futures::StreamExt;
 use serde::Deserialize;

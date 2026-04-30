@@ -979,7 +979,7 @@ pub async fn shutdown(sess: &Arc<Session>, sub_id: String) -> bool {
     sess.send_event_raw(event).await;
     sess.services
         .rollout_thread_trace
-        .record_ended(codex_rollout_trace::RolloutStatus::Completed);
+        .record_ended(crate::rollout_trace::RolloutStatus::Completed);
     true
 }
 
