@@ -60,11 +60,6 @@ use tracing::warn;
 
 pub use crate::remote::RemoteAppServerClient;
 pub use crate::remote::RemoteAppServerConnectArgs;
-pub use codex_app_server::CodexFeedback;
-pub use codex_app_server::FeedbackDiagnostic;
-pub use codex_app_server::FeedbackDiagnostics;
-pub use codex_app_server::FeedbackSnapshot;
-pub use codex_app_server::FEEDBACK_DIAGNOSTICS_ATTACHMENT_FILENAME;
 
 /// Transitional access to core-only embedded app-server types.
 ///

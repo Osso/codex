@@ -1203,16 +1203,6 @@ impl CodexMessageProcessor {
                 self.send_add_credits_nudge_email(to_connection_request_id(request_id), params)
                     .await;
             }
-            ClientRequest::FeedbackUpload { request_id, .. } => {
-                let error = JSONRPCErrorError {
-                    code: crate::error_code::INVALID_PARAMS_ERROR_CODE,
-                    message: "feedback/upload is not supported in this build".to_string(),
-                    data: None,
-                };
-                self.outgoing
-                    .send_error(to_connection_request_id(request_id), error)
-                    .await;
-            }
         }
     }
 

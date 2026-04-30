@@ -1702,7 +1702,6 @@ mod tests {
             Vec::new(),
             LoaderOverrides::default(),
             CloudRequirementsLoader::default(),
-            codex_app_server_client::CodexFeedback::new(),
             /*log_db*/ None,
             Arc::new(EnvironmentManager::default_for_tests()),
         )
@@ -2054,7 +2053,6 @@ mod tests {
             Vec::new(),
             LoaderOverrides::default(),
             CloudRequirementsLoader::default(),
-            codex_app_server_client::CodexFeedback::new(),
             /*log_db*/ None,
             Arc::new(EnvironmentManager::default_for_tests()),
             |_args| async { Err(std::io::Error::other("boom")) },
