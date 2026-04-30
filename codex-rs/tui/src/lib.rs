@@ -173,14 +173,12 @@ pub use public_widgets::composer_input::ComposerAction;
 pub use public_widgets::composer_input::ComposerInput;
 // (tests access modules directly within the crate)
 
-#[allow(clippy::too_many_arguments)]
 async fn start_embedded_app_server(
     arg0_paths: Arg0DispatchPaths,
     config: Config,
     cli_kv_overrides: Vec<(String, toml::Value)>,
     loader_overrides: LoaderOverrides,
     cloud_requirements: CloudRequirementsLoader,
-    feedback: codex_feedback::CodexFeedback,
     log_db: Option<log_db::LogDbLayer>,
     environment_manager: Arc<EnvironmentManager>,
 ) -> color_eyre::Result<InProcessAppServerClient> {
@@ -190,7 +188,6 @@ async fn start_embedded_app_server(
         cli_kv_overrides,
         loader_overrides,
         cloud_requirements,
-        feedback,
         log_db,
         environment_manager,
         InProcessAppServerClient::start,
@@ -307,7 +304,6 @@ async fn start_app_server(
     cli_kv_overrides: Vec<(String, toml::Value)>,
     loader_overrides: LoaderOverrides,
     cloud_requirements: CloudRequirementsLoader,
-    feedback: codex_feedback::CodexFeedback,
     log_db: Option<log_db::LogDbLayer>,
     environment_manager: Arc<EnvironmentManager>,
 ) -> color_eyre::Result<AppServerClient> {
@@ -318,7 +314,6 @@ async fn start_app_server(
             cli_kv_overrides,
             loader_overrides,
             cloud_requirements,
-            feedback,
             log_db,
             environment_manager,
         )
@@ -343,7 +338,6 @@ pub(crate) async fn start_app_server_for_picker(
         Vec::new(),
         LoaderOverrides::default(),
         CloudRequirementsLoader::default(),
-        codex_feedback::CodexFeedback::new(),
         /*log_db*/ None,
         environment_manager,
     )
@@ -370,7 +364,6 @@ async fn start_embedded_app_server_with<F, Fut>(
     cli_kv_overrides: Vec<(String, toml::Value)>,
     loader_overrides: LoaderOverrides,
     cloud_requirements: CloudRequirementsLoader,
-    feedback: codex_feedback::CodexFeedback,
     log_db: Option<log_db::LogDbLayer>,
     environment_manager: Arc<EnvironmentManager>,
     start_client: F,
@@ -395,7 +388,6 @@ where
         cli_overrides: cli_kv_overrides,
         loader_overrides,
         cloud_requirements,
-        feedback,
         log_db,
         environment_manager,
         config_warnings,
@@ -873,10 +865,6 @@ pub async fn run_main(
         )
         .with_filter(env_filter());
 
-    let feedback = codex_feedback::CodexFeedback::new();
-    let feedback_layer = feedback.logger_layer();
-    let feedback_metadata_layer = feedback.metadata_layer();
-
     if cli.oss && model_provider_override.is_some() {
         // We're in the oss section, so provider_id should be Some
         // Let's handle None case gracefully though just in case
@@ -928,8 +916,6 @@ pub async fn run_main(
 
     let _ = tracing_subscriber::registry()
         .with(file_layer)
-        .with(feedback_layer)
-        .with(feedback_metadata_layer)
         .with(log_db_layer)
         .with(otel_logger_layer)
         .with(otel_tracing_layer)
@@ -945,7 +931,6 @@ pub async fn run_main(
         overrides,
         cli_kv_overrides,
         cloud_requirements,
-        feedback,
         log_db,
         remote_url,
         remote_auth_token,
@@ -966,7 +951,6 @@ async fn run_ratatui_app(
     overrides: ConfigOverrides,
     cli_kv_overrides: Vec<(String, toml::Value)>,
     mut cloud_requirements: CloudRequirementsLoader,
-    feedback: codex_feedback::CodexFeedback,
     log_db: Option<log_db::LogDbLayer>,
     remote_url: Option<String>,
     remote_auth_token: Option<String>,
@@ -1025,7 +1009,6 @@ async fn run_ratatui_app(
             cli_kv_overrides.clone(),
             loader_overrides.clone(),
             cloud_requirements.clone(),
-            feedback.clone(),
             log_db.clone(),
             environment_manager.clone(),
         )
@@ -1356,7 +1339,6 @@ async fn run_ratatui_app(
             cli_kv_overrides.clone(),
             loader_overrides,
             cloud_requirements.clone(),
-            feedback.clone(),
             log_db.clone(),
             environment_manager.clone(),
         )
@@ -1382,7 +1364,6 @@ async fn run_ratatui_app(
         prompt,
         images,
         session_selection,
-        feedback,
         should_show_trust_screen, // Proxy to: is it a first run in this directory?
         should_show_trust_screen_flag, // Preserve the startup-time trust NUX signal before onboarding
         should_prompt_windows_sandbox_nux_at_startup,
@@ -1721,7 +1702,7 @@ mod tests {
             Vec::new(),
             LoaderOverrides::default(),
             CloudRequirementsLoader::default(),
-            codex_feedback::CodexFeedback::new(),
+            codex_app_server_client::CodexFeedback::new(),
             /*log_db*/ None,
             Arc::new(EnvironmentManager::default_for_tests()),
         )
@@ -2073,7 +2054,7 @@ mod tests {
             Vec::new(),
             LoaderOverrides::default(),
             CloudRequirementsLoader::default(),
-            codex_feedback::CodexFeedback::new(),
+            codex_app_server_client::CodexFeedback::new(),
             /*log_db*/ None,
             Arc::new(EnvironmentManager::default_for_tests()),
             |_args| async { Err(std::io::Error::other("boom")) },

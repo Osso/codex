@@ -50,7 +50,6 @@ use codex_core::config_loader::LoaderOverrides;
 pub use codex_exec_server::EnvironmentManager;
 pub use codex_exec_server::EnvironmentManagerArgs;
 pub use codex_exec_server::ExecServerRuntimePaths;
-use codex_feedback::CodexFeedback;
 use codex_protocol::protocol::SessionSource;
 use serde::de::DeserializeOwned;
 use tokio::sync::mpsc;
@@ -61,6 +60,11 @@ use tracing::warn;
 
 pub use crate::remote::RemoteAppServerClient;
 pub use crate::remote::RemoteAppServerConnectArgs;
+pub use codex_app_server::CodexFeedback;
+pub use codex_app_server::FeedbackDiagnostic;
+pub use codex_app_server::FeedbackDiagnostics;
+pub use codex_app_server::FeedbackSnapshot;
+pub use codex_app_server::FEEDBACK_DIAGNOSTICS_ATTACHMENT_FILENAME;
 
 /// Transitional access to core-only embedded app-server types.
 ///
@@ -336,8 +340,6 @@ pub struct InProcessClientStartArgs {
     pub loader_overrides: LoaderOverrides,
     /// Preloaded cloud requirements provider.
     pub cloud_requirements: CloudRequirementsLoader,
-    /// Feedback sink used by app-server/core telemetry and logs.
-    pub feedback: CodexFeedback,
     /// SQLite tracing layer used to flush recently emitted logs before feedback upload.
     pub log_db: Option<LogDbLayer>,
     /// Environment manager used by core execution and filesystem operations.
@@ -399,7 +401,6 @@ impl InProcessClientStartArgs {
             loader_overrides: self.loader_overrides,
             cloud_requirements: self.cloud_requirements,
             thread_config_loader,
-            feedback: self.feedback,
             log_db: self.log_db,
             environment_manager: self.environment_manager,
             config_warnings: self.config_warnings,
@@ -978,7 +979,6 @@ mod tests {
             cli_overrides: Vec::new(),
             loader_overrides: LoaderOverrides::default(),
             cloud_requirements: CloudRequirementsLoader::default(),
-            feedback: CodexFeedback::new(),
             log_db: None,
             environment_manager: Arc::new(EnvironmentManager::default_for_tests()),
             config_warnings: Vec::new(),
@@ -2007,7 +2007,6 @@ mod tests {
             cli_overrides: Vec::new(),
             loader_overrides: LoaderOverrides::default(),
             cloud_requirements: CloudRequirementsLoader::default(),
-            feedback: CodexFeedback::new(),
             log_db: None,
             environment_manager: environment_manager.clone(),
             config_warnings: Vec::new(),
@@ -2046,7 +2045,6 @@ mod tests {
             cli_overrides: Vec::new(),
             loader_overrides: LoaderOverrides::default(),
             cloud_requirements: CloudRequirementsLoader::default(),
-            feedback: CodexFeedback::new(),
             log_db: None,
             environment_manager: Arc::new(EnvironmentManager::default_for_tests()),
             config_warnings: Vec::new(),

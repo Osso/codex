@@ -49,7 +49,11 @@ use codex_core::config_loader::ConfigLoadError;
 use codex_core::config_loader::TextRange as CoreTextRange;
 use codex_exec_server::EnvironmentManager;
 use codex_exec_server::ExecServerRuntimePaths;
-use codex_feedback::CodexFeedback;
+pub use crate::feedback_stub::CodexFeedback;
+pub use crate::feedback_stub::FeedbackDiagnostic;
+pub use crate::feedback_stub::FeedbackDiagnostics;
+pub use crate::feedback_stub::FeedbackSnapshot;
+pub use crate::feedback_stub::FEEDBACK_DIAGNOSTICS_ATTACHMENT_FILENAME;
 use codex_protocol::protocol::SessionSource;
 use codex_state::log_db;
 use tokio::sync::mpsc;
@@ -75,6 +79,7 @@ mod config;
 mod config_api;
 mod config_manager;
 mod config_manager_service;
+pub mod feedback_stub;
 mod device_key_api;
 mod dynamic_tools;
 mod error_code;
@@ -485,8 +490,6 @@ pub async fn run_main_with_transport(
         });
     }
 
-    let feedback = CodexFeedback::new();
-
     let otel = codex_core::otel_init::build_provider(
         &config,
         env!("CARGO_PKG_VERSION"),
@@ -517,8 +520,6 @@ pub async fn run_main_with_transport(
             .boxed(),
     };
 
-    let feedback_layer = feedback.logger_layer();
-    let feedback_metadata_layer = feedback.metadata_layer();
     let state_db = codex_state::StateRuntime::init(
         config.sqlite_home.clone(),
         config.model_provider_id.clone(),
@@ -533,8 +534,6 @@ pub async fn run_main_with_transport(
     let otel_tracing_layer = otel.as_ref().and_then(|o| o.tracing_layer());
     let _ = tracing_subscriber::registry()
         .with(stderr_fmt)
-        .with(feedback_layer)
-        .with(feedback_metadata_layer)
         .with(log_db_layer)
         .with(otel_logger_layer)
         .with(otel_tracing_layer)
@@ -676,7 +675,6 @@ pub async fn run_main_with_transport(
             config: Arc::new(config),
             config_manager,
             environment_manager,
-            feedback: feedback.clone(),
             log_db,
             config_warnings,
             session_source,
