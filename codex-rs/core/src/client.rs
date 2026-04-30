@@ -67,8 +67,8 @@ use codex_login::CodexAuth;
 use codex_login::RefreshTokenError;
 use codex_login::UnauthorizedRecovery;
 use codex_login::default_client::build_reqwest_client;
-use codex_otel::SessionTelemetry;
-use codex_otel::current_span_w3c_trace_context;
+use crate::telemetry::SessionTelemetry;
+use crate::telemetry::current_span_w3c_trace_context;
 
 use codex_protocol::SessionId;
 use codex_protocol::ThreadId;

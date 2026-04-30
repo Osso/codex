@@ -19,7 +19,7 @@ codex-app-server-protocol = { workspace = true }
 codex-collaboration-mode-templates = { workspace = true }
 codex-config = { workspace = true }
 codex-login = { workspace = true }
-codex-otel = { workspace = true }
+codex-model-provider-info = { workspace = true }
 codex-protocol = { workspace = true }
 codex-utils-output-truncation = { workspace = true }
 codex-utils-template = { workspace = true }

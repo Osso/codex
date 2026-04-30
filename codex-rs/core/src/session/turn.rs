@@ -256,7 +256,6 @@ pub(crate) async fn run_turn(
     )
     .await;
 
-    let session_telemetry = turn_context.session_telemetry.clone();
     let thread_id = sess.conversation_id.to_string();
     let tracking = build_track_events_context(
         turn_context.model_info.slug.clone(),
@@ -269,7 +268,6 @@ pub(crate) async fn run_turn(
     } = build_skill_injections(
         &mentioned_skills,
         skills_outcome,
-        Some(&session_telemetry),
         &sess.services.analytics_events_client,
         tracking.clone(),
     )

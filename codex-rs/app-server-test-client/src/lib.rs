@@ -67,18 +67,13 @@ use codex_app_server_protocol::TurnStartParams;
 use codex_app_server_protocol::TurnStartResponse;
 use codex_app_server_protocol::TurnStatus;
 use codex_app_server_protocol::UserInput as V2UserInput;
-use codex_core::config::Config;
-use codex_otel::OtelProvider;
-use codex_otel::current_span_w3c_trace_context;
+use codex_core::telemetry::current_span_w3c_trace_context;
 use codex_protocol::openai_models::ReasoningEffort;
 use codex_protocol::protocol::W3cTraceContext;
-use codex_utils_cli::CliConfigOverrides;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use tracing::info_span;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
 use tungstenite::Message;
 use tungstenite::WebSocket;
 use tungstenite::connect;
@@ -97,8 +92,6 @@ const NOTIFICATIONS_TO_OPT_OUT: &[&str] = &[
 ];
 const APP_SERVER_GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
 const APP_SERVER_GRACEFUL_SHUTDOWN_POLL_INTERVAL: Duration = Duration::from_millis(100);
-const DEFAULT_ANALYTICS_ENABLED: bool = true;
-const OTEL_SERVICE_NAME: &str = "codex-app-server-test-client";
 const TRACE_DISABLED_MESSAGE: &str =
     "Not enabled - enable tracing in $CODEX_HOME/config.toml to get a trace URL!";
 
@@ -2120,41 +2113,13 @@ fn print_multiline_with_prefix(prefix: &str, payload: &str) {
 }
 
 struct TestClientTracing {
-    _otel_provider: Option<OtelProvider>,
     traces_enabled: bool,
 }
 
 impl TestClientTracing {
-    async fn initialize(config_overrides: &[String]) -> Result<Self> {
-        let cli_kv_overrides = CliConfigOverrides {
-            raw_overrides: config_overrides.to_vec(),
-        }
-        .parse_overrides()
-        .map_err(|e| anyhow::anyhow!("error parsing -c overrides: {e}"))?;
-        let config = Config::load_with_cli_overrides(cli_kv_overrides)
-            .await
-            .context("error loading config")?;
-        let otel_provider = codex_core::otel_init::build_provider(
-            &config,
-            env!("CARGO_PKG_VERSION"),
-            Some(OTEL_SERVICE_NAME),
-            DEFAULT_ANALYTICS_ENABLED,
-        )
-        .map_err(|e| anyhow::anyhow!("error loading otel config: {e}"))?;
-        let traces_enabled = otel_provider
-            .as_ref()
-            .and_then(|provider| provider.tracer_provider.as_ref())
-            .is_some();
-        if let Some(provider) = otel_provider.as_ref()
-            && traces_enabled
-        {
-            let _ = tracing_subscriber::registry()
-                .with(provider.tracing_layer())
-                .try_init();
-        }
+    async fn initialize(_config_overrides: &[String]) -> Result<Self> {
         Ok(Self {
-            traces_enabled,
-            _otel_provider: otel_provider,
+            traces_enabled: false,
         })
     }
 }

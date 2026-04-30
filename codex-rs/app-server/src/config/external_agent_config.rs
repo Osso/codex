@@ -1575,47 +1575,11 @@ fn invalid_data_error(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message.into())
 }
 
-fn migration_metric_tags(
-    item_type: ExternalAgentConfigMigrationItemType,
-    skills_count: Option<usize>,
-) -> Vec<(&'static str, String)> {
-    let migration_type = match item_type {
-        ExternalAgentConfigMigrationItemType::Config => "config",
-        ExternalAgentConfigMigrationItemType::Skills => "skills",
-        ExternalAgentConfigMigrationItemType::AgentsMd => "agents_md",
-        ExternalAgentConfigMigrationItemType::Plugins => "plugins",
-        ExternalAgentConfigMigrationItemType::McpServerConfig => "mcp_server_config",
-        ExternalAgentConfigMigrationItemType::Subagents => "subagents",
-        ExternalAgentConfigMigrationItemType::Hooks => "hooks",
-        ExternalAgentConfigMigrationItemType::Commands => "commands",
-        ExternalAgentConfigMigrationItemType::Sessions => "sessions",
-    };
-    let mut tags = vec![("migration_type", migration_type.to_string())];
-    if matches!(
-        item_type,
-        ExternalAgentConfigMigrationItemType::Skills
-            | ExternalAgentConfigMigrationItemType::Subagents
-            | ExternalAgentConfigMigrationItemType::Commands
-    ) {
-        tags.push(("skills_count", skills_count.unwrap_or(0).to_string()));
-    }
-    tags
-}
-
 fn emit_migration_metric(
-    metric_name: &str,
-    item_type: ExternalAgentConfigMigrationItemType,
-    skills_count: Option<usize>,
+    _metric_name: &str,
+    _item_type: ExternalAgentConfigMigrationItemType,
+    _skills_count: Option<usize>,
 ) {
-    let Some(metrics) = codex_otel::global() else {
-        return;
-    };
-    let tags = migration_metric_tags(item_type, skills_count);
-    let tag_refs = tags
-        .iter()
-        .map(|(key, value)| (*key, value.as_str()))
-        .collect::<Vec<_>>();
-    let _ = metrics.counter(metric_name, /*inc*/ 1, &tag_refs);
 }
 
 #[cfg(test)]

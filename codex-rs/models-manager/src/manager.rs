@@ -12,6 +12,13 @@ use feedback_tags::FeedbackRequestTags;
 use feedback_tags::emit_feedback_request_tags_with_auth_env;
 use codex_login::AuthEnvTelemetry;
 use codex_login::AuthManager;
+use codex_login::CodexAuth;
+use codex_login::collect_auth_env_telemetry;
+use codex_login::default_client::build_reqwest_client;
+use codex_model_provider::SharedModelProvider;
+use codex_model_provider::create_model_provider;
+use codex_app_server_protocol::AuthMode;
+use codex_model_provider_info::ModelProviderInfo;
 use codex_protocol::config_types::CollaborationModeMask;
 use codex_protocol::error::Result as CoreResult;
 use codex_protocol::openai_models::ModelInfo;
@@ -307,6 +314,31 @@ impl OpenAiModelsManager {
     }
 
     async fn fetch_and_update_models(&self) -> CoreResult<()> {
+        let auth_manager = self.provider.auth_manager();
+        let codex_api_key_env_enabled = auth_manager
+            .as_ref()
+            .is_some_and(|auth_manager| auth_manager.codex_api_key_env_enabled());
+        let auth = self.provider.auth().await;
+        let auth_mode = auth.as_ref().map(CodexAuth::auth_mode);
+        let api_provider = self.provider.api_provider().await?;
+        let api_auth = self.provider.api_auth().await?;
+        let auth_env = collect_auth_env_telemetry(self.provider.info(), codex_api_key_env_enabled);
+        let transport = ReqwestTransport::new(build_reqwest_client());
+        let auth_telemetry = auth_header_telemetry(api_auth.as_ref());
+        let request_telemetry: Arc<dyn RequestTelemetry> = Arc::new(ModelsRequestTelemetry {
+            auth_mode: auth_mode.map(|mode| match mode {
+                AuthMode::ApiKey => "apikey".to_string(),
+                AuthMode::Chatgpt | AuthMode::ChatgptAuthTokens | AuthMode::AgentIdentity => {
+                    "chatgpt".to_string()
+                }
+            }),
+            auth_header_attached: auth_telemetry.attached,
+            auth_header_name: auth_telemetry.name,
+            auth_env,
+        });
+        let client = ModelsClient::new(transport, api_provider, api_auth)
+            .with_telemetry(Some(request_telemetry));
+
         let client_version = crate::client_version_to_whole();
         let (models, etag) = self.endpoint_client.list_models(&client_version).await?;
         self.apply_remote_models(models.clone()).await;
@@ -343,8 +375,6 @@ impl OpenAiModelsManager {
 
     /// Attempt to satisfy the refresh from the cache when it matches the provider and TTL.
     async fn try_load_cache(&self) -> bool {
-        let _timer =
-            codex_otel::start_global_timer("codex.remote_models.load_cache.duration_ms", &[]);
         let client_version = crate::client_version_to_whole();
         info!(client_version, "models cache: evaluating cache eligibility");
         // TODO(celia-oai): Include provider identity in cache eligibility so switching

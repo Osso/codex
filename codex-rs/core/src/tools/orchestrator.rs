@@ -29,7 +29,7 @@ use crate::tools::sandboxing::ToolRuntime;
 use crate::tools::sandboxing::default_exec_approval_requirement;
 use crate::tools::sandboxing::sandbox_override_for_first_attempt;
 use codex_hooks::PermissionRequestDecision;
-use codex_otel::ToolDecisionSource;
+use crate::telemetry::ToolDecisionSource;
 use codex_protocol::error::CodexErr;
 use codex_protocol::error::SandboxErr;
 use codex_protocol::exec_output::ExecToolCallOutput;
@@ -397,7 +397,7 @@ impl ToolOrchestrator {
         approval_ctx: ApprovalCtx<'_>,
         tool_ctx: &ToolCtx,
         evaluate_permission_request_hooks: bool,
-        otel: &codex_otel::SessionTelemetry,
+        otel: &crate::telemetry::SessionTelemetry,
     ) -> Result<ReviewDecision, ToolError>
     where
         T: ToolRuntime<Rq, Out>,

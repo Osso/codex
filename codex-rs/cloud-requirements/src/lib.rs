@@ -280,8 +280,6 @@ impl CloudRequirementsService {
     async fn fetch_with_timeout(
         &self,
     ) -> Result<Option<ConfigRequirementsToml>, CloudRequirementsLoadError> {
-        let _timer =
-            codex_otel::start_global_timer("codex.cloud_requirements.fetch.duration_ms", &[]);
         let started_at = Instant::now();
         let fetch_result = timeout(self.timeout, self.fetch())
             .await
@@ -814,15 +812,7 @@ fn status_code_tag(status_code: Option<u16>) -> String {
         .unwrap_or_else(|| "none".to_string())
 }
 
-fn emit_metric(metric_name: &str, tags: Vec<(&str, String)>) {
-    if let Some(metrics) = codex_otel::global() {
-        let tag_refs = tags
-            .iter()
-            .map(|(key, value)| (*key, value.as_str()))
-            .collect::<Vec<_>>();
-        let _ = metrics.counter(metric_name, /*inc*/ 1, &tag_refs);
-    }
-}
+fn emit_metric(_metric_name: &str, _tags: Vec<(&str, String)>) {}
 
 #[cfg(test)]
 mod tests {

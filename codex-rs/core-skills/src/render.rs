@@ -5,11 +5,6 @@ use std::path::Path;
 
 use crate::model::SkillLoadOutcome;
 use crate::model::SkillMetadata;
-use codex_otel::SessionTelemetry;
-use codex_otel::THREAD_SKILLS_DESCRIPTION_TRUNCATED_CHARS_METRIC;
-use codex_otel::THREAD_SKILLS_ENABLED_TOTAL_METRIC;
-use codex_otel::THREAD_SKILLS_KEPT_TOTAL_METRIC;
-use codex_otel::THREAD_SKILLS_TRUNCATED_METRIC;
 use codex_protocol::protocol::SkillScope;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use codex_utils_output_truncation::approx_token_count;
@@ -127,9 +122,7 @@ pub struct SkillRenderReport {
 #[derive(Clone, Copy)]
 pub enum SkillRenderSideEffects<'a> {
     None,
-    ThreadStart {
-        session_telemetry: &'a SessionTelemetry,
-    },
+    ThreadStart(std::marker::PhantomData<&'a ()>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -294,31 +287,7 @@ fn record_skill_render_side_effects(
     omitted_count: usize,
     truncated_description_chars: usize,
 ) {
-    match side_effects {
-        SkillRenderSideEffects::None => {}
-        SkillRenderSideEffects::ThreadStart { session_telemetry } => {
-            session_telemetry.histogram(
-                THREAD_SKILLS_ENABLED_TOTAL_METRIC,
-                i64::try_from(total_count).unwrap_or(i64::MAX),
-                &[],
-            );
-            session_telemetry.histogram(
-                THREAD_SKILLS_KEPT_TOTAL_METRIC,
-                i64::try_from(included_count).unwrap_or(i64::MAX),
-                &[],
-            );
-            session_telemetry.histogram(
-                THREAD_SKILLS_TRUNCATED_METRIC,
-                if omitted_count > 0 { 1 } else { 0 },
-                &[],
-            );
-            session_telemetry.histogram(
-                THREAD_SKILLS_DESCRIPTION_TRUNCATED_CHARS_METRIC,
-                i64::try_from(truncated_description_chars).unwrap_or(i64::MAX),
-                &[],
-            );
-        }
-    }
+    let _ = (side_effects, total_count, included_count, omitted_count, truncated_description_chars);
 }
 
 fn render_skill_lines_from_lines(

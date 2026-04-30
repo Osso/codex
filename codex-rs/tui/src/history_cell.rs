@@ -60,7 +60,7 @@ use codex_app_server_protocol::WebSearchAction;
 use codex_config::types::McpServerTransportConfig;
 #[cfg(test)]
 use codex_mcp::qualified_mcp_tool_name_prefix;
-use codex_otel::RuntimeMetricsSummary;
+use codex_core::telemetry::RuntimeMetricsSummary;
 use codex_protocol::account::PlanType;
 use codex_protocol::approvals::ExecPolicyAmendment;
 use codex_protocol::approvals::NetworkPolicyAmendment;
@@ -3522,8 +3522,8 @@ mod tests {
     use codex_app_server_protocol::McpAuthStatus;
     use codex_config::types::McpServerConfig;
     use codex_config::types::McpServerDisabledReason;
-    use codex_otel::RuntimeMetricTotals;
-    use codex_otel::RuntimeMetricsSummary;
+    use codex_core::telemetry::RuntimeMetricTotals;
+    use codex_core::telemetry::RuntimeMetricsSummary;
     use codex_protocol::ThreadId;
     use codex_protocol::account::PlanType;
     use codex_protocol::parse_command::ParsedCommand;

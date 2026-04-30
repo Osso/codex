@@ -995,11 +995,7 @@ pub async fn run_main(
         ensure_oss_provider_ready(provider_id, &config).await?;
     }
 
-    let otel_logger_layer = otel.as_ref().and_then(|o| o.logger_layer());
-
-    let otel_tracing_layer = otel.as_ref().and_then(|o| o.tracing_layer());
-
-    let log_db = state_db.clone().map(log_db::start);
+    let log_db = get_state_db(&config).await.map(log_db::start);
     let log_db_layer = log_db
         .clone()
         .map(|layer| layer.with_filter(Targets::new().with_default(Level::TRACE)));
@@ -1007,8 +1003,6 @@ pub async fn run_main(
     let _ = tracing_subscriber::registry()
         .with(file_layer)
         .with(log_db_layer)
-        .with(otel_logger_layer)
-        .with(otel_tracing_layer)
         .try_init();
 
     run_ratatui_app(

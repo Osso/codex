@@ -7,7 +7,7 @@ use codex_features::Feature;
 use codex_features::Features;
 use codex_features::FeaturesToml;
 use codex_login::default_client::originator;
-use codex_otel::sanitize_metric_tag_value;
+use codex_utils_string::sanitize_metric_tag_value;
 use codex_protocol::config_types::WindowsSandboxLevel;
 use codex_protocol::protocol::SandboxPolicy;
 use std::collections::BTreeMap;
@@ -363,7 +363,7 @@ fn emit_windows_sandbox_setup_success_metrics(
     originator_tag: &str,
     duration: std::time::Duration,
 ) {
-    let Some(metrics) = codex_otel::global() else {
+    let Some(metrics) = crate::telemetry::global() else {
         return;
     };
     let mode_tag = windows_sandbox_setup_mode_tag(mode);
@@ -389,7 +389,7 @@ fn emit_windows_sandbox_setup_failure_metrics(
     duration: std::time::Duration,
     _err: &anyhow::Error,
 ) {
-    let Some(metrics) = codex_otel::global() else {
+    let Some(metrics) = crate::telemetry::global() else {
         return;
     };
     let mode_tag = windows_sandbox_setup_mode_tag(mode);

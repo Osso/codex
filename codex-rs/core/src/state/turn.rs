@@ -76,7 +76,7 @@ pub(crate) struct RunningTask {
     pub(crate) handle: AbortOnDropHandle<()>,
     pub(crate) turn_context: Arc<TurnContext>,
     // Timer recorded when the task drops to capture the full turn duration.
-    pub(crate) _timer: Option<codex_otel::Timer>,
+    pub(crate) _timer: Option<crate::telemetry::Timer>,
 }
 
 pub(crate) struct RemovedTask {

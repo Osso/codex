@@ -61,7 +61,6 @@ use codex_hooks::Hooks;
 use codex_hooks::HooksConfig;
 use codex_login::AuthManager;
 use codex_login::CodexAuth;
-use codex_login::auth_env_telemetry::collect_auth_env_telemetry;
 use codex_login::default_client::originator;
 use codex_mcp::McpConnectionManager;
 use codex_mcp::McpRuntimeEnvironment;
@@ -71,9 +70,9 @@ use codex_models_manager::manager::SharedModelsManager;
 use codex_network_proxy::NetworkProxy;
 use codex_network_proxy::NetworkProxyAuditMetadata;
 use codex_network_proxy::normalize_host;
-use codex_otel::current_span_trace_id;
-use codex_otel::current_span_w3c_trace_context;
-use codex_otel::set_parent_from_w3c_trace_context;
+use crate::telemetry::current_span_trace_id;
+use crate::telemetry::current_span_w3c_trace_context;
+use crate::telemetry::set_parent_from_w3c_trace_context;
 use codex_protocol::ThreadId;
 use codex_protocol::account::PlanType as AccountPlanType;
 use codex_protocol::approvals::ElicitationRequestEvent;
@@ -309,11 +308,10 @@ use crate::windows_sandbox::WindowsSandboxLevelExt;
 use codex_core_plugins::PluginsManager;
 use codex_git_utils::get_git_repo_root;
 use codex_mcp::compute_auth_statuses;
-use codex_mcp::effective_mcp_servers_from_configured;
-use codex_mcp::host_owned_codex_apps_enabled;
-use codex_otel::SessionTelemetry;
-use codex_otel::THREAD_STARTED_METRIC;
-use codex_otel::TelemetryAuthMode;
+use codex_mcp::with_codex_apps_mcp;
+use crate::telemetry::SessionTelemetry;
+use crate::telemetry::THREAD_STARTED_METRIC;
+use crate::telemetry::TelemetryAuthMode;
 use codex_protocol::config_types::CollaborationMode;
 use codex_protocol::config_types::Personality;
 use codex_protocol::config_types::ReasoningSummary as ReasoningSummaryConfig;
@@ -427,7 +425,7 @@ impl Codex {
     pub(crate) async fn spawn(args: CodexSpawnArgs) -> CodexResult<CodexSpawnOk> {
         let parent_trace = match args.parent_trace {
             Some(trace) => {
-                if codex_otel::context_from_w3c_trace_context(&trace).is_some() {
+                if crate::telemetry::context_from_w3c_trace_context(&trace).is_some() {
                     Some(trace)
                 } else {
                     warn!("ignoring invalid thread spawn trace carrier");
@@ -2684,9 +2682,7 @@ impl Session {
             let available_skills = build_available_skills(
                 &turn_context.turn_skills.outcome,
                 default_skill_metadata_budget(turn_context.model_info.context_window),
-                SkillRenderSideEffects::ThreadStart {
-                    session_telemetry: &self.services.session_telemetry,
-                },
+                SkillRenderSideEffects::ThreadStart(std::marker::PhantomData),
             );
             if let Some(available_skills) = available_skills {
                 let warning_message = available_skills.warning_message.clone();
