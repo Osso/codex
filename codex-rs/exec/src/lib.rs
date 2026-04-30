@@ -71,8 +71,6 @@ use codex_login::default_client::set_default_client_residency_requirement;
 use codex_login::default_client::set_default_originator;
 use codex_login::enforce_login_restrictions;
 use codex_model_provider_info::OLLAMA_OSS_PROVIDER_ID;
-use codex_core::telemetry::set_parent_from_context;
-use codex_core::telemetry::traceparent_context_from_env;
 use codex_protocol::config_types::SandboxMode;
 use codex_protocol::models::PermissionProfile;
 use codex_protocol::protocol::AskForApproval;
@@ -440,9 +438,6 @@ pub async fn run_main(cli: Cli, arg0_paths: Arg0DispatchPaths) -> anyhow::Result
         .try_init();
 
     let exec_span = exec_root_span();
-    if let Some(context) = traceparent_context_from_env() {
-        set_parent_from_context(&exec_span, context);
-    }
     let config_warnings: Vec<ConfigWarningNotification> = config
         .startup_warnings
         .iter()

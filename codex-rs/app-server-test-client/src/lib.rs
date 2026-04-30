@@ -68,7 +68,6 @@ use codex_app_server_protocol::TurnStartParams;
 use codex_app_server_protocol::TurnStartResponse;
 use codex_app_server_protocol::TurnStatus;
 use codex_app_server_protocol::UserInput as V2UserInput;
-use codex_core::telemetry::current_span_w3c_trace_context;
 use codex_protocol::openai_models::ReasoningEffort;
 use codex_protocol::protocol::W3cTraceContext;
 use serde::Serialize;
@@ -1833,7 +1832,7 @@ impl CodexClient {
         let request_value = serde_json::to_value(request)?;
         let mut request: JSONRPCRequest = serde_json::from_value(request_value)
             .context("client request was not a valid JSON-RPC request")?;
-        request.trace = current_span_w3c_trace_context();
+        request.trace = None;
         let request_json = serde_json::to_string(&request)?;
         let request_pretty = serde_json::to_string_pretty(&request)?;
         print_multiline_with_prefix("> ", &request_pretty);
@@ -2134,7 +2133,7 @@ impl TraceSummary {
         if !traces_enabled {
             return Self::Disabled;
         }
-        current_span_w3c_trace_context()
+        None::<W3cTraceContext>
             .as_ref()
             .and_then(trace_url_from_context)
             .map_or(Self::Disabled, |url| Self::Enabled { url })

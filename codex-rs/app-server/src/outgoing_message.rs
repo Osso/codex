@@ -10,7 +10,6 @@ use codex_app_server_protocol::Result;
 use codex_app_server_protocol::ServerNotification;
 use codex_app_server_protocol::ServerRequest;
 use codex_app_server_protocol::ServerRequestPayload;
-use codex_core::telemetry::span_w3c_trace_context;
 use codex_protocol::ThreadId;
 use codex_protocol::protocol::W3cTraceContext;
 use serde::Serialize;
@@ -69,7 +68,7 @@ impl RequestContext {
     }
 
     pub(crate) fn request_trace(&self) -> Option<W3cTraceContext> {
-        span_w3c_trace_context(&self.span).or_else(|| self.parent_trace.clone())
+        self.parent_trace.clone()
     }
 
     pub(crate) fn span(&self) -> Span {
