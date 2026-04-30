@@ -3098,6 +3098,7 @@ impl ChatWidget {
         complete_when_settled: bool,
     ) {
         let mut activated_pending_round = false;
+        let starts_new_round = self.mcp_startup_status.is_none();
         let startup_status = if self.mcp_startup_ignore_updates_until_next_start {
             // Ignore-mode buffers the next plausible round so stale post-finish
             // updates cannot immediately reopen startup. A fresh `Starting`
@@ -3157,6 +3158,9 @@ impl ChatWidget {
         }
         self.mcp_startup_status = Some(startup_status);
         self.update_task_running_state();
+        if starts_new_round || activated_pending_round {
+            self.bottom_pane.reset_status_timer();
+        }
 
         // App-server-backed startup completes when every expected server has
         // reported a non-Starting status. Lag handling can force an earlier

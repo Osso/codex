@@ -161,6 +161,10 @@ impl StatusIndicatorWidget {
         self.resume_timer_at(Instant::now());
     }
 
+    pub(crate) fn reset_timer(&mut self) {
+        self.reset_timer_at(Instant::now());
+    }
+
     pub(crate) fn pause_timer_at(&mut self, now: Instant) {
         if self.is_paused {
             return;
@@ -173,6 +177,13 @@ impl StatusIndicatorWidget {
         if !self.is_paused {
             return;
         }
+        self.last_resume_at = now;
+        self.is_paused = false;
+        self.frame_requester.schedule_frame();
+    }
+
+    fn reset_timer_at(&mut self, now: Instant) {
+        self.elapsed_running = Duration::ZERO;
         self.last_resume_at = now;
         self.is_paused = false;
         self.frame_requester.schedule_frame();
@@ -192,6 +203,13 @@ impl StatusIndicatorWidget {
 
     pub fn elapsed_seconds(&self) -> u64 {
         self.elapsed_seconds_at(Instant::now())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn force_elapsed_for_test(&mut self, elapsed: Duration) {
+        self.elapsed_running = elapsed;
+        self.last_resume_at = Instant::now();
+        self.is_paused = false;
     }
 
     /// Wrap the details text into a fixed width and return the lines, truncating if necessary.
@@ -402,6 +420,28 @@ mod tests {
         widget.resume_timer_at(baseline + Duration::from_secs(10));
         let after_resume = widget.elapsed_seconds_at(baseline + Duration::from_secs(13));
         assert_eq!(after_resume, before_pause + 3);
+    }
+
+    #[test]
+    fn timer_reset_starts_elapsed_from_reset_instant() {
+        let (tx_raw, _rx) = unbounded_channel::<AppEvent>();
+        let tx = AppEventSender::new(tx_raw);
+        let mut widget = StatusIndicatorWidget::new(
+            tx,
+            crate::tui::FrameRequester::test_dummy(),
+            /*animations_enabled*/ true,
+        );
+        let baseline = Instant::now();
+        widget.last_resume_at = baseline;
+
+        let before_reset = widget.elapsed_seconds_at(baseline + Duration::from_secs(18));
+        widget.reset_timer_at(baseline + Duration::from_secs(18));
+        let after_reset = widget.elapsed_seconds_at(baseline + Duration::from_secs(18));
+        let after_more_time = widget.elapsed_seconds_at(baseline + Duration::from_secs(20));
+
+        assert_eq!(before_reset, 18);
+        assert_eq!(after_reset, 0);
+        assert_eq!(after_more_time, 2);
     }
 
     #[test]

@@ -508,5 +508,28 @@ impl RuntimeMetricsSummary {
             && self.streaming_events.count == 0
             && self.websocket_calls.count == 0
             && self.websocket_events.count == 0
+            && self.responses_api_overhead_ms == 0
+            && self.responses_api_inference_time_ms == 0
+            && self.responses_api_engine_iapi_ttft_ms == 0
+            && self.responses_api_engine_service_ttft_ms == 0
+            && self.responses_api_engine_iapi_tbt_ms == 0
+            && self.responses_api_engine_service_tbt_ms == 0
+            && self.turn_ttft_ms == 0
+            && self.turn_ttfm_ms == 0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn runtime_metrics_summary_is_not_empty_when_only_timing_fields_are_set() {
+        let summary = RuntimeMetricsSummary {
+            responses_api_engine_iapi_ttft_ms: 1,
+            ..RuntimeMetricsSummary::default()
+        };
+
+        assert!(!summary.is_empty());
     }
 }

@@ -729,6 +729,27 @@ impl BottomPane {
         self.composer.status_line_text()
     }
 
+    pub(crate) fn reset_status_timer(&mut self) {
+        if let Some(status) = self.status.as_mut() {
+            status.reset_timer();
+            self.request_redraw();
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn force_status_elapsed_for_test(&mut self, elapsed: Duration) {
+        if let Some(status) = self.status.as_mut() {
+            status.force_elapsed_for_test(elapsed);
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn status_elapsed_seconds_for_test(&self) -> Option<u64> {
+        self.status
+            .as_ref()
+            .map(StatusIndicatorWidget::elapsed_seconds)
+    }
+
     pub(crate) fn show_esc_backtrack_hint(&mut self) {
         self.esc_backtrack_hint = true;
         self.composer.set_esc_backtrack_hint(/*show*/ true);
