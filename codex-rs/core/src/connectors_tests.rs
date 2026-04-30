@@ -3,7 +3,6 @@ use crate::config::CONFIG_TOML_FILE;
 use crate::config::ConfigBuilder;
 use crate::config_loader::AppRequirementToml;
 use crate::config_loader::AppsRequirementsToml;
-use crate::config_loader::CloudRequirementsLoader;
 use crate::config_loader::ConfigLayerStack;
 use crate::config_loader::ConfigRequirements;
 use crate::config_loader::ConfigRequirementsToml;
@@ -550,98 +549,6 @@ fn requirements_enabled_does_not_override_disabled_connector() {
     );
 }
 
-#[tokio::test]
-async fn cloud_requirements_disable_connector_overrides_user_apps_config() {
-    let codex_home = tempdir().expect("tempdir should succeed");
-    std::fs::write(
-        codex_home.path().join(CONFIG_TOML_FILE),
-        r#"
-[apps.connector_123123]
-enabled = true
-"#,
-    )
-    .expect("write config");
-
-    let requirements = ConfigRequirementsToml {
-        apps: Some(AppsRequirementsToml {
-            apps: BTreeMap::from([(
-                "connector_123123".to_string(),
-                AppRequirementToml {
-                    enabled: Some(false),
-                },
-            )]),
-        }),
-        ..Default::default()
-    };
-
-    let config = ConfigBuilder::default()
-        .codex_home(codex_home.path().to_path_buf())
-        .fallback_cwd(Some(codex_home.path().to_path_buf()))
-        .cloud_requirements(CloudRequirementsLoader::new(async move {
-            Ok(Some(requirements))
-        }))
-        .build()
-        .await
-        .expect("config should build");
-
-    let policy = app_tool_policy(
-        &config,
-        Some("connector_123123"),
-        "events.list",
-        /*tool_title*/ None,
-        /*annotations*/ None,
-    );
-    assert_eq!(
-        policy,
-        AppToolPolicy {
-            enabled: false,
-            approval: AppToolApproval::Auto,
-        }
-    );
-}
-
-#[tokio::test]
-async fn cloud_requirements_disable_connector_applies_without_user_apps_table() {
-    let codex_home = tempdir().expect("tempdir should succeed");
-    std::fs::write(codex_home.path().join(CONFIG_TOML_FILE), "").expect("write config");
-
-    let requirements = ConfigRequirementsToml {
-        apps: Some(AppsRequirementsToml {
-            apps: BTreeMap::from([(
-                "connector_123123".to_string(),
-                AppRequirementToml {
-                    enabled: Some(false),
-                },
-            )]),
-        }),
-        ..Default::default()
-    };
-
-    let config = ConfigBuilder::default()
-        .codex_home(codex_home.path().to_path_buf())
-        .fallback_cwd(Some(codex_home.path().to_path_buf()))
-        .cloud_requirements(CloudRequirementsLoader::new(async move {
-            Ok(Some(requirements))
-        }))
-        .build()
-        .await
-        .expect("config should build");
-
-    let policy = app_tool_policy(
-        &config,
-        Some("connector_123123"),
-        "events.list",
-        /*tool_title*/ None,
-        /*annotations*/ None,
-    );
-    assert_eq!(
-        policy,
-        AppToolPolicy {
-            enabled: false,
-            approval: AppToolApproval::Auto,
-        }
-    );
-}
 
 #[tokio::test]
 async fn local_requirements_disable_connector_overrides_user_apps_config() {

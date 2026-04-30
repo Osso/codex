@@ -32,8 +32,6 @@ use codex_app_server_protocol::ThreadListCwdFilter;
 use codex_app_server_protocol::ThreadListParams;
 use codex_app_server_protocol::ThreadSortKey as AppServerThreadSortKey;
 use codex_app_server_protocol::ThreadSourceKind;
-use codex_cloud_requirements::cloud_requirements_loader_for_storage;
-use codex_config::CloudRequirementsLoader;
 use codex_config::ConfigLoadError;
 use codex_config::LoaderOverrides;
 use codex_config::format_config_error_with_source;
@@ -178,7 +176,6 @@ async fn start_embedded_app_server(
     config: Config,
     cli_kv_overrides: Vec<(String, toml::Value)>,
     loader_overrides: LoaderOverrides,
-    cloud_requirements: CloudRequirementsLoader,
     log_db: Option<log_db::LogDbLayer>,
     environment_manager: Arc<EnvironmentManager>,
 ) -> color_eyre::Result<InProcessAppServerClient> {
@@ -187,7 +184,6 @@ async fn start_embedded_app_server(
         config,
         cli_kv_overrides,
         loader_overrides,
-        cloud_requirements,
         log_db,
         environment_manager,
         InProcessAppServerClient::start,
@@ -296,14 +292,12 @@ async fn connect_remote_app_server(
     Ok(AppServerClient::Remote(app_server))
 }
 
-#[allow(clippy::too_many_arguments)]
 async fn start_app_server(
     target: &AppServerTarget,
     arg0_paths: Arg0DispatchPaths,
     config: Config,
     cli_kv_overrides: Vec<(String, toml::Value)>,
     loader_overrides: LoaderOverrides,
-    cloud_requirements: CloudRequirementsLoader,
     log_db: Option<log_db::LogDbLayer>,
     environment_manager: Arc<EnvironmentManager>,
 ) -> color_eyre::Result<AppServerClient> {
@@ -313,7 +307,6 @@ async fn start_app_server(
             config,
             cli_kv_overrides,
             loader_overrides,
-            cloud_requirements,
             log_db,
             environment_manager,
         )
@@ -337,7 +330,6 @@ pub(crate) async fn start_app_server_for_picker(
         config.clone(),
         Vec::new(),
         LoaderOverrides::default(),
-        CloudRequirementsLoader::default(),
         /*log_db*/ None,
         environment_manager,
     )
@@ -357,13 +349,11 @@ pub(crate) async fn start_embedded_app_server_for_picker(
     .await
 }
 
-#[allow(clippy::too_many_arguments)]
 async fn start_embedded_app_server_with<F, Fut>(
     arg0_paths: Arg0DispatchPaths,
     config: Config,
     cli_kv_overrides: Vec<(String, toml::Value)>,
     loader_overrides: LoaderOverrides,
-    cloud_requirements: CloudRequirementsLoader,
     log_db: Option<log_db::LogDbLayer>,
     environment_manager: Arc<EnvironmentManager>,
     start_client: F,
@@ -387,7 +377,6 @@ where
         config: Arc::new(config),
         cli_overrides: cli_kv_overrides,
         loader_overrides,
-        cloud_requirements,
         log_db,
         environment_manager,
         config_warnings,
@@ -708,17 +697,6 @@ pub async fn run_main(
         tracing::warn!(error = %err, "failed to run personality migration");
     }
 
-    let chatgpt_base_url = config_toml
-        .chatgpt_base_url
-        .clone()
-        .unwrap_or_else(|| "https://chatgpt.com/backend-api/".to_string());
-    let cloud_requirements = cloud_requirements_loader_for_storage(
-        codex_home.to_path_buf(),
-        /*enable_codex_api_key_env*/ false,
-        config_toml.cli_auth_credentials_store.unwrap_or_default(),
-        chatgpt_base_url,
-    );
-
     let model_provider_override = if cli.oss {
         let resolved = resolve_oss_provider(
             cli.oss_provider.as_deref(),
@@ -780,7 +758,6 @@ pub async fn run_main(
     let config = load_config_or_exit(
         cli_kv_overrides.clone(),
         overrides.clone(),
-        cloud_requirements.clone(),
     )
     .await;
 
@@ -899,7 +876,6 @@ pub async fn run_main(
         config,
         overrides,
         cli_kv_overrides,
-        cloud_requirements,
         log_db,
         remote_url,
         remote_auth_token,
@@ -919,7 +895,6 @@ async fn run_ratatui_app(
     initial_config: Config,
     overrides: ConfigOverrides,
     cli_kv_overrides: Vec<(String, toml::Value)>,
-    mut cloud_requirements: CloudRequirementsLoader,
     log_db: Option<log_db::LogDbLayer>,
     remote_url: Option<String>,
     remote_auth_token: Option<String>,
@@ -977,7 +952,6 @@ async fn run_ratatui_app(
             initial_config.clone(),
             cli_kv_overrides.clone(),
             loader_overrides.clone(),
-            cloud_requirements.clone(),
             log_db.clone(),
             environment_manager.clone(),
         )
@@ -1040,18 +1014,6 @@ async fn run_ratatui_app(
             });
         }
         trust_decision_was_made = onboarding_result.directory_trust_decision.is_some();
-        // If this onboarding run included the login step, always refresh cloud requirements and
-        // rebuild config. This avoids missing newly available cloud requirements due to login
-        // status detection edge cases.
-        if show_login_screen && !remote_mode {
-            cloud_requirements = cloud_requirements_loader_for_storage(
-                initial_config.codex_home.to_path_buf(),
-                /*enable_codex_api_key_env*/ false,
-                initial_config.cli_auth_credentials_store_mode,
-                initial_config.chatgpt_base_url.clone(),
-            );
-        }
-
         // If the user made an explicit trust decision, or we showed the login flow, reload config
         // so current process state reflects persisted trust/auth changes.
         if onboarding_result.directory_trust_decision.is_some()
@@ -1060,7 +1022,6 @@ async fn run_ratatui_app(
             load_config_or_exit(
                 cli_kv_overrides.clone(),
                 overrides.clone(),
-                cloud_requirements.clone(),
             )
             .await
         } else {
@@ -1261,7 +1222,6 @@ async fn run_ratatui_app(
             load_config_or_exit_with_fallback_cwd(
                 cli_kv_overrides.clone(),
                 overrides.clone(),
-                cloud_requirements.clone(),
                 fallback_cwd,
             )
             .await
@@ -1307,7 +1267,6 @@ async fn run_ratatui_app(
             config.clone(),
             cli_kv_overrides.clone(),
             loader_overrides,
-            cloud_requirements.clone(),
             log_db.clone(),
             environment_manager.clone(),
         )
@@ -1572,12 +1531,10 @@ async fn get_login_status(
 async fn load_config_or_exit(
     cli_kv_overrides: Vec<(String, toml::Value)>,
     overrides: ConfigOverrides,
-    cloud_requirements: CloudRequirementsLoader,
 ) -> Config {
     load_config_or_exit_with_fallback_cwd(
         cli_kv_overrides,
         overrides,
-        cloud_requirements,
         /*fallback_cwd*/ None,
     )
     .await
@@ -1586,14 +1543,12 @@ async fn load_config_or_exit(
 async fn load_config_or_exit_with_fallback_cwd(
     cli_kv_overrides: Vec<(String, toml::Value)>,
     overrides: ConfigOverrides,
-    cloud_requirements: CloudRequirementsLoader,
     fallback_cwd: Option<PathBuf>,
 ) -> Config {
     #[allow(clippy::print_stderr)]
     match ConfigBuilder::default()
         .cli_overrides(cli_kv_overrides)
         .harness_overrides(overrides)
-        .cloud_requirements(cloud_requirements)
         .fallback_cwd(fallback_cwd)
         .build()
         .await
@@ -1670,7 +1625,6 @@ mod tests {
             config,
             Vec::new(),
             LoaderOverrides::default(),
-            CloudRequirementsLoader::default(),
             /*log_db*/ None,
             Arc::new(EnvironmentManager::default_for_tests()),
         )
@@ -2021,7 +1975,6 @@ mod tests {
             config,
             Vec::new(),
             LoaderOverrides::default(),
-            CloudRequirementsLoader::default(),
             /*log_db*/ None,
             Arc::new(EnvironmentManager::default_for_tests()),
             |_args| async { Err(std::io::Error::other("boom")) },

@@ -1,7 +1,6 @@
 use crate::agents_md::AgentsMdManager;
 use crate::config::edit::ConfigEdit;
 use crate::config::edit::ConfigEditsBuilder;
-use crate::config_loader::CloudRequirementsLoader;
 use crate::config_loader::ConfigLayerStack;
 use crate::config_loader::ConfigLayerStackOrdering;
 use crate::config_loader::ConfigRequirements;
@@ -673,7 +672,6 @@ pub struct ConfigBuilder {
     cli_overrides: Option<Vec<(String, TomlValue)>>,
     harness_overrides: Option<ConfigOverrides>,
     loader_overrides: Option<LoaderOverrides>,
-    cloud_requirements: CloudRequirementsLoader,
     thread_config_loader: Option<Arc<dyn ThreadConfigLoader>>,
     fallback_cwd: Option<PathBuf>,
     host_name: Option<String>,
@@ -686,7 +684,6 @@ impl Default for ConfigBuilder {
             cli_overrides: None,
             harness_overrides: None,
             loader_overrides: None,
-            cloud_requirements: CloudRequirementsLoader::default(),
             thread_config_loader: None,
             fallback_cwd: None,
             host_name: codex_config::host_name(),
@@ -715,11 +712,6 @@ impl ConfigBuilder {
         self
     }
 
-    pub fn cloud_requirements(mut self, cloud_requirements: CloudRequirementsLoader) -> Self {
-        self.cloud_requirements = cloud_requirements;
-        self
-    }
-
     pub fn thread_config_loader(
         mut self,
         thread_config_loader: Arc<dyn ThreadConfigLoader>,
@@ -744,7 +736,6 @@ impl ConfigBuilder {
             cli_overrides,
             harness_overrides,
             loader_overrides,
-            cloud_requirements,
             thread_config_loader,
             fallback_cwd,
             host_name,
@@ -768,7 +759,6 @@ impl ConfigBuilder {
             Some(cwd),
             &cli_overrides,
             loader_overrides,
-            cloud_requirements,
             thread_config_loader
                 .as_deref()
                 .unwrap_or(&codex_config::NoopThreadConfigLoader),
@@ -950,7 +940,6 @@ pub async fn load_config_as_toml_with_cli_and_loader_overrides(
         cwd.cloned(),
         &cli_overrides,
         loader_overrides,
-        CloudRequirementsLoader::default(),
         &codex_config::NoopThreadConfigLoader,
         /*host_name*/ None,
     )
@@ -1132,7 +1121,6 @@ pub async fn load_global_mcp_servers(
         cwd,
         &cli_overrides,
         LoaderOverrides::default(),
-        CloudRequirementsLoader::default(),
         &codex_config::NoopThreadConfigLoader,
         /*host_name*/ None,
     )

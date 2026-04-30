@@ -14,7 +14,6 @@ use crate::session::session::Session;
 use crate::session::session::SessionSettingsUpdate;
 
 use crate::config::Config;
-use crate::config_loader::CloudRequirementsLoader;
 use crate::config_loader::LoaderOverrides;
 use crate::config_loader::load_config_layers_state;
 use crate::realtime_context::REALTIME_TURN_TOKEN_BUDGET;
@@ -599,7 +598,6 @@ pub async fn list_skills(sess: &Session, sub_id: String, cwds: Vec<PathBuf>, for
             Some(cwd_abs.clone()),
             empty_cli_overrides,
             LoaderOverrides::default(),
-            CloudRequirementsLoader::default(),
             &codex_config::NoopThreadConfigLoader,
             /*host_name*/ None,
         )

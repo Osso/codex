@@ -605,17 +605,6 @@ async fn import_repo_uses_non_empty_external_agent_agents_source() {
     );
 }
 
-#[test]
-fn migration_metric_tags_for_skills_include_skills_count() {
-    assert_eq!(
-        migration_metric_tags(ExternalAgentConfigMigrationItemType::Skills, Some(3)),
-        vec![
-            ("migration_type", "skills".to_string()),
-            ("skills_count", "3".to_string()),
-        ]
-    );
-}
-
 #[tokio::test]
 async fn detect_home_lists_enabled_plugins_from_settings() {
     let (_root, external_agent_home, codex_home) = fixture_paths();

@@ -232,8 +232,6 @@ use codex_core::config::ConfigOverrides;
 use codex_core::config::NetworkProxyAuditMetadata;
 use codex_core::config::edit::ConfigEdit;
 use codex_core::config::edit::ConfigEditsBuilder;
-use codex_core::config_loader::CloudRequirementsLoadError;
-use codex_core::config_loader::CloudRequirementsLoadErrorCode;
 use codex_core::config_loader::project_trust_key;
 use codex_core::exec::ExecCapturePolicy;
 use codex_core::exec::ExecExpiration;
@@ -1398,7 +1396,6 @@ impl CodexMessageProcessor {
                     let active_login = self.active_login.clone();
                     let auth_manager = self.auth_manager.clone();
                     let config_manager = self.config_manager.clone();
-                    let chatgpt_base_url = self.config.chatgpt_base_url.clone();
                     let auth_url = server.auth_url.clone();
                     tokio::spawn(async move {
                         let (success, error_msg) = match tokio::time::timeout(
@@ -1428,10 +1425,6 @@ impl CodexMessageProcessor {
 
                         if success {
                             auth_manager.reload();
-                            config_manager.replace_cloud_requirements_loader(
-                                auth_manager.clone(),
-                                chatgpt_base_url,
-                            );
                             config_manager
                                 .sync_default_client_residency_requirement()
                                 .await;
@@ -1509,7 +1502,6 @@ impl CodexMessageProcessor {
                     let active_login = self.active_login.clone();
                     let auth_manager = self.auth_manager.clone();
                     let config_manager = self.config_manager.clone();
-                    let chatgpt_base_url = self.config.chatgpt_base_url.clone();
                     tokio::spawn(async move {
                         let (success, error_msg) = tokio::select! {
                             _ = cancel.cancelled() => {
@@ -1536,10 +1528,6 @@ impl CodexMessageProcessor {
 
                         if success {
                             auth_manager.reload();
-                            config_manager.replace_cloud_requirements_loader(
-                                auth_manager.clone(),
-                                chatgpt_base_url,
-                            );
                             config_manager
                                 .sync_default_client_residency_requirement()
                                 .await;
@@ -1672,10 +1660,6 @@ impl CodexMessageProcessor {
             return;
         }
         self.auth_manager.reload();
-        self.config_manager.replace_cloud_requirements_loader(
-            self.auth_manager.clone(),
-            self.config.chatgpt_base_url.clone(),
-        );
         self.config_manager
             .sync_default_client_residency_requirement()
             .await;
@@ -8801,39 +8785,11 @@ fn errors_to_info(
         .collect()
 }
 
-fn cloud_requirements_load_error(err: &std::io::Error) -> Option<&CloudRequirementsLoadError> {
-    let mut current: Option<&(dyn std::error::Error + 'static)> = err
-        .get_ref()
-        .map(|source| source as &(dyn std::error::Error + 'static));
-    while let Some(source) = current {
-        if let Some(cloud_error) = source.downcast_ref::<CloudRequirementsLoadError>() {
-            return Some(cloud_error);
-        }
-        current = source.source();
-    }
-    None
-}
-
 fn config_load_error(err: &std::io::Error) -> JSONRPCErrorError {
-    let data = cloud_requirements_load_error(err).map(|cloud_error| {
-        let mut data = serde_json::json!({
-            "reason": "cloudRequirements",
-            "errorCode": format!("{:?}", cloud_error.code()),
-            "detail": cloud_error.to_string(),
-        });
-        if let Some(status_code) = cloud_error.status_code() {
-            data["statusCode"] = serde_json::json!(status_code);
-        }
-        if cloud_error.code() == CloudRequirementsLoadErrorCode::Auth {
-            data["action"] = serde_json::json!("relogin");
-        }
-        data
-    });
-
     JSONRPCErrorError {
         code: INVALID_REQUEST_ERROR_CODE,
         message: format!("failed to load configuration: {err}"),
-        data,
+        data: None,
     }
 }
 
@@ -9857,7 +9813,6 @@ mod tests {
     use codex_config::SessionThreadConfig;
     use codex_config::StaticThreadConfigLoader;
     use codex_config::ThreadConfigSource;
-    use codex_core::config_loader::CloudRequirementsLoader;
     use codex_core::config_loader::LoaderOverrides;
     use codex_model_provider_info::ModelProviderInfo;
     use codex_model_provider_info::WireApi;
@@ -10163,33 +10118,6 @@ mod tests {
     }
 
     #[test]
-    fn config_load_error_marks_cloud_requirements_failures_for_relogin() {
-        let err = std::io::Error::other(CloudRequirementsLoadError::new(
-            CloudRequirementsLoadErrorCode::Auth,
-            Some(401),
-            "Your authentication session could not be refreshed automatically. Please log out and sign in again.",
-        ));
-
-        let error = config_load_error(&err);
-
-        assert_eq!(
-            error.data,
-            Some(json!({
-                "reason": "cloudRequirements",
-                "errorCode": "Auth",
-                "action": "relogin",
-                "statusCode": 401,
-                "detail": "Your authentication session could not be refreshed automatically. Please log out and sign in again.",
-            }))
-        );
-        assert!(
-            error.message.contains("failed to load configuration"),
-            "unexpected error message: {}",
-            error.message
-        );
-    }
-
-    #[test]
     fn config_load_error_leaves_non_cloud_requirements_failures_unmarked() {
         let err = std::io::Error::other("required MCP servers failed to initialize");
 
@@ -10200,26 +10128,6 @@ mod tests {
             error.message.contains("failed to load configuration"),
             "unexpected error message: {}",
             error.message
-        );
-    }
-
-    #[test]
-    fn config_load_error_marks_non_auth_cloud_requirements_failures_without_relogin() {
-        let err = std::io::Error::other(CloudRequirementsLoadError::new(
-            CloudRequirementsLoadErrorCode::RequestFailed,
-            /*status_code*/ None,
-            "Failed to load cloud requirements (workspace-managed policies).",
-        ));
-
-        let error = config_load_error(&err);
-
-        assert_eq!(
-            error.data,
-            Some(json!({
-                "reason": "cloudRequirements",
-                "errorCode": "RequestFailed",
-                "detail": "Failed to load cloud requirements (workspace-managed policies).",
-            }))
         );
     }
 
@@ -10249,7 +10157,6 @@ mod tests {
             temp_dir.path().to_path_buf(),
             Vec::new(),
             LoaderOverrides::default(),
-            CloudRequirementsLoader::default(),
             Arg0DispatchPaths::default(),
             Arc::new(StaticThreadConfigLoader::new(vec![
                 ThreadConfigSource::Session(SessionThreadConfig {

@@ -491,7 +491,6 @@ mod tests {
     use crate::config_manager::apply_runtime_feature_enablement;
     use codex_analytics::AnalyticsEventsClient;
     use codex_arg0::Arg0DispatchPaths;
-    use codex_core::config_loader::CloudRequirementsLoader;
     use codex_core::config_loader::LoaderOverrides;
     use codex_core::config_loader::NetworkDomainPermissionToml as CoreNetworkDomainPermissionToml;
     use codex_core::config_loader::NetworkDomainPermissionsToml as CoreNetworkDomainPermissionsToml;
@@ -797,37 +796,6 @@ mod tests {
         assert!(config.features.enabled(Feature::Apps));
     }
 
-    #[tokio::test]
-    async fn apply_runtime_feature_enablement_keeps_cloud_pins_above_cli_and_runtime() {
-        let codex_home = TempDir::new().expect("create temp dir");
-
-        let mut config = codex_core::config::ConfigBuilder::default()
-            .codex_home(codex_home.path().to_path_buf())
-            .cli_overrides(vec![(
-                "features.apps".to_string(),
-                TomlValue::Boolean(true),
-            )])
-            .cloud_requirements(CloudRequirementsLoader::new(async {
-                Ok(Some(ConfigRequirementsToml {
-                    feature_requirements: Some(
-                        codex_core::config_loader::FeatureRequirementsToml {
-                            entries: BTreeMap::from([("apps".to_string(), false)]),
-                        },
-                    ),
-                    ..Default::default()
-                }))
-            }))
-            .build()
-            .await
-            .expect("load config");
-
-        apply_runtime_feature_enablement(
-            &mut config,
-            &BTreeMap::from([("apps".to_string(), true)]),
-        );
-
-        assert!(!config.features.enabled(Feature::Apps));
-    }
 
     #[tokio::test]
     async fn batch_write_reloads_user_config_when_requested() {
@@ -847,7 +815,6 @@ mod tests {
                 codex_home.path().to_path_buf(),
                 Vec::new(),
                 LoaderOverrides::default(),
-                CloudRequirementsLoader::default(),
                 Arg0DispatchPaths::default(),
                 Arc::new(codex_config::NoopThreadConfigLoader),
             ),

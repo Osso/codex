@@ -79,7 +79,6 @@ use codex_app_server_protocol::ServerRequest;
 use codex_arg0::Arg0DispatchPaths;
 use codex_config::ThreadConfigLoader;
 use codex_core::config::Config;
-use codex_core::config_loader::CloudRequirementsLoader;
 use codex_core::config_loader::LoaderOverrides;
 use codex_exec_server::EnvironmentManager;
 use codex_login::AuthManager;
@@ -119,8 +118,6 @@ pub struct InProcessStartArgs {
     pub cli_overrides: Vec<(String, TomlValue)>,
     /// Loader override knobs used by config API paths.
     pub loader_overrides: LoaderOverrides,
-    /// Preloaded cloud requirements provider.
-    pub cloud_requirements: CloudRequirementsLoader,
     /// Loader used to fetch typed thread config sources before a thread starts.
     pub thread_config_loader: Arc<dyn ThreadConfigLoader>,
     /// SQLite tracing layer used to flush recently emitted logs before feedback upload.
@@ -396,7 +393,6 @@ fn start_uninitialized(args: InProcessStartArgs) -> InProcessClientHandle {
             args.config.codex_home.to_path_buf(),
             args.cli_overrides,
             args.loader_overrides,
-            args.cloud_requirements,
             args.arg0_paths.clone(),
             args.thread_config_loader,
         );
@@ -747,7 +743,6 @@ mod tests {
             config: Arc::new(build_test_config().await),
             cli_overrides: Vec::new(),
             loader_overrides: LoaderOverrides::default(),
-            cloud_requirements: CloudRequirementsLoader::default(),
             thread_config_loader: Arc::new(codex_config::NoopThreadConfigLoader),
             log_db: None,
             environment_manager: Arc::new(EnvironmentManager::default_for_tests()),

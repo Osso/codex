@@ -31,9 +31,6 @@ use toml::Value as TomlValue;
 
 pub use codex_config::AppRequirementToml;
 pub use codex_config::AppsRequirementsToml;
-pub use codex_config::CloudRequirementsLoadError;
-pub use codex_config::CloudRequirementsLoadErrorCode;
-pub use codex_config::CloudRequirementsLoader;
 pub use codex_config::ConfigError;
 pub use codex_config::ConfigLayerEntry;
 pub use codex_config::ConfigLayerStack;
@@ -127,14 +124,12 @@ pub(crate) async fn first_layer_config_error_from_entries(
 /// associated with it such that `cwd` should be `Some(...)`. Only for
 /// thread-agnostic config loading (e.g., for the app server's `/config`
 /// endpoint) should `cwd` be `None`.
-#[allow(clippy::too_many_arguments)]
 pub async fn load_config_layers_state(
     fs: &dyn ExecutorFileSystem,
     codex_home: &Path,
     cwd: Option<AbsolutePathBuf>,
     cli_overrides: &[(String, TomlValue)],
     overrides: LoaderOverrides,
-    cloud_requirements: CloudRequirementsLoader,
     thread_config_loader: &dyn ThreadConfigLoader,
     host_name: Option<&str>,
 ) -> io::Result<ConfigLayerStack> {
@@ -142,15 +137,6 @@ pub async fn load_config_layers_state(
     let ignore_user_and_project_exec_policy_rules =
         overrides.ignore_user_and_project_exec_policy_rules;
     let mut config_requirements_toml = ConfigRequirementsWithSources::default();
-
-    if let Some(requirements) = cloud_requirements.get().await.map_err(io::Error::other)? {
-        merge_requirements_with_remote_sandbox_config(
-            &mut config_requirements_toml,
-            RequirementSource::CloudRequirements,
-            requirements,
-            host_name,
-        );
-    }
 
     #[cfg(target_os = "macos")]
     macos::load_managed_admin_requirements_toml(
