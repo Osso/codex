@@ -159,62 +159,65 @@ enum dispatch changes shape, re-port `dispatch_run_plan`.
 
 ---
 
-## 7. Multi-agent v2 as default + legacy v1 gated
+## 7. Multi-agent v2 only — v1 removed
 
-**Purpose.** The fork defaults to the v2 multi-agent surface (exec_command +
-`MultiAgentV2` handlers: `WaitAgent`, `SendMessage`, `MessageTool`, etc.). v1
-handlers and legacy shell aliases are kept behind the
-`multi-agent-v1`/deprecated feature flags so upstream tests still run.
+**Purpose.** The fork ships only v2 multi-agent tools. v1 was removed
+entirely in commit `583ed3144a` (`Stage::Deprecated`, default-off, behind
+double-opt-in). See `docs/specs/multi-agent-v2.md` for the contract that
+today's tests assert.
 
 **Key files.**
-- `codex-rs/features/src/lib.rs` + `codex-rs/features/src/tests.rs`
-  (flag definitions)
+- `codex-rs/core/src/tools/handlers/multi_agents_v2/*`
+- `codex-rs/core/src/tools/handlers/multi_agents_common.rs` (shared helpers)
 - `codex-rs/tools/src/tool_registry_plan.rs` (registry defaulting)
 - `codex-rs/tools/src/tool_config.rs`
-- `codex-rs/core/src/tools/handlers/multi_agents_v2/*`
-- `codex-rs/core/src/tools/handlers/multi_agents/send_input.rs` (v1 compat)
-- `codex-rs/app-server/src/bespoke_event_handling.rs`
-- `codex-rs/app-server-protocol/src/protocol/thread_history.rs`
+- `codex-rs/features/src/lib.rs` (`Feature::MultiAgentV2`,
+  `Feature::LegacyMultiAgentV1` — gone)
 - `codex-rs/app-server-protocol/src/protocol/v2.rs`
 - Generated schemas under `codex-rs/app-server-protocol/schema/json/v2/`
-- `codex-rs/tui/src/chatwidget.rs`, `codex-rs/tui/src/multi_agents.rs`
 
 **Tests to re-run.**
-- `cargo test -p codex-core tools::spec_tests`
+- `cargo test -p codex-core tools::handlers::multi_agents_tests`
 - `cargo test -p codex-tools tool_registry_plan_tests`
 - `cargo test -p codex-app-server suite::v2::turn_start`
 
-**Rebase risk. HIGH.** This is the fork's largest divergence area. Upstream
-actively changes the tool registry, protocol v2 schemas, and the collab
-interaction tool kinds. After a rebase:
-1. Re-generate schemas (`just generate` / whatever the current invocation is).
-2. Re-diff `tool_registry_plan.rs` by hand — a three-way merge almost never
-   produces correct output here.
-3. Run the full `app-server` suite before declaring victory.
+**Rebase risk. HIGH.** Upstream still ships v1 alongside v2. After a rebase:
+1. Re-delete the v1 directory + handler imports + 5 `ToolHandlerKind::*V1`
+   variants + `Feature::LegacyMultiAgentV1`.
+2. Verify v2 spawn / send_message / wait / list / close still pass after
+   the registry-plan three-way merge.
+3. Re-generate schemas if upstream touched protocol/v2.rs.
+4. Cross-check `docs/specs/multi-agent-v2.md` "What it must do" bullets
+   against the post-rebase test names.
 
 ---
 
-## 8. Unified exec as the default public shell tool
+## 8. Unified exec is the only public shell tool
 
-**Purpose.** Public shell tools (`shell`, `bash`) collapse to the unified exec
-tool surface. The model-visible tool spec is `exec_command`/`write_stdin`, and
-runtime dispatch routes through `UnifiedExecHandler`. Legacy shell aliases are
-retained only behind the compatibility gate.
+**Purpose.** The fork registers only `exec_command` / `write_stdin` (backed
+by `UnifiedExecHandler`). The four legacy aliases (`shell`,
+`container.exec`, `local_shell`, `shell_command`) and their
+`ShellHandler` / `ShellCommandHandler` implementations were removed in
+commit `b1c1c6e350`. The deprecated `Feature::LegacyShellCompat` flag is
+gone.
 
 **Key files.**
-- `codex-rs/core/src/tools/handlers/shell.rs`
-- `codex-rs/core/src/tools/spec.rs` (handler registration)
+- `codex-rs/core/src/tools/handlers/shell.rs` — **deleted**
+- `codex-rs/core/src/tools/handlers/shell_tests.rs` — **deleted**
+- `codex-rs/core/src/tools/spec.rs` (only registers UnifiedExec)
 - `codex-rs/core/src/tools/runtimes/shell.rs`
-- `codex-rs/core/src/tools/runtimes/shell/unix_escalation.rs` (3-line trim)
+- `codex-rs/core/src/tools/runtimes/shell/unix_escalation.rs`
 - `codex-rs/core/src/tools/runtimes/shell/zsh_fork_backend.rs`
-- `codex-rs/tools/src/local_tool.rs` (`exec_command`, `write_stdin`, and
-  `request_permissions` tool spec factories retained)
-- `codex-rs/tools/src/local_tool_tests.rs` (retained for those factories)
+- `codex-rs/tools/src/tool_registry_plan.rs` (no `legacy_shell_compat` block)
+- `codex-rs/core/src/tools/parallel.rs` (parallel-eligibility list narrowed
+  to `unified_exec | exec_command | write_stdin`)
 
-**Rebase risk.** HIGH — upstream is mid-refactor on shell tooling and the
-legacy `shell` / `shell_command` constructors may be restored upstream.
-Conflict resolution should prefer unified exec as the public shell surface while
-retaining `local_tool.rs` for the unified exec tool-spec helpers.
+**Rebase risk. HIGH.** Upstream still ships the legacy shell aliases.
+After a rebase: re-delete `shell.rs` + `shell_tests.rs`, drop
+`ToolHandlerKind::{Shell,ShellCommand}` variants, drop
+`Feature::LegacyShellCompat`, drop the
+`if config.legacy_shell_compat { ... }` block in `tool_registry_plan.rs`,
+and trim the parallel-eligibility list back to the three current names.
 
 ---
 
@@ -370,49 +373,27 @@ assuming a JSON merge preserved the intended prompt text.
 
 ---
 
-## 15. Permission prompt approval tool (WIP)
+## 15. Permission prompt approval tool
 
-**Status. WIP.** This feature is mid-integration and should not be treated as
-stable until the approval-tool flow has been reviewed end-to-end and the
-approval-loop tests pass after the final upstream rebase.
+Route shell/exec approval decisions through an MCP-hosted permission prompt
+tool so approval policy can come from the user's configured server (e.g.
+`claude-bash-hook-approval`) instead of only the built-in TUI approval
+surface. Allow decisions can be cached for the session and persisted back
+to user, project, or local config.
 
-**Purpose.** Route shell/exec approval decisions through an MCP-hosted
-permission prompt tool so approval policy can come from the user's configured
-prompt provider instead of only the built-in TUI approval surface. Allow
-decisions can be cached for the session and persisted back to user, project, or
-local config.
+Shipped in commit `531e371da6`. **Contract: `docs/specs/permission-prompt-tool.md`**
+(every "What it must do" bullet maps to a backing test).
 
-**Key files.**
-- `codex-rs/codex-mcp/src/permission_prompt.rs` (MCP contract)
-- `codex-rs/core/src/permission_prompt.rs` (approval decision flow, caching,
-  persistence)
-- `codex-rs/core/src/session/mod.rs`
-- `codex-rs/core/src/session/session.rs`
-- `codex-rs/core/src/session/tests.rs`
-- `codex-rs/core/src/config/edit.rs`
-- `codex-rs/cli/src/main.rs`
-- `codex-rs/exec/src/cli.rs`
-- `codex-rs/tui/src/lib.rs`
-- `codex-rs/utils/cli/src/shared_options.rs`
-
-**Behavior details still in flight.**
-- `--permission-prompt-tool` CLI plumbing exists, but the rebase is still
-  resolving command-surface conflicts.
-- MCP prompt decisions can approve one command, allow future matching commands
-  for the session, or persist allow rules into config.
-- Approval-loop coverage and CLI/help docs exist, but this is still marked WIP
-  until the behavior is validated through the full approval surface.
-
-**Tests to re-run after WIP lands.**
+**Tests to re-run after rebase.**
 - `cargo test -p codex-core permission_prompt`
 - `cargo test -p codex-core session::tests`
-- `cargo test -p codex-exec cli`
-- CLI help snapshot/fixture tests touched by `--permission-prompt-tool`
+- `cargo test -p codex-exec cli_tests`
+- `cargo test -p codex-core config::edit_tests`
 
-**Rebase risk. HIGH.** This touches the approval loop, config editing, MCP
-tool surface, and shared CLI options. Resolve by preserving the explicit
-permission-prompt-tool contract and then re-checking every approval path, not
-just command parsing.
+**Rebase risk. HIGH.** Touches the approval loop, config editing, MCP tool
+surface, and shared CLI options. Use the spec as the conformance checklist
+after resolving merges; if any spec bullet fails its test, the merge is
+not done.
 
 ---
 
@@ -421,6 +402,125 @@ just command parsing.
 Added (`47dcbd4af6`) then removed (`22b6bafafa`) — the current branch does
 **not** request `api.model.images.request`. Listed here only so a rebase
 doesn't accidentally resurrect one half of the pair.
+
+---
+
+## 17. PreToolUse command rewrites
+
+**Purpose.** Honor Claude's `hookSpecificOutput.updatedInput` field on
+`PreToolUse` so external hooks (notably `claude-bash-hook` aliases like
+`rtk`) can rewrite a shell command before codex dispatches it. Without this
+the only options were allow / block; with it a hook can transparently
+substitute `git status` for `rtk git status`.
+
+**Behavior details worth preserving.**
+- `permissionDecision: allow` is accepted only when paired with
+  `updatedInput`; a bare allow is still rejected as unsupported so Codex's
+  normal permission flow remains the source of approval decisions.
+- A rewrite is dropped if the same hook also blocks; block wins.
+- The rewrite from the hook that finishes last wins. Hooks still see the
+  original input, not another hook's rewrite.
+- Two shell payload shapes are supported:
+  - `ShellHandler` (`Vec<String>` argv) splits the rewritten command via
+    `shlex::split`.
+  - `ShellCommandHandler` (single `String`) copies verbatim.
+- Rewrites mutate the invocation's parsed JSON `Value` directly rather
+  than re-serializing typed params (the protocol params types only derive
+  `Deserialize`), which has the side benefit of preserving any unknown
+  fields the model emitted.
+- A rewrite that fails to apply (missing `command` field, `shlex::split`
+  failure, unsupported payload variant) surfaces as
+  `PreToolUse hook rewrite failed: <reason>` — block-style, not silent.
+
+**Key files.**
+- `codex-rs/hooks/src/engine/output_parser.rs` (parse `updatedInput`,
+  relax `Allow` rejection)
+- `codex-rs/hooks/src/events/pre_tool_use.rs` (thread `updated_input`
+  through `PreToolUseOutcome`, completion-order rewrite selection)
+- `codex-rs/core/src/hook_runtime.rs` (`PreToolUseHookResult` carries
+  either a block message or `updated_input`; rewrite is dropped on block)
+- `codex-rs/core/src/tools/registry.rs` (`apply_pre_tool_use_rewrite`
+  trait method on `ToolHandler` / `AnyToolHandler`; default no-op)
+- `codex-rs/core/src/tools/handlers/unified_exec.rs` (the rewrite impl
+  lives here now; `shell.rs` was deleted in `b1c1c6e350`)
+
+**Tests to re-run.**
+- `cargo test -p codex-hooks output_parser`
+- `cargo test -p codex-hooks pre_tool_use`
+- `cargo test -p codex-core tools::handlers::unified_exec_tests`
+
+**Rebase risk.** Medium. The trait addition on `ToolHandler` is upstream's
+extension point; if upstream renames the dispatcher or splits the trait,
+re-port the default no-op and the unified_exec impl. The output_parser
+schema relaxation is the most fragile piece — upstream may re-tighten
+unsupported-field validation, in which case re-add the explicit
+`updatedInput` + `permissionDecision: allow` pairing.
+
+---
+
+## 18. Aggressive upstream-feature removals
+
+The fork has subtracted ~170K lines of upstream code that the OSS Linux-only
+fork doesn't ship. Each rebase has to re-delete these because upstream
+keeps shipping them.
+
+**Build infrastructure (deleted entirely):**
+- Bazel build system: `MODULE.bazel`, `MODULE.bazel.lock`, `.bazelrc`,
+  `.bazelversion`, root `BUILD.bazel`, `defs.bzl`, `rbe.bzl`,
+  `workspace_root_test_launcher.{bat,sh}.tpl`, all 99 nested
+  `BUILD.bazel` files, all 27 patches in `patches/`, `bazel.yml` /
+  `rusty-v8-release.yml` / `v8-canary.yml` / `Dockerfile.bazel`
+  workflows, `setup-bazel-ci` / `setup-rusty-v8-musl` /
+  `prepare-bazel-ci` actions, `third_party/v8/`. Commit `16386babdc`.
+- SDK packages: `sdk/python`, `sdk/python-runtime`, `sdk/typescript`,
+  `sdk.yml` workflow, `codex-sdk` package path in
+  `codex-cli/scripts/build_npm_package.py`. Commit `16386babdc`.
+- `argument-comment-lint` Dylint tool + 4 workflows. Commit `c89a4c527b`.
+- `shell-tool-mcp/` stub. Commit `16386babdc`.
+
+**Workspace crates removed:**
+- `responses-api-proxy` (`1972aa32dc`)
+- `cloud-tasks` + `cloud-tasks-client` + `cloud-tasks-mock-client` (`3ea96713f2`)
+- `realtime-webrtc` + voice/audio TUI (`314426231e`)
+- `windows-sandbox-rs` + `core/src/windows_sandbox*.rs` (`fb67fde605`,
+  `b6883dda50`)
+- `lmstudio` (`46627d46a0`)
+- `chatgpt` (`b0959759a0`) + TUI connector listing UI (`3f2215deff`)
+- `mcp-server` (Codex-as-MCP-server, the inverse of `codex-mcp`) (`c17284cbdc`)
+- `feedback` + TUI feedback view + `feedback/upload` v2 RPC
+  (`4d5cce1b35`, `59084856f0`)
+- `otel` (kept stub types in `core/src/telemetry.rs`) (`5d0c63fd45`)
+- `cloud-requirements` (`f17766b20e`)
+- `aws-auth` + Amazon Bedrock provider (`e866b86470`)
+- `analytics` gutted in-place to no-ops (`f2e7ab2a46`)
+- `rollout-trace` inlined into `codex-core` (`af03000a8a`, `95e180c2ac`)
+- `exec-server` remote/WebSocket backend (`e212445f28`)
+
+**Feature flags removed (`Stage::Removed` or `Stage::Deprecated`):**
+- `RemoteModels` (`cf84f8b07a`)
+- `WebSearchRequest`, `WebSearchCached`, `SearchTool` (`f5249a4570`)
+- `UseLegacyLandlock` + the legacy Landlock code path (`6a713150b7`)
+- `LegacyMultiAgentV1` (`583ed3144a`)
+- `LegacyShellCompat` (`b1c1c6e350`)
+
+**Workspace plumbing:**
+- `default-members = ["cli"]` in workspace `Cargo.toml` so `cargo build`
+  only touches the shipped binary.
+- mold linker + `target-cpu=native` + `-Z share-generics=y` in
+  `codex-rs/.cargo/config.toml`. Requires `RUSTC_BOOTSTRAP=1` in env.
+- Dev profile: `debug = "line-tables-only"`, `split-debuginfo = "unpacked"`.
+
+**Rebase risk. HIGHEST.** This is mechanical but voluminous — every rebase
+will reintroduce all of the above. Strategy:
+1. After the rebase merges, run `git log --oneline origin/main..HEAD` and
+   look for the deletion commits listed above.
+2. If a deletion commit was lost in the merge, cherry-pick it back.
+3. If upstream introduced a NEW peripheral feature on top of a removed
+   one (e.g. cloud-tasks v2), assess whether it falls under the same
+   "fork doesn't ship" criterion and remove it too — then add a new
+   deletion commit and update this section.
+4. For deps: re-run `cargo machete` after every rebase to catch newly
+   introduced unused crate-level deps.
 
 ---
 
