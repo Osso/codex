@@ -66,6 +66,15 @@ pub(crate) fn build_specs_with_discoverable_tools(
     dynamic_tools: &[DynamicToolSpec],
 ) -> ToolRegistryBuilder {
     use crate::tools::handlers::UnavailableToolHandler;
+    use crate::tools::handlers::UnifiedExecHandler;
+    use crate::tools::handlers::ViewImageHandler;
+    use crate::tools::handlers::multi_agents_v2::CloseAgentHandler as CloseAgentHandlerV2;
+    use crate::tools::handlers::multi_agents_v2::FollowupTaskHandler as FollowupTaskHandlerV2;
+    use crate::tools::handlers::multi_agents_v2::ListAgentsHandler as ListAgentsHandlerV2;
+    use crate::tools::handlers::multi_agents_v2::SendMessageHandler as SendMessageHandlerV2;
+    use crate::tools::handlers::multi_agents_v2::SpawnAgentHandler as SpawnAgentHandlerV2;
+    use crate::tools::handlers::multi_agents_v2::WaitAgentHandler as WaitAgentHandlerV2;
+
     use crate::tools::handlers::unavailable_tool_message;
     use crate::tools::tool_search_entry::build_tool_search_entries_for_config;
 
@@ -120,6 +129,118 @@ pub(crate) fn build_specs_with_discoverable_tools(
         .iter()
         .map(|configured_tool| configured_tool.name().to_string())
         .collect::<HashSet<_>>();
+
+    for spec in plan.specs {
+        if spec.supports_parallel_tool_calls {
+            builder.push_spec_with_parallel_support(
+                spec.spec, /*supports_parallel_tool_calls*/ true,
+            );
+        } else {
+            builder.push_spec(spec.spec);
+        }
+    }
+
+    for handler in plan.handlers {
+        match handler.kind {
+            ToolHandlerKind::AgentJobs => {
+                builder.register_handler(handler.name, Arc::new(BatchJobHandler));
+            }
+            ToolHandlerKind::ApplyPatch => {
+                builder.register_handler(handler.name, apply_patch_handler.clone());
+            }
+            ToolHandlerKind::CloseAgentV2 => {
+                builder.register_handler(handler.name, Arc::new(CloseAgentHandlerV2));
+            }
+            ToolHandlerKind::CodeModeExecute => {
+                builder.register_handler(handler.name, code_mode_handler.clone());
+            }
+            ToolHandlerKind::CodeModeWait => {
+                builder.register_handler(handler.name, code_mode_wait_handler.clone());
+            }
+            ToolHandlerKind::DynamicTool => {
+                builder.register_handler(handler.name, dynamic_tool_handler.clone());
+            }
+            ToolHandlerKind::FollowupTaskV2 => {
+                builder.register_handler(handler.name, Arc::new(FollowupTaskHandlerV2));
+            }
+            ToolHandlerKind::JsRepl => {
+                builder.register_handler(handler.name, js_repl_handler.clone());
+            }
+            ToolHandlerKind::JsReplReset => {
+                builder.register_handler(handler.name, js_repl_reset_handler.clone());
+            }
+            ToolHandlerKind::ListAgentsV2 => {
+                builder.register_handler(handler.name, Arc::new(ListAgentsHandlerV2));
+            }
+            ToolHandlerKind::ListDir => {
+                builder.register_handler(handler.name, Arc::new(ListDirHandler));
+            }
+            ToolHandlerKind::Mcp => {
+                builder.register_handler(handler.name, mcp_handler.clone());
+            }
+            ToolHandlerKind::McpResource => {
+                builder.register_handler(handler.name, mcp_resource_handler.clone());
+            }
+            ToolHandlerKind::Plan => {
+                builder.register_handler(handler.name, plan_handler.clone());
+            }
+            ToolHandlerKind::RequestPermissions => {
+                builder.register_handler(handler.name, request_permissions_handler.clone());
+            }
+            ToolHandlerKind::RequestUserInput => {
+                builder.register_handler(handler.name, request_user_input_handler.clone());
+            }
+            ToolHandlerKind::SendMessageV2 => {
+                builder.register_handler(handler.name, Arc::new(SendMessageHandlerV2));
+            }
+            ToolHandlerKind::Shell => {
+                builder.register_handler(handler.name, shell_handler.clone());
+            }
+            ToolHandlerKind::ShellCommand => {
+                builder.register_handler(handler.name, shell_command_handler.clone());
+            }
+            ToolHandlerKind::SpawnAgentV2 => {
+                builder.register_handler(handler.name, Arc::new(SpawnAgentHandlerV2));
+            }
+            ToolHandlerKind::TestSync => {
+                builder.register_handler(handler.name, Arc::new(TestSyncHandler));
+            }
+            ToolHandlerKind::ToolSearch => {
+                if tool_search_handler.is_none() {
+                    let entries = build_tool_search_entries(
+                        deferred_mcp_tools.as_ref(),
+                        &deferred_dynamic_tools,
+                    );
+                    tool_search_handler = Some(Arc::new(ToolSearchHandler::new(entries)));
+                }
+                if let Some(tool_search_handler) = tool_search_handler.as_ref() {
+                    builder.register_handler(handler.name, tool_search_handler.clone());
+                }
+            }
+            ToolHandlerKind::ToolSuggest => {
+                builder.register_handler(handler.name, tool_suggest_handler.clone());
+            }
+            ToolHandlerKind::UnifiedExec => {
+                builder.register_handler(handler.name, unified_exec_handler.clone());
+            }
+            ToolHandlerKind::ViewImage => {
+                builder.register_handler(handler.name, view_image_handler.clone());
+            }
+            ToolHandlerKind::WaitAgentV2 => {
+                builder.register_handler(handler.name, Arc::new(WaitAgentHandlerV2));
+            }
+        }
+    }
+    if let Some(deferred_mcp_tools) = deferred_mcp_tools.as_ref() {
+        for (name, _) in deferred_mcp_tools.iter().filter(|(name, _)| {
+            !mcp_tools
+                .as_ref()
+                .is_some_and(|tools| tools.contains_key(*name))
+        }) {
+            builder.register_handler(name.clone(), mcp_handler.clone());
+        }
+    }
+
 
     for unavailable_tool in unavailable_called_tools {
         let tool_name = flat_tool_name(&unavailable_tool).into_owned();

@@ -27,11 +27,6 @@ use crate::tools::handlers::ViewImageHandler;
 use crate::tools::handlers::WriteStdinHandler;
 use crate::tools::handlers::agent_jobs::ReportAgentJobResultHandler;
 use crate::tools::handlers::agent_jobs::SpawnAgentsOnCsvHandler;
-use crate::tools::handlers::multi_agents::CloseAgentHandler;
-use crate::tools::handlers::multi_agents::ResumeAgentHandler;
-use crate::tools::handlers::multi_agents::SendInputHandler;
-use crate::tools::handlers::multi_agents::SpawnAgentHandler;
-use crate::tools::handlers::multi_agents::WaitAgentHandler;
 use crate::tools::handlers::multi_agents_spec::SpawnAgentToolOptions;
 use crate::tools::handlers::multi_agents_v2::CloseAgentHandler as CloseAgentHandlerV2;
 use crate::tools::handlers::multi_agents_v2::FollowupTaskHandler as FollowupTaskHandlerV2;
@@ -290,40 +285,23 @@ pub fn build_tool_registry_builder(
     }
 
     if config.collab_tools {
-        if config.multi_agent_v2 {
-            let agent_type_description =
-                agent_type_description(config, params.default_agent_type_description);
-            builder.register_handler(Arc::new(SpawnAgentHandlerV2::new(SpawnAgentToolOptions {
-                available_models: config.available_models.clone(),
-                agent_type_description,
-                hide_agent_type_model_reasoning: config.hide_spawn_agent_metadata,
-                include_usage_hint: config.spawn_agent_usage_hint,
-                usage_hint_text: config.spawn_agent_usage_hint_text.clone(),
-                max_concurrent_threads_per_session: config.max_concurrent_threads_per_session,
-            })));
-            builder.register_handler(Arc::new(SendMessageHandlerV2));
-            builder.register_handler(Arc::new(FollowupTaskHandlerV2));
-            builder.register_handler(Arc::new(WaitAgentHandlerV2::new(
-                params.wait_agent_timeouts,
-            )));
-            builder.register_handler(Arc::new(CloseAgentHandlerV2));
-            builder.register_handler(Arc::new(ListAgentsHandlerV2));
-        } else {
-            let agent_type_description =
-                agent_type_description(config, params.default_agent_type_description);
-            builder.register_handler(Arc::new(SpawnAgentHandler::new(SpawnAgentToolOptions {
-                available_models: config.available_models.clone(),
-                agent_type_description,
-                hide_agent_type_model_reasoning: config.hide_spawn_agent_metadata,
-                include_usage_hint: config.spawn_agent_usage_hint,
-                usage_hint_text: config.spawn_agent_usage_hint_text.clone(),
-                max_concurrent_threads_per_session: config.max_concurrent_threads_per_session,
-            })));
-            builder.register_handler(Arc::new(SendInputHandler));
-            builder.register_handler(Arc::new(ResumeAgentHandler));
-            builder.register_handler(Arc::new(WaitAgentHandler::new(params.wait_agent_timeouts)));
-            builder.register_handler(Arc::new(CloseAgentHandler));
-        }
+        let agent_type_description =
+            agent_type_description(config, params.default_agent_type_description);
+        builder.register_handler(Arc::new(SpawnAgentHandlerV2::new(SpawnAgentToolOptions {
+            available_models: config.available_models.clone(),
+            agent_type_description,
+            hide_agent_type_model_reasoning: config.hide_spawn_agent_metadata,
+            include_usage_hint: config.spawn_agent_usage_hint,
+            usage_hint_text: config.spawn_agent_usage_hint_text.clone(),
+            max_concurrent_threads_per_session: config.max_concurrent_threads_per_session,
+        })));
+        builder.register_handler(Arc::new(SendMessageHandlerV2));
+        builder.register_handler(Arc::new(FollowupTaskHandlerV2));
+        builder.register_handler(Arc::new(WaitAgentHandlerV2::new(
+            params.wait_agent_timeouts,
+        )));
+        builder.register_handler(Arc::new(CloseAgentHandlerV2));
+        builder.register_handler(Arc::new(ListAgentsHandlerV2));
     }
 
     if config.agent_jobs_tools {

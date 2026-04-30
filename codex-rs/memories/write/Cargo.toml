@@ -23,7 +23,6 @@ codex-git-utils = { workspace = true }
 codex-login = { workspace = true }
 codex-protocol = { workspace = true }
 codex-rollout = { workspace = true }
-codex-rollout-trace = { workspace = true }
 codex-secrets = { workspace = true }
 codex-state = { workspace = true }
 codex-terminal-detection = { workspace = true }

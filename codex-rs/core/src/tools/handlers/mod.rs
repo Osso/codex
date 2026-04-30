@@ -9,7 +9,6 @@ pub(crate) mod goal_spec;
 mod mcp;
 mod mcp_resource;
 pub(crate) mod mcp_resource_spec;
-pub(crate) mod multi_agents;
 pub(crate) mod multi_agents_common;
 pub(crate) mod multi_agents_spec;
 pub(crate) mod multi_agents_v2;
