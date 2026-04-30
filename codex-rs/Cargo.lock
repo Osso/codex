@@ -1203,19 +1203,9 @@ name = "codex-analytics"
 version = "0.0.0"
 dependencies = [
  "codex-app-server-protocol",
- "codex-git-utils",
  "codex-login",
- "codex-model-provider",
  "codex-plugin",
  "codex-protocol",
- "codex-utils-absolute-path",
- "os_info",
- "pretty_assertions",
- "serde",
- "serde_json",
- "sha1",
- "tokio",
- "tracing",
 ]
 
 [[package]]
