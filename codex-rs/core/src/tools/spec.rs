@@ -88,8 +88,6 @@ pub(crate) fn build_specs_with_discoverable_tools(
     use crate::tools::handlers::PlanHandler;
     use crate::tools::handlers::RequestPermissionsHandler;
     use crate::tools::handlers::RequestUserInputHandler;
-    use crate::tools::handlers::ShellCommandHandler;
-    use crate::tools::handlers::ShellHandler;
     use crate::tools::handlers::TestSyncHandler;
     use crate::tools::handlers::ToolSearchHandler;
     use crate::tools::handlers::ToolSuggestHandler;
@@ -147,8 +145,6 @@ pub(crate) fn build_specs_with_discoverable_tools(
     let view_image_handler = Arc::new(ViewImageHandler);
     let mcp_handler = Arc::new(McpHandler);
     let mcp_resource_handler = Arc::new(McpResourceHandler);
-    let shell_handler = Arc::new(ShellHandler);
-    let shell_command_handler = Arc::new(ShellCommandHandler::from(config.shell_command_backend));
     let request_permissions_handler = Arc::new(RequestPermissionsHandler);
     let request_user_input_handler = Arc::new(RequestUserInputHandler {
         default_mode_request_user_input: config.default_mode_request_user_input,
@@ -233,12 +229,6 @@ pub(crate) fn build_specs_with_discoverable_tools(
             }
             ToolHandlerKind::SendMessageV2 => {
                 builder.register_handler(handler.name, Arc::new(SendMessageHandlerV2));
-            }
-            ToolHandlerKind::Shell => {
-                builder.register_handler(handler.name, shell_handler.clone());
-            }
-            ToolHandlerKind::ShellCommand => {
-                builder.register_handler(handler.name, shell_command_handler.clone());
             }
             ToolHandlerKind::SpawnAgentV2 => {
                 builder.register_handler(handler.name, Arc::new(SpawnAgentHandlerV2));

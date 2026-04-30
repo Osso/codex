@@ -1,5 +1,4 @@
 use crate::function_tool::FunctionCallError;
-use crate::sandboxing::SandboxPermissions;
 use crate::session::session::Session;
 use crate::session::turn_context::TurnContext;
 use crate::tools::context::SharedTurnDiffTracker;
@@ -14,7 +13,6 @@ use codex_protocol::dynamic_tools::DynamicToolSpec;
 use codex_protocol::models::LocalShellAction;
 use codex_protocol::models::ResponseItem;
 use codex_protocol::models::SearchToolCallParams;
-use codex_protocol::models::ShellToolCallParams;
 use codex_tools::ConfiguredToolSpec;
 use codex_tools::DiscoverableTool;
 use codex_tools::ResponsesApiNamespaceTool;
@@ -242,19 +240,18 @@ impl ToolRouter {
 
                 match action {
                     LocalShellAction::Exec(exec) => {
-                        let params = ShellToolCallParams {
-                            command: exec.command,
-                            workdir: exec.working_directory,
-                            timeout_ms: exec.timeout_ms,
-                            sandbox_permissions: Some(SandboxPermissions::UseDefault),
-                            additional_permissions: None,
-                            prefix_rule: None,
-                            justification: None,
-                        };
+                        let cmd =
+                            codex_shell_command::parse_command::shlex_join(&exec.command);
+                        let arguments = serde_json::json!({
+                            "cmd": cmd,
+                            "workdir": exec.working_directory,
+                            "timeout_ms": exec.timeout_ms,
+                        })
+                        .to_string();
                         Ok(Some(ToolCall {
-                            tool_name: ToolName::plain("local_shell"),
+                            tool_name: ToolName::plain("exec_command"),
                             call_id,
-                            payload: ToolPayload::LocalShell { params },
+                            payload: ToolPayload::Function { arguments },
                         }))
                     }
                 }

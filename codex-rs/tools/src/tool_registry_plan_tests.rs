@@ -500,49 +500,6 @@ fn shell_zsh_fork_keeps_unified_exec_tool_surface() {
 }
 
 #[test]
-fn legacy_shell_compat_registers_hidden_handlers_only_when_enabled() {
-    let model_info = model_info();
-    let mut features = Features::with_defaults();
-    features.enable(Feature::UnifiedExec);
-    features.enable(Feature::LegacyShellCompat);
-    let available_models = Vec::new();
-    let tools_config = ToolsConfig::new(&ToolsConfigParams {
-        model_info: &model_info,
-        available_models: &available_models,
-        features: &features,
-        image_generation_tool_auth_allowed: true,
-        web_search_mode: Some(WebSearchMode::Cached),
-        session_source: SessionSource::Cli,
-        sandbox_policy: &SandboxPolicy::DangerFullAccess,
-        windows_sandbox_level: WindowsSandboxLevel::Disabled,
-    });
-    let (tools, handlers) = build_specs(
-        &tools_config,
-        /*mcp_tools*/ None,
-        /*deferred_mcp_tools*/ None,
-        &[],
-    );
-
-    assert_contains_tool_names(&tools, &["exec_command", "write_stdin"]);
-    assert!(handlers.contains(&ToolHandlerSpec {
-        name: ToolName::plain("shell"),
-        kind: ToolHandlerKind::Shell,
-    }));
-    assert!(handlers.contains(&ToolHandlerSpec {
-        name: ToolName::plain("container.exec"),
-        kind: ToolHandlerKind::Shell,
-    }));
-    assert!(handlers.contains(&ToolHandlerSpec {
-        name: ToolName::plain("local_shell"),
-        kind: ToolHandlerKind::Shell,
-    }));
-    assert!(handlers.contains(&ToolHandlerSpec {
-        name: ToolName::plain("shell_command"),
-        kind: ToolHandlerKind::ShellCommand,
-    }));
-}
-
-#[test]
 fn test_build_specs_agent_job_worker_tools_enabled() {
     let model_info = model_info();
     let mut features = Features::with_defaults();

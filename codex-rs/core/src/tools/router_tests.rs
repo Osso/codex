@@ -46,7 +46,7 @@ async fn js_repl_tools_only_blocks_direct_tool_calls() -> anyhow::Result<()> {
     );
 
     let call = ToolCall {
-        tool_name: ToolName::plain("shell"),
+        tool_name: ToolName::plain("exec_command"),
         call_id: "call-1".to_string(),
         payload: ToolPayload::Function {
             arguments: "{}".to_string(),
@@ -105,7 +105,7 @@ async fn js_repl_tools_only_allows_js_repl_source_calls() -> anyhow::Result<()> 
     );
 
     let call = ToolCall {
-        tool_name: ToolName::plain("shell"),
+        tool_name: ToolName::plain("exec_command"),
         call_id: "call-2".to_string(),
         payload: ToolPayload::Function {
             arguments: "{}".to_string(),
@@ -208,7 +208,7 @@ async fn parallel_support_does_not_match_namespaced_local_tool_names() -> anyhow
         },
     );
 
-    let parallel_tool_name = ["shell", "local_shell", "exec_command", "shell_command"]
+    let parallel_tool_name = ["exec_command", "write_stdin"]
         .into_iter()
         .find(|name| {
             router.tool_supports_parallel(&ToolCall {

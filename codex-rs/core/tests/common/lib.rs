@@ -164,22 +164,12 @@ pub fn fetch_dotslash_file(
 /// temporary directory. Using a per-test directory keeps tests hermetic and
 /// avoids clobbering a developer’s real `~/.codex`.
 pub async fn load_default_config_for_test(codex_home: &TempDir) -> Config {
-    let mut config = ConfigBuilder::default()
+    ConfigBuilder::default()
         .codex_home(codex_home.path().to_path_buf())
         .harness_overrides(default_test_overrides())
         .build()
         .await
-        .expect("defaults for test should always succeed");
-
-    // Many core integration suites still simulate legacy shell tool outputs.
-    // Keep the compatibility handlers enabled in test harnesses so those
-    // suites exercise shell behavior instead of failing at tool dispatch.
-    config
-        .features
-        .enable(codex_features::Feature::LegacyShellCompat)
-        .expect("test config should enable legacy shell compat");
-
-    config
+        .expect("defaults for test should always succeed")
 }
 
 #[cfg(target_os = "linux")]

@@ -142,12 +142,6 @@ pub fn build_tool_registry_plan(
 
         plan.register_handler("exec_command", ToolHandlerKind::UnifiedExec);
         plan.register_handler("write_stdin", ToolHandlerKind::UnifiedExec);
-        if config.legacy_shell_compat {
-            plan.register_handler("shell", ToolHandlerKind::Shell);
-            plan.register_handler("container.exec", ToolHandlerKind::Shell);
-            plan.register_handler("local_shell", ToolHandlerKind::Shell);
-            plan.register_handler("shell_command", ToolHandlerKind::ShellCommand);
-        }
     }
 
     if params.mcp_tools.is_some() {

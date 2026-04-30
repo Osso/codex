@@ -90,8 +90,6 @@ pub enum Feature {
     UnifiedExec,
     /// Route shell tool execution through the zsh exec bridge.
     ShellZshFork,
-    /// Expose legacy shell compatibility aliases and handlers.
-    LegacyShellCompat,
     /// Include the freeform apply_patch tool.
     ApplyPatchFreeform,
     /// Stream structured progress while apply_patch input is being generated.
@@ -619,12 +617,6 @@ pub const FEATURES: &[FeatureSpec] = &[
         id: Feature::ShellZshFork,
         key: "shell_zsh_fork",
         stage: Stage::UnderDevelopment,
-        default_enabled: false,
-    },
-    FeatureSpec {
-        id: Feature::LegacyShellCompat,
-        key: "legacy_shell_compat",
-        stage: Stage::Deprecated,
         default_enabled: false,
     },
     FeatureSpec {

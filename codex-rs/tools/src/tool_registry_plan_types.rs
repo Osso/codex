@@ -27,8 +27,6 @@ pub enum ToolHandlerKind {
     RequestPermissions,
     RequestUserInput,
     SendMessageV2,
-    Shell,
-    ShellCommand,
     SpawnAgentV2,
     TestSync,
     ToolSearch,

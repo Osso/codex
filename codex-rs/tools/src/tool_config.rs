@@ -86,7 +86,6 @@ pub struct ToolsConfig {
     pub shell_type: ConfigShellToolType,
     pub shell_command_backend: ShellCommandBackendConfig,
     pub unified_exec_shell_mode: UnifiedExecShellMode,
-    pub legacy_shell_compat: bool,
     pub has_environment: bool,
     pub allow_login_shell: bool,
     pub apply_patch_tool_type: Option<ApplyPatchToolType>,
@@ -169,7 +168,6 @@ impl ToolsConfig {
             } else {
                 ShellCommandBackendConfig::Classic
             };
-        let legacy_shell_compat = features.enabled(Feature::LegacyShellCompat);
         let unified_exec_allowed = unified_exec_allowed_in_environment(
             cfg!(target_os = "windows"),
             sandbox_policy,
@@ -203,7 +201,6 @@ impl ToolsConfig {
             shell_type,
             shell_command_backend,
             unified_exec_shell_mode: UnifiedExecShellMode::Direct,
-            legacy_shell_compat,
             has_environment: true,
             allow_login_shell: true,
             apply_patch_tool_type,

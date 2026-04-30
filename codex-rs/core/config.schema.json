@@ -441,9 +441,6 @@
             "js_repl_tools_only": {
               "type": "boolean"
             },
-            "legacy_shell_compat": {
-              "type": "boolean"
-            },
             "memories": {
               "type": "boolean"
             },
@@ -451,9 +448,6 @@
               "type": "boolean"
             },
             "multi_agent": {
-              "type": "boolean"
-            },
-            "multi_agent_v1": {
               "type": "boolean"
             },
             "multi_agent_v2": {
@@ -2179,6 +2173,11 @@
           "description": "Enable animations (welcome screen, shimmer effects, spinners). Defaults to `true`.",
           "type": "boolean"
         },
+        "code_color": {
+          "default": null,
+          "description": "Foreground color for inline code in markdown text (e.g. \"#E6B450\").",
+          "type": "string"
+        },
         "model_availability_nux": {
           "allOf": [
             {
@@ -2613,9 +2612,6 @@
         "js_repl_tools_only": {
           "type": "boolean"
         },
-        "legacy_shell_compat": {
-          "type": "boolean"
-        },
         "memories": {
           "type": "boolean"
         },
@@ -2623,9 +2619,6 @@
           "type": "boolean"
         },
         "multi_agent": {
-          "type": "boolean"
-        },
-        "multi_agent_v1": {
           "type": "boolean"
         },
         "multi_agent_v2": {

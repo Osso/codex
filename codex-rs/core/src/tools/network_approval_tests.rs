@@ -220,7 +220,7 @@ async fn register_call_with_default_shell_trigger(
             "turn-1".to_string(),
             GuardianNetworkAccessTrigger {
                 call_id: "call-1".to_string(),
-                tool_name: "shell".to_string(),
+                tool_name: "exec_command".to_string(),
                 command: vec!["curl".to_string(), "https://example.com".to_string()],
                 cwd: test_path_buf("/tmp").abs(),
                 sandbox_permissions: SandboxPermissions::UseDefault,
