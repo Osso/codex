@@ -29,7 +29,7 @@ use codex_mcp::McpConnectionManager;
 use codex_models_manager::manager::ModelsManager;
 use crate::telemetry::SessionTelemetry;
 use codex_rollout::state_db::StateDbHandle;
-use codex_rollout_trace::ThreadTraceContext;
+use crate::rollout_trace::ThreadTraceContext;
 use codex_thread_store::LiveThread;
 use codex_thread_store::ThreadStore;
 use std::path::PathBuf;

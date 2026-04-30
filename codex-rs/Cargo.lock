@@ -1750,7 +1750,6 @@ dependencies = [
  "codex-response-debug-context",
  "codex-rmcp-client",
  "codex-rollout",
- "codex-rollout-trace",
  "codex-sandboxing",
  "codex-shell-command",
  "codex-shell-escalation",
@@ -2582,17 +2581,6 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
-]
-
-[[package]]
-name = "codex-rollout-trace"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "codex-code-mode",
- "codex-protocol",
- "serde",
- "serde_json",
 ]
 
 [[package]]

@@ -4062,7 +4062,7 @@ async fn session_new_fails_when_zsh_fork_enabled_without_zsh_path() {
             codex_thread_store::LocalThreadStoreConfig::from_config(config.as_ref()),
             /*state_db*/ None,
         )),
-        codex_rollout_trace::ThreadTraceContext::disabled(),
+        crate::rollout_trace::ThreadTraceContext::disabled(),
         /*attestation_provider*/ None,
     )
     .await;
@@ -4187,228 +4187,7 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
             legacy_notify_argv: config.notify.clone(),
             ..HooksConfig::default()
         })),
-        rollout_thread_trace: codex_rollout_trace::ThreadTraceContext::disabled(),
-        user_shell: Arc::new(default_user_shell()),
-        shell_snapshot_tx: watch::channel(None).0,
-        show_raw_agent_reasoning: config.show_raw_agent_reasoning,
-        exec_policy,
-        auth_manager: auth_manager.clone(),
-        session_telemetry: session_telemetry.clone(),
-        models_manager: Arc::clone(&models_manager),
-        tool_approvals: Mutex::new(ApprovalStore::default()),
-        permission_prompt_session_rule_cache: Mutex::new(
-            crate::permission_prompt::PermissionPromptSessionRuleCache::default(),
-        ),
-        guardian_rejections: Mutex::new(std::collections::HashMap::new()),
-        guardian_rejection_circuit_breaker: Mutex::new(Default::default()),
-        runtime_handle: tokio::runtime::Handle::current(),
-        skills_manager,
-        plugins_manager,
-        mcp_manager,
-        extensions: Arc::new(codex_extension_api::ExtensionRegistryBuilder::new().build()),
-        session_extension_data: codex_extension_api::ExtensionData::new(),
-        thread_extension_data: codex_extension_api::ExtensionData::new(),
-        agent_control,
-        network_proxy: None,
-        network_approval: Arc::clone(&network_approval),
-        state_db: None,
-        live_thread: None,
-        thread_store: Arc::new(codex_thread_store::LocalThreadStore::new(
-            codex_thread_store::LocalThreadStoreConfig::from_config(config.as_ref()),
-            /*state_db*/ None,
-        )),
-        attestation_provider: None,
-        model_client: ModelClient::new(
-            Some(auth_manager.clone()),
-            thread_id.into(),
-            thread_id,
-            /*installation_id*/ "11111111-1111-4111-8111-111111111111".to_string(),
-            session_configuration.provider.clone(),
-            session_configuration.session_source.clone(),
-            config.model_verbosity,
-            config.features.enabled(Feature::EnableRequestCompression),
-            config.features.enabled(Feature::RuntimeMetrics),
-            Session::build_model_client_beta_features_header(config.as_ref()),
-            /*attestation_provider*/ None,
-        ),
-        code_mode_service: crate::tools::code_mode::CodeModeService::new(),
-        environment_manager: Arc::new(codex_exec_server::EnvironmentManager::default_for_tests()),
-    };
-
-    let plugin_outcome = services
-        .plugins_manager
-        .plugins_for_config(&per_turn_config.plugins_config_input())
-        .await;
-    let effective_skill_roots = plugin_outcome.effective_plugin_skill_roots();
-    let skills_input =
-        crate::skills_load_input_from_config(&per_turn_config, effective_skill_roots);
-    let skill_fs = environment.get_filesystem();
-    let skills_outcome = Arc::new(
-        services
-            .skills_manager
-            .skills_for_config(&skills_input, Some(Arc::clone(&skill_fs)))
-            .await,
-    );
-    let turn_environments = turn_environments_for_tests(&environment, &session_configuration.cwd);
-    let turn_context = Session::make_turn_context(
-        thread_id,
-        SessionId::from(thread_id),
-        Some(Arc::clone(&auth_manager)),
-        &session_telemetry,
-        session_configuration.provider.clone(),
-        &session_configuration,
-        services.user_shell.as_ref(),
-        services.shell_zsh_path.as_ref(),
-        services.main_execve_wrapper_exe.as_ref(),
-        per_turn_config,
-        model_info,
-        &models_manager,
-        /*network*/ None,
-        turn_environments,
-        session_configuration.cwd.clone(),
-        "turn_id".to_string(),
-        skills_outcome,
-        /*goal_tools_supported*/ true,
-    );
-
-    let (mailbox, mailbox_rx) = crate::agent::Mailbox::new();
-    let session = Session {
-        conversation_id: thread_id,
-        installation_id: "11111111-1111-4111-8111-111111111111".to_string(),
-        tx_event,
-        agent_status: agent_status_tx,
-        out_of_band_elicitation_paused: watch::channel(false).0,
-        state: Mutex::new(state),
-        managed_network_proxy_refresh_lock: Semaphore::new(/*permits*/ 1),
-        features: config.features.clone(),
-        pending_mcp_server_refresh_config: Mutex::new(None),
-        conversation: Arc::new(RealtimeConversationManager::new()),
-        active_turn: Mutex::new(None),
-        mailbox,
-        mailbox_rx: Mutex::new(mailbox_rx),
-        idle_pending_input: Mutex::new(Vec::new()),
-        goal_runtime: crate::goals::GoalRuntimeState::new(),
-        guardian_review_session: crate::guardian::GuardianReviewSessionManager::default(),
-        services,
-        next_internal_sub_id: AtomicU64::new(0),
-    };
-
-    (session, turn_context)
-}
-
-async fn make_session_with_config(
-    mutator: impl FnOnce(&mut Config),
-) -> anyhow::Result<Arc<Session>> {
-    let (session, _rx_event) = make_session_with_config_and_rx(mutator).await?;
-    Ok(session)
-}
-
-async fn load_latest_config_for_session(session: &Session) -> Config {
-    let config = session.get_config().await;
-    ConfigBuilder::default()
-        .codex_home(config.codex_home.to_path_buf())
-        .fallback_cwd(Some(config.cwd.to_path_buf()))
-        .build()
-        .await
-        .expect("load latest config for session")
-}
-
-async fn make_session_with_config_and_rx(
-    mutator: impl FnOnce(&mut Config),
-) -> anyhow::Result<(Arc<Session>, async_channel::Receiver<Event>)> {
-    let codex_home = tempfile::tempdir().expect("create temp dir");
-    let mut config = build_test_config(codex_home.path()).await;
-    mutator(&mut config);
-    let config = Arc::new(config);
-    let auth_manager = AuthManager::from_auth_for_testing(CodexAuth::from_api_key("Test API Key"));
-    let models_manager = models_manager_with_provider(
-        config.codex_home.to_path_buf(),
-        auth_manager.clone(),
-        config.model_provider.clone(),
-    );
-    let model = get_model_offline_for_tests(config.model.as_deref());
-    let model_info =
-        construct_model_info_offline_for_tests(model.as_str(), &config.to_models_manager_config());
-    let collaboration_mode = CollaborationMode {
-        mode: ModeKind::Default,
-        settings: Settings {
-            model,
-            reasoning_effort: config.model_reasoning_effort,
-            developer_instructions: None,
-        },
-    };
-    let default_environments = vec![TurnEnvironmentSelection {
-        environment_id: codex_exec_server::LOCAL_ENVIRONMENT_ID.to_string(),
-        cwd: config.cwd.clone(),
-    }];
-    let session_configuration = SessionConfiguration {
-        provider: config.model_provider.clone(),
-        collaboration_mode,
-        model_reasoning_summary: config.model_reasoning_summary,
-        developer_instructions: config.developer_instructions.clone(),
-        user_instructions: config.user_instructions.clone(),
-        service_tier: None,
-        personality: config.personality,
-        base_instructions: config
-            .base_instructions
-            .clone()
-            .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
-        compact_prompt: config.compact_prompt.clone(),
-        approval_policy: config.permissions.approval_policy.clone(),
-        permission_prompt_tool: config.permission_prompt_tool.clone(),
-        approvals_reviewer: config.approvals_reviewer,
-        permission_profile: config.permissions.permission_profile.clone(),
-        active_permission_profile: config.permissions.active_permission_profile(),
-        windows_sandbox_level: WindowsSandboxLevel::from_config(&config),
-        cwd: config.cwd.clone(),
-        codex_home: config.codex_home.clone(),
-        thread_name: None,
-        environments: default_environments,
-        original_config_do_not_use: Arc::clone(&config),
-        metrics_service_name: None,
-        app_server_client_name: None,
-        app_server_client_version: None,
-        session_source: SessionSource::Exec,
-        thread_source: None,
-        dynamic_tools: Vec::new(),
-        persist_extended_history: false,
-        inherited_shell_snapshot: None,
-        user_shell_override: None,
-    };
-
-    let (tx_event, rx_event) = async_channel::unbounded();
-    let (agent_status_tx, _agent_status_rx) = watch::channel(AgentStatus::PendingInit);
-    let plugins_manager = Arc::new(PluginsManager::new(config.codex_home.to_path_buf()));
-    let mcp_manager = Arc::new(McpManager::new(Arc::clone(&plugins_manager)));
-    let skills_manager = Arc::new(SkillsManager::new(
-        config.codex_home.clone(),
-        /*bundled_skills_enabled*/ true,
-    ));
-
-    let session = Session::new(
-        session_configuration,
-        Arc::clone(&config),
-        "11111111-1111-4111-8111-111111111111".to_string(),
-        auth_manager,
-        models_manager,
-        Arc::new(ExecPolicyManager::default()),
-        tx_event,
-        agent_status_tx,
-        InitialHistory::New,
-        SessionSource::Exec,
-        skills_manager,
-        plugins_manager,
-        mcp_manager,
-        Arc::new(codex_extension_api::ExtensionRegistryBuilder::new().build()),
-        AgentControl::default(),
-        Arc::new(codex_exec_server::EnvironmentManager::default_for_tests()),
-        /*analytics_events_client*/ None,
-        Arc::new(codex_thread_store::LocalThreadStore::new(
-            codex_thread_store::LocalThreadStoreConfig::from_config(config.as_ref()),
-            /*state_db*/ None,
-        )),
-        codex_rollout_trace::ThreadTraceContext::disabled(),
-        /*attestation_provider*/ None,
+        rollout_thread_trace: crate::rollout_trace::ThreadTraceContext::disabled(),
     )
     .await?;
 
@@ -4517,7 +4296,7 @@ async fn make_session_with_history_source_and_agent_control_and_rx(
                 .expect("state db should initialize"),
             ),
         )),
-        codex_rollout_trace::ThreadTraceContext::disabled(),
+        crate::rollout_trace::ThreadTraceContext::disabled(),
         /*attestation_provider*/ None,
     )
     .await?;
@@ -5651,7 +5430,7 @@ where
             legacy_notify_argv: config.notify.clone(),
             ..HooksConfig::default()
         })),
-        rollout_thread_trace: codex_rollout_trace::ThreadTraceContext::disabled(),
+        rollout_thread_trace: crate::rollout_trace::ThreadTraceContext::disabled(),
         user_shell: Arc::new(default_user_shell()),
         shell_snapshot_tx: watch::channel(None).0,
         show_raw_agent_reasoning: config.show_raw_agent_reasoning,

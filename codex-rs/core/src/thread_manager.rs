@@ -1216,7 +1216,7 @@ impl ThreadManagerState {
         &self,
         session_source: &SessionSource,
         initial_history: &InitialHistory,
-    ) -> codex_rollout_trace::ThreadTraceContext {
+    ) -> crate::rollout_trace::ThreadTraceContext {
         // A fresh v2 child belongs to the same rollout tree as its parent, so
         // session startup derives its child trace from the parent's thread
         // context. Resumed children already have a prior `ThreadStarted` event
@@ -1226,10 +1226,10 @@ impl ThreadManagerState {
             parent_thread_id, ..
         }) = session_source
         else {
-            return codex_rollout_trace::ThreadTraceContext::disabled();
+            return crate::rollout_trace::ThreadTraceContext::disabled();
         };
         if matches!(initial_history, InitialHistory::Resumed(_)) {
-            return codex_rollout_trace::ThreadTraceContext::disabled();
+            return crate::rollout_trace::ThreadTraceContext::disabled();
         }
         // Parent lookup can fail if the parent was closed or released between
         // spawn preparation and session construction. Tracing is diagnostic, so
@@ -1239,7 +1239,7 @@ impl ThreadManagerState {
             .await
             .ok()
             .map(|thread| thread.codex.session.services.rollout_thread_trace.clone())
-            .unwrap_or_else(codex_rollout_trace::ThreadTraceContext::disabled)
+            .unwrap_or_else(crate::rollout_trace::ThreadTraceContext::disabled)
     }
 }
 
