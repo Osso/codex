@@ -61,8 +61,6 @@ use crate::legacy_core::DEFAULT_AGENTS_MD_FILENAME;
 use crate::legacy_core::config::Config;
 use crate::legacy_core::config::Constrained;
 use crate::legacy_core::config::ConstraintResult;
-#[cfg(target_os = "windows")]
-use crate::legacy_core::windows_sandbox::WindowsSandboxLevelExt;
 use crate::mention_codec::LinkedMention;
 use crate::mention_codec::encode_history_mentions;
 use crate::model_catalog::ModelCatalog;
@@ -4839,7 +4837,7 @@ impl ChatWidget {
         widget.bottom_pane.set_windows_degraded_sandbox_active(
             crate::legacy_core::windows_sandbox::ELEVATED_SANDBOX_NUX_ENABLED
                 && matches!(
-                    WindowsSandboxLevel::from_config(&widget.config),
+                    crate::legacy_core::config::windows_sandbox_level_from_config(&widget.config),
                     WindowsSandboxLevel::RestrictedToken
                 ),
         );
@@ -7708,7 +7706,7 @@ impl ChatWidget {
         let presets: Vec<ApprovalPreset> = builtin_approval_presets();
 
         #[cfg(target_os = "windows")]
-        let windows_sandbox_level = WindowsSandboxLevel::from_config(&self.config);
+        let windows_sandbox_level = crate::legacy_core::config::windows_sandbox_level_from_config(&self.config);
         #[cfg(target_os = "windows")]
         let windows_degraded_sandbox_enabled =
             matches!(windows_sandbox_level, WindowsSandboxLevel::RestrictedToken);
@@ -7716,9 +7714,7 @@ impl ChatWidget {
         let windows_degraded_sandbox_enabled = false;
 
         let show_elevate_sandbox_hint =
-            crate::legacy_core::windows_sandbox::ELEVATED_SANDBOX_NUX_ENABLED
-                && windows_degraded_sandbox_enabled
-                && presets.iter().any(|preset| preset.id == "auto");
+            windows_degraded_sandbox_enabled && presets.iter().any(|preset| preset.id == "auto");
 
         let guardian_disabled_reason = |enabled: bool| {
             let mut next_features = self.config.features.get().clone();
@@ -7771,7 +7767,7 @@ impl ChatWidget {
             } else if preset.id == "auto" {
                 #[cfg(target_os = "windows")]
                 {
-                    if WindowsSandboxLevel::from_config(&self.config)
+                    if crate::legacy_core::config::windows_sandbox_level_from_config(&self.config)
                         == WindowsSandboxLevel::Disabled
                     {
                         let preset_clone = preset.clone();
@@ -8558,7 +8554,7 @@ impl ChatWidget {
     #[cfg(target_os = "windows")]
     pub(crate) fn maybe_prompt_windows_sandbox_enable(&mut self, show_now: bool) {
         if show_now
-            && WindowsSandboxLevel::from_config(&self.config) == WindowsSandboxLevel::Disabled
+            && crate::legacy_core::config::windows_sandbox_level_from_config(&self.config) == WindowsSandboxLevel::Disabled
             && let Some(preset) = builtin_approval_presets()
                 .into_iter()
                 .find(|preset| preset.id == "auto")
@@ -8637,7 +8633,7 @@ impl ChatWidget {
         self.bottom_pane.set_windows_degraded_sandbox_active(
             crate::legacy_core::windows_sandbox::ELEVATED_SANDBOX_NUX_ENABLED
                 && matches!(
-                    WindowsSandboxLevel::from_config(&self.config),
+                    crate::legacy_core::config::windows_sandbox_level_from_config(&self.config),
                     WindowsSandboxLevel::RestrictedToken
                 ),
         );
@@ -8687,7 +8683,7 @@ impl ChatWidget {
             self.bottom_pane.set_windows_degraded_sandbox_active(
                 crate::legacy_core::windows_sandbox::ELEVATED_SANDBOX_NUX_ENABLED
                     && matches!(
-                        WindowsSandboxLevel::from_config(&self.config),
+                        crate::legacy_core::config::windows_sandbox_level_from_config(&self.config),
                         WindowsSandboxLevel::RestrictedToken
                     ),
             );

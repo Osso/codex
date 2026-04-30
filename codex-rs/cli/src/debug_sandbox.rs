@@ -340,7 +340,7 @@ async fn run_command_under_windows_session(
     sandbox_policy_cwd: AbsolutePathBuf,
     env: std::collections::HashMap<String, String>,
 ) -> ! {
-    use codex_core::windows_sandbox::WindowsSandboxLevelExt;
+    use codex_core::config::windows_sandbox_level_from_config;
     use codex_protocol::config_types::WindowsSandboxLevel;
     use codex_windows_sandbox::spawn_windows_sandbox_session_elevated;
     use codex_windows_sandbox::spawn_windows_sandbox_session_legacy;
@@ -357,7 +357,7 @@ async fn run_command_under_windows_session(
     };
 
     let use_elevated = matches!(
-        WindowsSandboxLevel::from_config(config),
+        windows_sandbox_level_from_config(config),
         WindowsSandboxLevel::Elevated
     );
 

@@ -48,7 +48,6 @@ use codex_config::NoopThreadConfigLoader;
 use codex_config::RemoteThreadConfigLoader;
 use codex_config::ThreadConfigLoader;
 use codex_core::config::Config;
-use codex_core::config_loader::LoaderOverrides;
 pub use codex_exec_server::EnvironmentManager;
 pub use codex_exec_server::ExecServerRuntimePaths;
 use codex_protocol::protocol::SessionSource;
@@ -73,7 +72,8 @@ pub mod legacy_core {
     pub use codex_core::McpManager;
     pub use codex_core::check_execpolicy_for_warnings;
     pub use codex_core::format_exec_policy_error_with_source;
-    pub use codex_core::grant_read_root_non_elevated;
+    pub use codex_core::lookup_message_history_entry;
+    pub use codex_core::message_history_metadata;
     pub use codex_core::web_search_detail;
 
     pub mod config {
@@ -112,9 +112,6 @@ pub mod legacy_core {
         pub use codex_core::util::*;
     }
 
-    pub mod windows_sandbox {
-        pub use codex_core::windows_sandbox::*;
-    }
 }
 
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
