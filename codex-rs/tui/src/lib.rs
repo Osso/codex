@@ -2033,31 +2033,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn config_cwd_for_app_server_target_omits_cwd_for_remote_exec_server()
-    -> std::io::Result<()> {
-        let remote_only_cwd = if cfg!(windows) {
-            Path::new(r"C:\definitely\not\local\to\this\test")
-        } else {
-            Path::new("/definitely/not/local/to/this/test")
-        };
-        let target = AppServerTarget::Embedded;
-        let environment_manager = EnvironmentManager::create_for_tests(
-            Some("ws://127.0.0.1:8765".to_string()),
-            ExecServerRuntimePaths::new(
-                std::env::current_exe().expect("current exe"),
-                /*codex_linux_sandbox_exe*/ None,
-            )?,
-        )
-        .await;
+    async fn read_session_cwd_returns_none_without_sqlite_or_rollout_path() -> std::io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let config = build_config(&temp_dir).await?;
 
-        let config_cwd =
-            config_cwd_for_app_server_target(Some(remote_only_cwd), &target, &environment_manager)?;
+        let cwd = read_session_cwd(&config, ThreadId::new(), /*path*/ None).await;
 
-        assert_eq!(config_cwd, None);
+        assert_eq!(cwd, None);
         Ok(())
     }
 
     #[tokio::test]
+
     #[serial]
     async fn windows_shows_trust_prompt_without_sandbox() -> std::io::Result<()> {
         let temp_dir = TempDir::new()?;

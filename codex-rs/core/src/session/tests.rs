@@ -4162,7 +4162,7 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
     ));
     let network_approval = Arc::new(NetworkApprovalService::default());
     let environment = Arc::new(
-        codex_exec_server::Environment::create_for_tests(/*exec_server_url*/ None)
+        codex_exec_server::Environment::create_for_tests()
             .expect("create environment"),
     );
 
@@ -5405,7 +5405,7 @@ where
     ));
     let network_approval = Arc::new(NetworkApprovalService::default());
     let environment = Arc::new(
-        codex_exec_server::Environment::create_for_tests(/*exec_server_url*/ None)
+        codex_exec_server::Environment::create_for_tests()
             .expect("create environment"),
     );
 

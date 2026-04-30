@@ -297,10 +297,10 @@ impl<'a> ToolRuntime<UnifiedExecRequest, UnifiedExecProcess> for UnifiedExecRunt
                 Some(prepared) => {
                     if req.environment.is_remote() {
                         return Err(ToolError::Rejected(
-                            "unified_exec zsh-fork is not supported for remote environments"
-                                .to_string(),
+                            "exec_command is unavailable in this session".to_string(),
                         ));
-                    }
+                    };
+
                     return self
                         .manager
                         .open_session_with_exec_env(

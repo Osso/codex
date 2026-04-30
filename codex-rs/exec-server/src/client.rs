@@ -8,11 +8,8 @@ use std::time::Duration;
 
 use arc_swap::ArcSwap;
 use codex_app_server_protocol::JSONRPCNotification;
-use futures::FutureExt;
-use futures::future::BoxFuture;
 use serde_json::Value;
 use tokio::sync::Mutex;
-use tokio::sync::OnceCell;
 use tokio::sync::mpsc;
 use tokio::sync::watch;
 
@@ -21,8 +18,7 @@ use tracing::debug;
 
 use crate::ProcessId;
 use crate::client_api::ExecServerClientConnectOptions;
-use crate::client_api::ExecServerTransportParams;
-use crate::client_api::HttpClient;
+
 use crate::client_api::RemoteExecServerConnectArgs;
 use crate::client_api::StdioExecServerConnectArgs;
 use crate::connection::JsonRpcConnection;
@@ -189,51 +185,6 @@ pub struct ExecServerClient {
     inner: Arc<Inner>,
 }
 
-#[derive(Clone)]
-pub(crate) struct LazyRemoteExecServerClient {
-    transport_params: ExecServerTransportParams,
-    client: Arc<OnceCell<ExecServerClient>>,
-}
-
-impl LazyRemoteExecServerClient {
-    pub(crate) fn new(transport_params: ExecServerTransportParams) -> Self {
-        Self {
-            transport_params,
-            client: Arc::new(OnceCell::new()),
-        }
-    }
-
-    pub(crate) async fn get(&self) -> Result<ExecServerClient, ExecServerError> {
-        self.client
-            // TODO: Add reconnect/disconnect handling here instead of reusing
-            // the first successfully initialized connection forever.
-            .get_or_try_init(|| {
-                let transport_params = self.transport_params.clone();
-                async move { ExecServerClient::connect_for_transport(transport_params).await }
-            })
-            .await
-            .cloned()
-    }
-}
-
-impl HttpClient for LazyRemoteExecServerClient {
-    fn http_request(
-        &self,
-        params: crate::HttpRequestParams,
-    ) -> BoxFuture<'_, Result<crate::HttpRequestResponse, ExecServerError>> {
-        async move { self.get().await?.http_request(params).await }.boxed()
-    }
-
-    fn http_request_stream(
-        &self,
-        params: crate::HttpRequestParams,
-    ) -> BoxFuture<
-        '_,
-        Result<(crate::HttpRequestResponse, crate::HttpResponseBodyStream), ExecServerError>,
-    > {
-        async move { self.get().await?.http_request_stream(params).await }.boxed()
-    }
-}
 
 #[derive(Debug, thiserror::Error)]
 pub enum ExecServerError {

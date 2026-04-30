@@ -54,14 +54,19 @@ fn assistant_msg(text: &str) -> ResponseItem {
     }
 }
 
-fn contextual_user_interrupted_marker() -> ResponseItem {
-    interrupted_turn_history_marker(InterruptedTurnHistoryMarker::ContextualUser)
-        .expect("contextual-user interrupted marker should be enabled")
-}
+fn disabled_environment_manager_for_tests() -> Arc<codex_exec_server::EnvironmentManager> {
+    let runtime_paths = codex_exec_server::ExecServerRuntimePaths::new(
+        std::env::current_exe().expect("current exe path"),
+        /*codex_linux_sandbox_exe*/ None,
+    )
+    .expect("runtime paths");
+    Arc::new(codex_exec_server::EnvironmentManager::new(
+        codex_exec_server::EnvironmentManagerArgs {
+            disabled: true,
+            local_runtime_paths: runtime_paths,
+        },
+    ))
 
-fn developer_interrupted_marker() -> ResponseItem {
-    interrupted_turn_history_marker(InterruptedTurnHistoryMarker::Developer)
-        .expect("developer interrupted marker should be enabled")
 }
 
 #[test]

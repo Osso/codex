@@ -86,7 +86,7 @@ pub(crate) fn resolve_environment_selections(
 mod tests {
     use codex_exec_server::ExecServerRuntimePaths;
     use codex_exec_server::LOCAL_ENVIRONMENT_ID;
-    use codex_exec_server::REMOTE_ENVIRONMENT_ID;
+
     use codex_protocol::protocol::TurnEnvironmentSelection;
     use codex_utils_absolute_path::AbsolutePathBuf;
     use pretty_assertions::assert_eq;
@@ -102,18 +102,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn default_thread_environment_selections_use_manager_default_id() {
+    async fn default_thread_environment_selections_use_local_id() {
         let cwd = AbsolutePathBuf::current_dir().expect("cwd");
-        let manager = EnvironmentManager::create_for_tests(
-            Some("ws://127.0.0.1:8765".to_string()),
-            test_runtime_paths(),
-        )
-        .await;
+        let manager = EnvironmentManager::new(EnvironmentManagerArgs {
+            disabled: false,
+            local_runtime_paths: test_runtime_paths(),
+        });
+
 
         assert_eq!(
             default_thread_environment_selections(&manager, &cwd),
             vec![TurnEnvironmentSelection {
-                environment_id: REMOTE_ENVIRONMENT_ID.to_string(),
+                environment_id: LOCAL_ENVIRONMENT_ID.to_string(),
                 cwd,
             }]
         );
@@ -154,7 +154,11 @@ url = "ws://127.0.0.1:8765"
     #[tokio::test]
     async fn default_thread_environment_selections_empty_when_default_disabled() {
         let cwd = AbsolutePathBuf::current_dir().expect("cwd");
-        let manager = EnvironmentManager::disabled_for_tests(test_runtime_paths());
+        let manager = EnvironmentManager::new(EnvironmentManagerArgs {
+            disabled: true,
+            local_runtime_paths: test_runtime_paths(),
+        });
+
 
         assert_eq!(
             default_thread_environment_selections(&manager, &cwd),

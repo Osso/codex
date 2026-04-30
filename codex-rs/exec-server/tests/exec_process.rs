@@ -18,19 +18,15 @@ use codex_exec_server::StartedExecProcess;
 use codex_exec_server::WriteStatus;
 use pretty_assertions::assert_eq;
 use tempfile::TempDir;
-use test_case::test_case;
 use tokio::sync::watch;
 use tokio::time::Duration;
 use tokio::time::timeout;
 
 use common::DELAYED_OUTPUT_AFTER_EXIT_PARENT_ARG;
 use common::current_test_binary_helper_paths;
-use common::exec_server::ExecServerHarness;
-use common::exec_server::exec_server;
 
 struct ProcessContext {
     backend: Arc<dyn ExecBackend>,
-    server: Option<ExecServerHarness>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -49,25 +45,15 @@ enum ProcessEventSnapshot {
     },
 }
 
-async fn create_process_context(use_remote: bool) -> Result<ProcessContext> {
-    if use_remote {
-        let server = exec_server().await?;
-        let environment = Environment::create_for_tests(Some(server.websocket_url().to_string()))?;
-        Ok(ProcessContext {
-            backend: environment.get_exec_backend(),
-            server: Some(server),
-        })
-    } else {
-        let environment = Environment::create_for_tests(/*exec_server_url*/ None)?;
-        Ok(ProcessContext {
-            backend: environment.get_exec_backend(),
-            server: None,
-        })
-    }
+async fn create_process_context() -> Result<ProcessContext> {
+    let environment = Environment::create_for_tests()?;
+    Ok(ProcessContext {
+        backend: environment.get_exec_backend(),
+    })
 }
 
-async fn assert_exec_process_starts_and_exits(use_remote: bool) -> Result<()> {
-    let context = create_process_context(use_remote).await?;
+async fn assert_exec_process_starts_and_exits() -> Result<()> {
+    let context = create_process_context().await?;
     let session = context
         .backend
         .start(ExecParams {
@@ -202,8 +188,8 @@ async fn collect_process_event_snapshots(
     }
 }
 
-async fn assert_exec_process_streams_output(use_remote: bool) -> Result<()> {
-    let context = create_process_context(use_remote).await?;
+async fn assert_exec_process_streams_output() -> Result<()> {
+    let context = create_process_context().await?;
     let process_id = "proc-stream".to_string();
     let session = context
         .backend
@@ -233,8 +219,8 @@ async fn assert_exec_process_streams_output(use_remote: bool) -> Result<()> {
     Ok(())
 }
 
-async fn assert_exec_process_pushes_events(use_remote: bool) -> Result<()> {
-    let context = create_process_context(use_remote).await?;
+async fn assert_exec_process_pushes_events() -> Result<()> {
+    let context = create_process_context().await?;
     let process_id = "proc-events".to_string();
     let session = context
         .backend
@@ -280,8 +266,8 @@ async fn assert_exec_process_pushes_events(use_remote: bool) -> Result<()> {
     Ok(())
 }
 
-async fn assert_exec_process_replays_events_after_close(use_remote: bool) -> Result<()> {
-    let context = create_process_context(use_remote).await?;
+async fn assert_exec_process_replays_events_after_close() -> Result<()> {
+    let context = create_process_context().await?;
     let process_id = "proc-events-late".to_string();
     let session = context
         .backend
@@ -323,10 +309,8 @@ async fn assert_exec_process_replays_events_after_close(use_remote: bool) -> Res
     Ok(())
 }
 
-async fn assert_exec_process_retains_output_after_exit_until_streams_close(
-    use_remote: bool,
-) -> Result<()> {
-    let context = create_process_context(use_remote).await?;
+async fn assert_exec_process_retains_output_after_exit_until_streams_close() -> Result<()> {
+    let context = create_process_context().await?;
     let (helper_binary, _) = current_test_binary_helper_paths()?;
     let release_dir = TempDir::new()?;
     let release_path = release_dir.path().join("release-delayed-output");
@@ -398,8 +382,8 @@ async fn assert_exec_process_retains_output_after_exit_until_streams_close(
     Ok(())
 }
 
-async fn assert_exec_process_write_then_read(use_remote: bool) -> Result<()> {
-    let context = create_process_context(use_remote).await?;
+async fn assert_exec_process_write_then_read() -> Result<()> {
+    let context = create_process_context().await?;
     let process_id = "proc-stdin".to_string();
     let session = context
         .backend
@@ -438,8 +422,8 @@ async fn assert_exec_process_write_then_read(use_remote: bool) -> Result<()> {
     Ok(())
 }
 
-async fn assert_exec_process_write_then_read_without_tty(use_remote: bool) -> Result<()> {
-    let context = create_process_context(use_remote).await?;
+async fn assert_exec_process_write_then_read_without_tty() -> Result<()> {
+    let context = create_process_context().await?;
     let process_id = "proc-stdin-pipe".to_string();
     let session = context
         .backend
@@ -471,8 +455,8 @@ async fn assert_exec_process_write_then_read_without_tty(use_remote: bool) -> Re
     Ok(())
 }
 
-async fn assert_exec_process_rejects_write_without_pipe_stdin(use_remote: bool) -> Result<()> {
-    let context = create_process_context(use_remote).await?;
+async fn assert_exec_process_rejects_write_without_pipe_stdin() -> Result<()> {
+    let context = create_process_context().await?;
     let process_id = "proc-stdin-closed".to_string();
     let session = context
         .backend
@@ -505,10 +489,8 @@ async fn assert_exec_process_rejects_write_without_pipe_stdin(use_remote: bool) 
     Ok(())
 }
 
-async fn assert_exec_process_preserves_queued_events_before_subscribe(
-    use_remote: bool,
-) -> Result<()> {
-    let context = create_process_context(use_remote).await?;
+async fn assert_exec_process_preserves_queued_events_before_subscribe() -> Result<()> {
+    let context = create_process_context().await?;
     let session = context
         .backend
         .start(ExecParams {
@@ -539,174 +521,46 @@ async fn assert_exec_process_preserves_queued_events_before_subscribe(
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-// Serialize tests that launch a real exec-server process through the full CLI.
-#[serial_test::serial(remote_exec_server)]
-async fn remote_exec_process_reports_transport_disconnect() -> Result<()> {
-    let mut context = create_process_context(/*use_remote*/ true).await?;
-    let session = context
-        .backend
-        .start(ExecParams {
-            process_id: ProcessId::from("proc-disconnect"),
-            argv: vec![
-                "/bin/sh".to_string(),
-                "-c".to_string(),
-                "sleep 10".to_string(),
-            ],
-            cwd: std::env::current_dir()?,
-            env_policy: /*env_policy*/ None,
-            env: Default::default(),
-            tty: false,
-            pipe_stdin: false,
-            arg0: None,
-        })
-        .await?;
-
-    let process = Arc::clone(&session.process);
-    let mut events = process.subscribe_events();
-    let process_for_pending_read = Arc::clone(&process);
-    let pending_read = tokio::spawn(async move {
-        process_for_pending_read
-            .read(
-                /*after_seq*/ None,
-                /*max_bytes*/ None,
-                /*wait_ms*/ Some(60_000),
-            )
-            .await
-    });
-    let server = context
-        .server
-        .as_mut()
-        .expect("remote context should include exec-server harness");
-    server.shutdown().await?;
-
-    let event = timeout(Duration::from_secs(2), events.recv()).await??;
-    let ExecProcessEvent::Failed(event_message) = event else {
-        anyhow::bail!("expected process failure event, got {event:?}");
-    };
-    assert!(
-        event_message.starts_with("exec-server transport disconnected"),
-        "unexpected failure event: {event_message}"
-    );
-
-    let pending_response = timeout(Duration::from_secs(2), pending_read).await???;
-    let pending_message = pending_response
-        .failure
-        .expect("pending read should surface disconnect as a failure");
-    assert!(
-        pending_message.starts_with("exec-server transport disconnected"),
-        "unexpected pending failure message: {pending_message}"
-    );
-
-    let mut wake_rx = process.subscribe_wake();
-    let response = read_process_until_change(process, &mut wake_rx, /*after_seq*/ None).await?;
-    let message = response
-        .failure
-        .expect("disconnect should surface as a failure");
-    assert!(
-        message.starts_with("exec-server transport disconnected"),
-        "unexpected failure message: {message}"
-    );
-    assert!(
-        response.closed,
-        "disconnect should close the process session"
-    );
-
-    let write_result = timeout(
-        Duration::from_secs(2),
-        session.process.write(b"hello".to_vec()),
-    )
-    .await
-    .context("timed out waiting for write after disconnect")?;
-    let write_error = write_result.expect_err("write after disconnect should fail");
-    assert!(
-        write_error
-            .to_string()
-            .starts_with("exec-server transport disconnected"),
-        "unexpected write error: {write_error}"
-    );
-
-    Ok(())
+async fn exec_process_starts_and_exits() -> Result<()> {
+    assert_exec_process_starts_and_exits().await
 }
 
-#[test_case(false ; "local")]
-#[test_case(true ; "remote")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-// Serialize tests that launch a real exec-server process through the full CLI.
-#[serial_test::serial(remote_exec_server)]
-async fn exec_process_starts_and_exits(use_remote: bool) -> Result<()> {
-    assert_exec_process_starts_and_exits(use_remote).await
+async fn exec_process_streams_output() -> Result<()> {
+    assert_exec_process_streams_output().await
 }
 
-#[test_case(false ; "local")]
-#[test_case(true ; "remote")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-// Serialize tests that launch a real exec-server process through the full CLI.
-#[serial_test::serial(remote_exec_server)]
-async fn exec_process_streams_output(use_remote: bool) -> Result<()> {
-    assert_exec_process_streams_output(use_remote).await
+async fn exec_process_pushes_events() -> Result<()> {
+    assert_exec_process_pushes_events().await
 }
 
-#[test_case(false ; "local")]
-#[test_case(true ; "remote")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-// Serialize tests that launch a real exec-server process through the full CLI.
-#[serial_test::serial(remote_exec_server)]
-async fn exec_process_pushes_events(use_remote: bool) -> Result<()> {
-    assert_exec_process_pushes_events(use_remote).await
+async fn exec_process_replays_events_after_close() -> Result<()> {
+    assert_exec_process_replays_events_after_close().await
 }
 
-#[test_case(false ; "local")]
-#[test_case(true ; "remote")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-// Serialize tests that launch a real exec-server process through the full CLI.
-#[serial_test::serial(remote_exec_server)]
-async fn exec_process_replays_events_after_close(use_remote: bool) -> Result<()> {
-    assert_exec_process_replays_events_after_close(use_remote).await
+async fn exec_process_retains_output_after_exit_until_streams_close() -> Result<()> {
+    assert_exec_process_retains_output_after_exit_until_streams_close().await
 }
 
-#[test_case(false ; "local")]
-#[test_case(true ; "remote")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-// Serialize tests that launch a real exec-server process through the full CLI.
-#[serial_test::serial(remote_exec_server)]
-async fn exec_process_retains_output_after_exit_until_streams_close(
-    use_remote: bool,
-) -> Result<()> {
-    assert_exec_process_retains_output_after_exit_until_streams_close(use_remote).await
+async fn exec_process_write_then_read() -> Result<()> {
+    assert_exec_process_write_then_read().await
 }
 
-#[test_case(false ; "local")]
-#[test_case(true ; "remote")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-// Serialize tests that launch a real exec-server process through the full CLI.
-#[serial_test::serial(remote_exec_server)]
-async fn exec_process_write_then_read(use_remote: bool) -> Result<()> {
-    assert_exec_process_write_then_read(use_remote).await
+async fn exec_process_write_then_read_without_tty() -> Result<()> {
+    assert_exec_process_write_then_read_without_tty().await
 }
 
-#[test_case(false ; "local")]
-#[test_case(true ; "remote")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-// Serialize tests that launch a real exec-server process through the full CLI.
-#[serial_test::serial(remote_exec_server)]
-async fn exec_process_write_then_read_without_tty(use_remote: bool) -> Result<()> {
-    assert_exec_process_write_then_read_without_tty(use_remote).await
+async fn exec_process_rejects_write_without_pipe_stdin() -> Result<()> {
+    assert_exec_process_rejects_write_without_pipe_stdin().await
 }
 
-#[test_case(false ; "local")]
-#[test_case(true ; "remote")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-// Serialize tests that launch a real exec-server process through the full CLI.
-#[serial_test::serial(remote_exec_server)]
-async fn exec_process_rejects_write_without_pipe_stdin(use_remote: bool) -> Result<()> {
-    assert_exec_process_rejects_write_without_pipe_stdin(use_remote).await
-}
-
-#[test_case(false ; "local")]
-#[test_case(true ; "remote")]
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-// Serialize tests that launch a real exec-server process through the full CLI.
-#[serial_test::serial(remote_exec_server)]
-async fn exec_process_preserves_queued_events_before_subscribe(use_remote: bool) -> Result<()> {
-    assert_exec_process_preserves_queued_events_before_subscribe(use_remote).await
+async fn exec_process_preserves_queued_events_before_subscribe() -> Result<()> {
+    assert_exec_process_preserves_queued_events_before_subscribe().await
 }
