@@ -26,8 +26,6 @@ use crate::unified_exec::UnifiedExecProcessManager;
 use crate::unified_exec::WriteStdinRequest;
 use crate::unified_exec::generate_chunk_id;
 use codex_features::Feature;
-use crate::telemetry::SessionTelemetry;
-use crate::telemetry::TOOL_CALL_UNIFIED_EXEC_METRIC;
 use codex_protocol::models::PermissionProfile;
 use codex_protocol::protocol::EventMsg;
 use codex_protocol::protocol::TerminalInteractionEvent;
@@ -320,7 +318,6 @@ impl ToolHandler for UnifiedExecHandler {
                     });
                 }
 
-                emit_unified_exec_tty_metric(&turn.session_telemetry, tty);
                 match manager
                     .exec_command(
                         ExecCommandRequest {
@@ -404,14 +401,6 @@ impl ToolHandler for UnifiedExecHandler {
 
         Ok(response)
     }
-}
-
-fn emit_unified_exec_tty_metric(session_telemetry: &SessionTelemetry, tty: bool) {
-    session_telemetry.counter(
-        TOOL_CALL_UNIFIED_EXEC_METRIC,
-        /*inc*/ 1,
-        &[("tty", if tty { "true" } else { "false" })],
-    );
 }
 
 pub(crate) fn get_command(

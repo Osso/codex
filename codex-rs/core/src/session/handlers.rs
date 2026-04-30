@@ -3,7 +3,6 @@ use crate::realtime_conversation::handle_close as handle_realtime_conversation_c
 use crate::realtime_conversation::handle_start as handle_realtime_conversation_start;
 use crate::realtime_conversation::handle_text as handle_realtime_conversation_text;
 use async_channel::Receiver;
-use crate::telemetry::set_parent_from_w3c_trace_context;
 use codex_protocol::protocol::Submission;
 use tracing::Instrument;
 use tracing::debug_span;
@@ -1289,13 +1288,5 @@ pub(super) fn submission_dispatch_span(sub: &Submission) -> tracing::Span {
             codex.op = op_name
         ),
     };
-    if let Some(trace) = sub.trace.as_ref()
-        && !set_parent_from_w3c_trace_context(&dispatch_span, trace)
-    {
-        warn!(
-            submission.id = sub.id.as_str(),
-            "ignoring invalid submission trace carrier"
-        );
-    }
     dispatch_span
 }
