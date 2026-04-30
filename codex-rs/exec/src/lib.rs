@@ -254,6 +254,7 @@ pub async fn run_main(cli: Cli, arg0_paths: Arg0DispatchPaths) -> anyhow::Result
         sandbox_mode: sandbox_mode_cli_arg,
         dangerously_bypass_approvals_and_sandbox,
         cwd,
+        worktree,
         add_dir,
     } = shared;
 
@@ -292,7 +293,15 @@ pub async fn run_main(cli: Cli, arg0_paths: Arg0DispatchPaths) -> anyhow::Result
         "permission_prompt_tool",
     )?);
 
-    let resolved_cwd = cwd.clone();
+    let resolved_cwd = match worktree {
+        Some(name) => {
+            let base_dir = cwd.as_deref().unwrap_or_else(|| Path::new("."));
+            Some(codex_git_utils::create_or_reuse_codex_worktree(
+                base_dir, &name,
+            )?)
+        }
+        None => cwd.clone(),
+    };
     let config_cwd = match resolved_cwd.as_deref() {
         Some(path) => {
             AbsolutePathBuf::from_absolute_path(canonicalize_existing_preserving_symlinks(path)?)?

@@ -2281,6 +2281,28 @@ mod tests {
         assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
     }
 
+    #[test]
+    fn worktree_flag_parses_for_interactive() {
+        let cli = MultitoolCli::try_parse_from(["codex", "-w", "feature-a"])
+            .expect("parse should succeed");
+
+        assert_eq!(cli.interactive.worktree.as_deref(), Some("feature-a"));
+    }
+
+    #[test]
+    fn root_worktree_flag_is_inherited_by_exec() {
+        let cli = MultitoolCli::try_parse_from(["codex", "-w", "feature-a", "exec", "prompt"])
+            .expect("parse should succeed");
+        let Some(Subcommand::Exec(mut exec)) = cli.subcommand else {
+            panic!("expected exec subcommand");
+        };
+
+        exec.shared
+            .inherit_exec_root_options(&cli.interactive.shared);
+
+        assert_eq!(exec.worktree.as_deref(), Some("feature-a"));
+    }
+
     fn app_server_from_args(args: &[&str]) -> AppServerCommand {
         let cli = MultitoolCli::try_parse_from(args).expect("parse");
         let Subcommand::AppServer(app_server) = cli.subcommand.expect("app-server present") else {

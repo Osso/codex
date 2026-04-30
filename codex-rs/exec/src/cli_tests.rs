@@ -94,3 +94,10 @@ fn parses_permission_prompt_tool_flag() {
         Some("mcp__approval__prompt")
     );
 }
+
+#[test]
+fn parses_worktree_flag() {
+    let cli = Cli::parse_from(["codex-exec", "-w", "feature-a", "summarize"]);
+
+    assert_eq!(cli.worktree.as_deref(), Some("feature-a"));
+}

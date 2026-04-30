@@ -55,6 +55,10 @@ pub struct SharedCliOptions {
     #[clap(long = "cd", short = 'C', value_name = "DIR")]
     pub cwd: Option<PathBuf>,
 
+    /// Create or reuse a sibling Git worktree and use it as the working root.
+    #[clap(long = "worktree", short = 'w', value_name = "NAME")]
+    pub worktree: Option<String>,
+
     /// Additional directories that should be writable alongside the primary workspace.
     #[arg(long = "add-dir", value_name = "DIR", value_hint = clap::ValueHint::DirPath)]
     pub add_dir: Vec<PathBuf>,
@@ -74,6 +78,7 @@ impl SharedCliOptions {
             sandbox_mode,
             dangerously_bypass_approvals_and_sandbox,
             cwd,
+            worktree,
             add_dir,
         } = self;
         let Self {
@@ -86,6 +91,7 @@ impl SharedCliOptions {
             sandbox_mode: root_sandbox_mode,
             dangerously_bypass_approvals_and_sandbox: root_dangerously_bypass_approvals_and_sandbox,
             cwd: root_cwd,
+            worktree: root_worktree,
             add_dir: root_add_dir,
         } = root;
 
@@ -114,6 +120,9 @@ impl SharedCliOptions {
         if cwd.is_none() {
             cwd.clone_from(root_cwd);
         }
+        if worktree.is_none() {
+            worktree.clone_from(root_worktree);
+        }
         if !root_images.is_empty() {
             let mut merged_images = root_images.clone();
             merged_images.append(images);
@@ -139,6 +148,7 @@ impl SharedCliOptions {
             sandbox_mode,
             dangerously_bypass_approvals_and_sandbox,
             cwd,
+            worktree,
             add_dir,
         } = subcommand;
 
@@ -164,6 +174,9 @@ impl SharedCliOptions {
         }
         if let Some(cwd) = cwd {
             self.cwd = Some(cwd);
+        }
+        if let Some(worktree) = worktree {
+            self.worktree = Some(worktree);
         }
         if !images.is_empty() {
             self.images = images;
