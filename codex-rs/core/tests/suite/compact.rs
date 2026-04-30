@@ -2,7 +2,6 @@
 use codex_core::compact::SUMMARIZATION_PROMPT;
 use codex_core::compact::SUMMARY_PREFIX;
 use codex_core::config::Config;
-use codex_features::Feature;
 use codex_login::CodexAuth;
 use codex_model_provider_info::ModelProviderInfo;
 use codex_model_provider_info::built_in_model_providers;
@@ -3378,8 +3377,7 @@ async fn snapshot_request_shape_pre_turn_compaction_strips_incoming_model_switch
         .with_config(move |config| {
             config.model_provider = model_provider;
             set_test_compact_prompt(config);
-            let _ = config.features.enable(Feature::RemoteModels);
-            config.model_auto_compact_token_limit = Some(200);
+config.model_auto_compact_token_limit = Some(200);
         })
         .build(&server)
         .await

@@ -459,7 +459,6 @@ sandbox_mode = "read-only"
 model_provider = "mock_provider"
 
 [features]
-remote_models = false
 personality = true
 
 [model_providers.mock_provider]
