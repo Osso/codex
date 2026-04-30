@@ -468,9 +468,6 @@
             "remote_control": {
               "type": "boolean"
             },
-            "remote_models": {
-              "type": "boolean"
-            },
             "remote_plugin": {
               "type": "boolean"
             },
@@ -2637,9 +2634,6 @@
           "type": "boolean"
         },
         "remote_control": {
-          "type": "boolean"
-        },
-        "remote_models": {
           "type": "boolean"
         },
         "remote_plugin": {
