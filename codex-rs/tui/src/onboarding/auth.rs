@@ -1062,7 +1062,6 @@ mod tests {
                 AuthCredentialsStoreMode::File,
                 "https://chatgpt.com/backend-api/".to_string(),
             ),
-            feedback: codex_app_server_client::CodexFeedback::new(),
             log_db: None,
             state_db: None,
             environment_manager: Arc::new(

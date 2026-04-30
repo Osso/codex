@@ -544,7 +544,6 @@ pub(crate) struct ChatWidgetInit {
     pub(crate) enhanced_keys_supported: bool,
     pub(crate) has_chatgpt_account: bool,
     pub(crate) model_catalog: Arc<ModelCatalog>,
-    pub(crate) feedback: codex_app_server_client::CodexFeedback,
     pub(crate) is_first_run: bool,
     pub(crate) status_account_display: Option<StatusAccountDisplay>,
     pub(crate) runtime_model_provider_base_url: Option<String>,
@@ -750,8 +749,6 @@ pub(crate) struct ChatWidget {
     // Runtime metrics accumulated across delta snapshots for the active turn.
     turn_runtime_metrics: RuntimeMetricsSummary,
     last_rendered_width: std::cell::Cell<Option<usize>>,
-    // Feedback sink for /feedback
-    feedback: codex_app_server_client::CodexFeedback,
     // Current session rollout path (if known)
     current_rollout_path: Option<PathBuf>,
     // Current working directory (if known)
@@ -2000,29 +1997,6 @@ impl ChatWidget {
         self.bottom_pane.set_skills(skills);
     }
 
-    pub(crate) fn open_feedback_note(
-        &mut self,
-        category: crate::app_event::FeedbackCategory,
-        include_logs: bool,
-    ) {
-        self.show_feedback_note(category, include_logs);
-    }
-
-    fn show_feedback_note(
-        &mut self,
-        category: crate::app_event::FeedbackCategory,
-        include_logs: bool,
-    ) {
-        let view = crate::bottom_pane::FeedbackNoteView::new(
-            category,
-            self.turn_lifecycle.last_turn_id.clone(),
-            self.app_event_tx.clone(),
-            include_logs,
-        );
-        self.bottom_pane.show_view(Box::new(view));
-        self.request_redraw();
-    }
-
     pub(crate) fn dismiss_app_server_request(&mut self, request: &ResolvedAppServerRequest) {
         // A remotely resolved request must not remain user-actionable. It may be
         // materialized in the bottom pane or still deferred behind active streaming.
@@ -2031,20 +2005,6 @@ impl ChatWidget {
         if removed_deferred || removed_visible {
             self.request_redraw();
         }
-    }
-
-    pub(crate) fn open_feedback_consent(&mut self, category: crate::app_event::FeedbackCategory) {
-        let snapshot = self.feedback.snapshot(self.thread_id);
-        let params = crate::bottom_pane::feedback_upload_consent_params(
-            self.app_event_tx.clone(),
-            category,
-            self.current_rollout_path.clone(),
-            self.thread_id
-                .map(|thread_id| format!("auto-review-rollout-{thread_id}.jsonl")),
-            snapshot.feedback_diagnostics(),
-        );
-        self.bottom_pane.show_selection_view(params);
-        self.request_redraw();
     }
 
     fn finalize_completed_assistant_message(&mut self, message: Option<&str>) {
@@ -2941,7 +2901,7 @@ impl ChatWidget {
                 ));
             } else {
                 self.add_to_history(history_cell::new_error_event(
-                    self.interrupted_turn_message(reason),
+                    "Conversation interrupted - tell the model what to do differently.".to_owned(),
                 ));
             }
         }
@@ -4675,7 +4635,6 @@ impl ChatWidget {
             enhanced_keys_supported,
             has_chatgpt_account,
             model_catalog,
-            feedback,
             is_first_run,
             status_account_display,
             runtime_model_provider_base_url,
@@ -4828,7 +4787,6 @@ impl ChatWidget {
             quit_shortcut_key: None,
             turn_runtime_metrics: RuntimeMetricsSummary::default(),
             last_rendered_width: std::cell::Cell::new(None),
-            feedback,
             current_rollout_path: None,
             current_cwd,
             workspace_command_runner,

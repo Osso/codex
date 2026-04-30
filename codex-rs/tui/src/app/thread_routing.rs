@@ -1036,9 +1036,6 @@ impl App {
                     self.enqueue_thread_history_entry_response(thread_id, event)
                         .await?;
                 }
-                ThreadBufferedEvent::FeedbackSubmission(event) => {
-                    self.enqueue_thread_feedback_event(thread_id, event).await;
-                }
             }
         }
         self.chat_widget
@@ -1343,9 +1340,6 @@ impl App {
             ThreadBufferedEvent::HistoryEntryResponse(event) => {
                 self.chat_widget.handle_history_entry_response(event);
             }
-            ThreadBufferedEvent::FeedbackSubmission(event) => {
-                self.handle_feedback_thread_event(event);
-            }
         }
         if needs_refresh {
             self.refresh_status_line();
@@ -1362,9 +1356,6 @@ impl App {
                 .handle_server_request(request, Some(ReplayKind::ThreadSnapshot)),
             ThreadBufferedEvent::HistoryEntryResponse(event) => {
                 self.chat_widget.handle_history_entry_response(event)
-            }
-            ThreadBufferedEvent::FeedbackSubmission(event) => {
-                self.handle_feedback_thread_event(event);
             }
         }
     }
