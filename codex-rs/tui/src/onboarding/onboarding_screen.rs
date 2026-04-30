@@ -1,6 +1,4 @@
 use crate::legacy_core::config::Config;
-#[cfg(target_os = "windows")]
-use crate::legacy_core::windows_sandbox::WindowsSandboxLevelExt;
 use codex_app_server_client::AppServerEvent;
 use codex_app_server_client::AppServerRequestHandle;
 use codex_app_server_protocol::ServerNotification;
@@ -119,7 +117,8 @@ impl OnboardingScreen {
         }
         #[cfg(target_os = "windows")]
         let show_windows_create_sandbox_hint =
-            WindowsSandboxLevel::from_config(&config) == WindowsSandboxLevel::Disabled;
+            crate::legacy_core::config::windows_sandbox_level_from_config(&config)
+                == WindowsSandboxLevel::Disabled;
         #[cfg(not(target_os = "windows"))]
         let show_windows_create_sandbox_hint = false;
         let highlighted = TrustDirectorySelection::Trust;

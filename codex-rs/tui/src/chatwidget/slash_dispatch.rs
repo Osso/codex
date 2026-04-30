@@ -257,11 +257,13 @@ impl ChatWidget {
             SlashCommand::ElevateSandbox => {
                 #[cfg(target_os = "windows")]
                 {
-                    let windows_sandbox_level = WindowsSandboxLevel::from_config(&self.config);
+                    let windows_sandbox_level =
+                        crate::legacy_core::config::windows_sandbox_level_from_config(
+                            &self.config,
+                        );
                     let windows_degraded_sandbox_enabled =
                         matches!(windows_sandbox_level, WindowsSandboxLevel::RestrictedToken);
                     if !windows_degraded_sandbox_enabled
-                        || !crate::legacy_core::windows_sandbox::ELEVATED_SANDBOX_NUX_ENABLED
                     {
                         // This command should not be visible/recognized outside degraded mode,
                         // but guard anyway in case something dispatches it directly.
@@ -742,7 +744,8 @@ impl ChatWidget {
     fn builtin_command_flags(&self) -> slash_commands::BuiltinCommandFlags {
         #[cfg(target_os = "windows")]
         let allow_elevate_sandbox = {
-            let windows_sandbox_level = WindowsSandboxLevel::from_config(&self.config);
+            let windows_sandbox_level =
+                crate::legacy_core::config::windows_sandbox_level_from_config(&self.config);
             matches!(windows_sandbox_level, WindowsSandboxLevel::RestrictedToken)
         };
         #[cfg(not(target_os = "windows"))]

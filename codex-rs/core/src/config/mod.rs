@@ -18,9 +18,6 @@ use crate::memories::memory_root;
 use crate::path_utils::normalize_for_native_workdir;
 use crate::unified_exec::DEFAULT_MAX_BACKGROUND_TERMINAL_TIMEOUT_MS;
 use crate::unified_exec::MIN_EMPTY_YIELD_TIME_MS;
-use crate::windows_sandbox::WindowsSandboxLevelExt;
-use crate::windows_sandbox::resolve_windows_sandbox_mode;
-use crate::windows_sandbox::resolve_windows_sandbox_private_desktop;
 use codex_config::ThreadConfigLoader;
 use codex_config::config_toml::ConfigToml;
 use codex_config::config_toml::ProjectConfig;
@@ -1704,9 +1701,9 @@ impl Config {
             feature_requirements,
             &mut startup_warnings,
         )?;
-        let windows_sandbox_mode = resolve_windows_sandbox_mode(&cfg, &config_profile);
+        let windows_sandbox_mode = resolve_windows_sandbox_mode_inline(&cfg, &config_profile);
         let windows_sandbox_private_desktop =
-            resolve_windows_sandbox_private_desktop(&cfg, &config_profile);
+            resolve_windows_sandbox_private_desktop_inline(&cfg, &config_profile);
         let resolved_cwd = AbsolutePathBuf::try_from(normalize_for_native_workdir({
             use std::env;
 
@@ -1762,7 +1759,15 @@ impl Config {
         let windows_sandbox_level = match windows_sandbox_mode {
             Some(WindowsSandboxModeToml::Elevated) => WindowsSandboxLevel::Elevated,
             Some(WindowsSandboxModeToml::Unelevated) => WindowsSandboxLevel::RestrictedToken,
-            None => WindowsSandboxLevel::from_features(&features),
+            None => {
+                if features.enabled(Feature::WindowsSandboxElevated) {
+                    WindowsSandboxLevel::Elevated
+                } else if features.enabled(Feature::WindowsSandbox) {
+                    WindowsSandboxLevel::RestrictedToken
+                } else {
+                    WindowsSandboxLevel::Disabled
+                }
+            }
         };
         let memories_root = memory_root(&codex_home);
         std::fs::create_dir_all(&memories_root)?;
@@ -2657,6 +2662,87 @@ pub fn find_codex_home() -> std::io::Result<AbsolutePathBuf> {
 /// that the directory exists.
 pub fn log_dir(cfg: &Config) -> std::io::Result<PathBuf> {
     Ok(cfg.log_dir.clone())
+}
+
+/// Derives the effective Windows sandbox level from a fully-resolved [`Config`].
+///
+/// Replaces the removed `WindowsSandboxLevelExt::from_config` trait method.
+pub fn windows_sandbox_level_from_config(config: &Config) -> WindowsSandboxLevel {
+    match config.permissions.windows_sandbox_mode {
+        Some(WindowsSandboxModeToml::Elevated) => WindowsSandboxLevel::Elevated,
+        Some(WindowsSandboxModeToml::Unelevated) => WindowsSandboxLevel::RestrictedToken,
+        None => {
+            if config.features.enabled(Feature::WindowsSandboxElevated) {
+                WindowsSandboxLevel::Elevated
+            } else if config.features.enabled(Feature::WindowsSandbox) {
+                WindowsSandboxLevel::RestrictedToken
+            } else {
+                WindowsSandboxLevel::Disabled
+            }
+        }
+    }
+}
+
+fn resolve_windows_sandbox_mode_inline(
+    cfg: &ConfigToml,
+    profile: &ConfigProfile,
+) -> Option<WindowsSandboxModeToml> {
+    fn legacy_mode(features: Option<&FeaturesToml>) -> Option<WindowsSandboxModeToml> {
+        let entries = features.map(FeaturesToml::entries)?;
+        if entries
+            .get(Feature::WindowsSandboxElevated.key())
+            .copied()
+            .unwrap_or(false)
+        {
+            return Some(WindowsSandboxModeToml::Elevated);
+        }
+        if entries
+            .get(Feature::WindowsSandbox.key())
+            .copied()
+            .unwrap_or(false)
+            || entries
+                .get("enable_experimental_windows_sandbox")
+                .copied()
+                .unwrap_or(false)
+        {
+            return Some(WindowsSandboxModeToml::Unelevated);
+        }
+        None
+    }
+
+    fn legacy_keys_present(features: Option<&FeaturesToml>) -> bool {
+        let Some(entries) = features.map(FeaturesToml::entries) else {
+            return false;
+        };
+        entries.contains_key(Feature::WindowsSandboxElevated.key())
+            || entries.contains_key(Feature::WindowsSandbox.key())
+            || entries.contains_key("enable_experimental_windows_sandbox")
+    }
+
+    if let Some(mode) = legacy_mode(profile.features.as_ref()) {
+        return Some(mode);
+    }
+    if legacy_keys_present(profile.features.as_ref()) {
+        return None;
+    }
+    profile
+        .windows
+        .as_ref()
+        .and_then(|w| w.sandbox)
+        .or_else(|| cfg.windows.as_ref().and_then(|w| w.sandbox))
+        .or_else(|| legacy_mode(cfg.features.as_ref()))
+}
+
+fn resolve_windows_sandbox_private_desktop_inline(
+    cfg: &ConfigToml,
+    profile: &ConfigProfile,
+) -> bool {
+    profile
+        .windows
+        .as_ref()
+        .and_then(|w| w.sandbox_private_desktop)
+        .or_else(|| cfg.windows.as_ref().and_then(|w| w.sandbox_private_desktop))
+        .unwrap_or(true)
 }
 
 #[cfg(test)]

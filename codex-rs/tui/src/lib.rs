@@ -12,7 +12,6 @@ use crate::legacy_core::config::load_config_as_toml_with_cli_overrides;
 use crate::legacy_core::config::pop_string_cli_override;
 use crate::legacy_core::config::resolve_oss_provider;
 use crate::legacy_core::format_exec_policy_error_with_source;
-use crate::legacy_core::windows_sandbox::WindowsSandboxLevelExt;
 use additional_dirs::add_dir_warning_message;
 use app::App;
 pub use app::AppExitInfo;
@@ -1247,7 +1246,8 @@ async fn run_ratatui_app(
     let should_show_trust_screen = should_show_trust_screen(&config);
     let should_prompt_windows_sandbox_nux_at_startup = cfg!(target_os = "windows")
         && trust_decision_was_made
-        && WindowsSandboxLevel::from_config(&config) == WindowsSandboxLevel::Disabled;
+        && crate::legacy_core::config::windows_sandbox_level_from_config(&config)
+            == WindowsSandboxLevel::Disabled;
 
     let Cli {
         prompt,

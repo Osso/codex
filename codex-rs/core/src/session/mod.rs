@@ -304,7 +304,6 @@ use crate::tools::parallel::ToolCallRuntime;
 use crate::tools::sandboxing::ApprovalStore;
 use crate::turn_timing::TurnTimingState;
 use crate::unified_exec::UnifiedExecProcessManager;
-use crate::windows_sandbox::WindowsSandboxLevelExt;
 use codex_git_utils::get_git_repo_root;
 use codex_mcp::compute_auth_statuses;
 use codex_mcp::with_codex_apps_mcp;
@@ -638,7 +637,23 @@ impl Codex {
             sandbox_policy: config.permissions.sandbox_policy.clone(),
             file_system_sandbox_policy: config.permissions.file_system_sandbox_policy.clone(),
             network_sandbox_policy: config.permissions.network_sandbox_policy,
-            windows_sandbox_level: WindowsSandboxLevel::from_config(&config),
+            windows_sandbox_level: match config.permissions.windows_sandbox_mode {
+                Some(codex_config::types::WindowsSandboxModeToml::Elevated) => {
+                    WindowsSandboxLevel::Elevated
+                }
+                Some(codex_config::types::WindowsSandboxModeToml::Unelevated) => {
+                    WindowsSandboxLevel::RestrictedToken
+                }
+                None => {
+                    if config.features.enabled(Feature::WindowsSandboxElevated) {
+                        WindowsSandboxLevel::Elevated
+                    } else if config.features.enabled(Feature::WindowsSandbox) {
+                        WindowsSandboxLevel::RestrictedToken
+                    } else {
+                        WindowsSandboxLevel::Disabled
+                    }
+                }
+            },
             cwd: config.cwd.clone(),
             codex_home: config.codex_home.clone(),
             thread_name: None,

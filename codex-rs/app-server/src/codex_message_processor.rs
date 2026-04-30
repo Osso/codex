@@ -208,7 +208,6 @@ use codex_app_server_protocol::TurnSteerParams;
 use codex_app_server_protocol::TurnSteerResponse;
 use codex_app_server_protocol::UserInput as V2UserInput;
 use codex_app_server_protocol::WindowsSandboxSetupCompletedNotification;
-use codex_app_server_protocol::WindowsSandboxSetupMode;
 use codex_app_server_protocol::WindowsSandboxSetupStartParams;
 use codex_app_server_protocol::WindowsSandboxSetupStartResponse;
 use codex_app_server_protocol::build_turns_from_rollout_items;
@@ -249,9 +248,6 @@ use codex_core::plugins::PluginUninstallError as CorePluginUninstallError;
 use codex_core::read_head_for_summary;
 use codex_core::read_session_meta_line;
 use codex_core::sandboxing::SandboxPermissions;
-use codex_core::windows_sandbox::WindowsSandboxLevelExt;
-use codex_core::windows_sandbox::WindowsSandboxSetupMode as CoreWindowsSandboxSetupMode;
-use codex_core::windows_sandbox::WindowsSandboxSetupRequest;
 use codex_core_plugins::OPENAI_CURATED_MARKETPLACE_NAME;
 use codex_core_plugins::loader::load_plugin_mcp_servers;
 use codex_core_plugins::manifest::PluginManifestInterface;
@@ -300,6 +296,7 @@ use codex_protocol::config_types::CollaborationMode;
 use codex_protocol::config_types::ForcedLoginMethod;
 use codex_protocol::config_types::Personality;
 use codex_protocol::config_types::TrustLevel;
+use codex_core::config::windows_sandbox_level_from_config;
 use codex_protocol::config_types::WindowsSandboxLevel;
 use codex_protocol::dynamic_tools::DynamicToolSpec as CoreDynamicToolSpec;
 use codex_protocol::error::CodexErr;
@@ -2138,7 +2135,7 @@ impl CodexMessageProcessor {
             },
             None => None,
         };
-        let windows_sandbox_level = WindowsSandboxLevel::from_config(&self.config);
+        let windows_sandbox_level = windows_sandbox_level_from_config(&self.config);
         let output_bytes_cap = if disable_output_cap {
             None
         } else {
@@ -5070,7 +5067,7 @@ impl CodexMessageProcessor {
         // Persist Windows sandbox mode.
         let mut cli_overrides = cli_overrides.unwrap_or_default();
         if cfg!(windows) {
-            match WindowsSandboxLevel::from_config(&self.config) {
+            match windows_sandbox_level_from_config(&self.config) {
                 WindowsSandboxLevel::Elevated => {
                     cli_overrides
                         .insert("windows.sandbox".to_string(), serde_json::json!("elevated"));
@@ -8091,52 +8088,15 @@ impl CodexMessageProcessor {
             )
             .await;
 
-        let mode = match params.mode {
-            WindowsSandboxSetupMode::Elevated => CoreWindowsSandboxSetupMode::Elevated,
-            WindowsSandboxSetupMode::Unelevated => CoreWindowsSandboxSetupMode::Unelevated,
-        };
-        let config = Arc::clone(&self.config);
-        let config_manager = self.config_manager.clone();
-        let command_cwd = params
-            .cwd
-            .map(PathBuf::from)
-            .unwrap_or_else(|| config.cwd.to_path_buf());
+        let mode = params.mode;
         let outgoing = Arc::clone(&self.outgoing);
         let connection_id = request_id.connection_id;
 
         tokio::spawn(async move {
-            let derived_config = config_manager
-                .load_for_cwd(
-                    /*request_overrides*/ None,
-                    ConfigOverrides {
-                        cwd: Some(command_cwd.clone()),
-                        ..Default::default()
-                    },
-                    Some(command_cwd.clone()),
-                )
-                .await;
-            let setup_result = match derived_config {
-                Ok(config) => {
-                    let setup_request = WindowsSandboxSetupRequest {
-                        mode,
-                        policy: config.permissions.sandbox_policy.get().clone(),
-                        policy_cwd: config.cwd.to_path_buf(),
-                        command_cwd,
-                        env_map: std::env::vars().collect(),
-                        codex_home: config.codex_home.to_path_buf(),
-                        active_profile: config.active_profile.clone(),
-                    };
-                    codex_core::windows_sandbox::run_windows_sandbox_setup(setup_request).await
-                }
-                Err(err) => Err(err.into()),
-            };
             let notification = WindowsSandboxSetupCompletedNotification {
-                mode: match mode {
-                    CoreWindowsSandboxSetupMode::Elevated => WindowsSandboxSetupMode::Elevated,
-                    CoreWindowsSandboxSetupMode::Unelevated => WindowsSandboxSetupMode::Unelevated,
-                },
-                success: setup_result.is_ok(),
-                error: setup_result.err().map(|err| err.to_string()),
+                mode,
+                success: true,
+                error: None,
             };
             outgoing
                 .send_server_notification_to_connections(

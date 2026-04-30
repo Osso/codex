@@ -46,8 +46,6 @@ use crate::legacy_core::config::edit::ConfigEdit;
 use crate::legacy_core::config::edit::ConfigEditsBuilder;
 use crate::legacy_core::lookup_message_history_entry;
 use crate::legacy_core::plugins::PluginsManager;
-#[cfg(target_os = "windows")]
-use crate::legacy_core::windows_sandbox::WindowsSandboxLevelExt;
 use crate::model_catalog::ModelCatalog;
 use crate::model_migration::ModelMigrationOutcome;
 use crate::model_migration::migration_copy_for_models;
@@ -911,8 +909,9 @@ impl App {
         // On startup, if Agent mode (workspace-write) or ReadOnly is active, warn about world-writable dirs on Windows.
         #[cfg(target_os = "windows")]
         {
-            let should_check = WindowsSandboxLevel::from_config(&app.config)
-                != WindowsSandboxLevel::Disabled
+            let should_check =
+                crate::legacy_core::config::windows_sandbox_level_from_config(&app.config)
+                    != WindowsSandboxLevel::Disabled
                 && matches!(
                     app.config.permissions.sandbox_policy.get(),
                     codex_protocol::protocol::SandboxPolicy::WorkspaceWrite { .. }
