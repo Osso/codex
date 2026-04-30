@@ -544,18 +544,6 @@ fn record_windows_sandbox_spawn_failure(
     } else {
         "legacy"
     };
-    if let Some(metrics) = crate::telemetry::global() {
-        let _ = metrics.counter(
-            "codex.windows_sandbox.createprocessasuserw_failed",
-            /*inc*/ 1,
-            &[
-                ("error_code", error_code.as_str()),
-                ("path_kind", path_kind),
-                ("exe", exe.as_str()),
-                ("level", level),
-            ],
-        );
-    }
 }
 
 #[cfg(target_os = "windows")]

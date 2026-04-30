@@ -1,7 +1,5 @@
 use std::future::Future;
 use std::sync::Arc;
-use std::time::Duration;
-
 use codex_analytics::CompactionTrigger;
 use codex_analytics::HookRunFact;
 use codex_analytics::build_track_events_context;
@@ -15,8 +13,6 @@ use codex_hooks::PreToolUseRequest;
 use codex_hooks::SessionStartOutcome;
 use codex_hooks::UserPromptSubmitOutcome;
 use codex_hooks::UserPromptSubmitRequest;
-use crate::telemetry::HOOK_RUN_DURATION_METRIC;
-use crate::telemetry::HOOK_RUN_METRIC;
 use codex_protocol::items::TurnItem;
 use codex_protocol::models::ResponseInputItem;
 use codex_protocol::models::ResponseItem;
@@ -482,26 +478,9 @@ pub(crate) async fn emit_hook_completed_events(
     completed_events: Vec<HookCompletedEvent>,
 ) {
     for completed in completed_events {
-        emit_hook_completed_metrics(turn_context, &completed);
         track_hook_completed_analytics(sess, turn_context, &completed);
         sess.send_event(turn_context, EventMsg::HookCompleted(completed))
             .await;
-    }
-}
-
-fn emit_hook_completed_metrics(turn_context: &TurnContext, completed: &HookCompletedEvent) {
-    let tags = hook_run_metric_tags(&completed.run);
-    turn_context
-        .session_telemetry
-        .counter(HOOK_RUN_METRIC, /*inc*/ 1, &tags);
-    if let Some(duration_ms) = completed.run.duration_ms
-        && let Ok(duration_ms) = u64::try_from(duration_ms)
-    {
-        turn_context.session_telemetry.record_duration(
-            HOOK_RUN_DURATION_METRIC,
-            Duration::from_millis(duration_ms),
-            &tags,
-        );
     }
 }
 

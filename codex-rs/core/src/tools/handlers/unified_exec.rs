@@ -17,8 +17,6 @@ use crate::unified_exec::UnifiedExecProcessManager;
 use crate::unified_exec::WriteStdinRequest;
 use crate::unified_exec::generate_chunk_id;
 use codex_features::Feature;
-use crate::telemetry::SessionTelemetry;
-use crate::telemetry::TOOL_CALL_UNIFIED_EXEC_METRIC;
 use codex_protocol::models::PermissionProfile;
 use codex_protocol::protocol::EventMsg;
 use codex_protocol::protocol::TerminalInteractionEvent;
@@ -91,6 +89,7 @@ fn effective_max_output_tokens(
     truncation_policy: TruncationPolicy,
 ) -> usize {
     resolve_max_tokens(max_output_tokens).min(truncation_policy.token_budget())
+
 }
 
 fn post_unified_exec_tool_use_payload(
@@ -115,6 +114,7 @@ fn post_unified_exec_tool_use_payload(
         tool_response,
     })
 }
+
 
 pub(crate) fn get_command(
     args: &ExecCommandArgs,

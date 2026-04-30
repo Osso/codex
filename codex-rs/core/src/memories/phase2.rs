@@ -46,12 +46,6 @@ struct Counters {
 /// Runs memory phase 2 (aka consolidation) in strict order. The method represents the linear
 /// flow of the consolidation phase.
 pub(super) async fn run(session: &Arc<Session>, config: Arc<Config>) {
-    let phase_two_e2e_timer = session
-        .services
-        .session_telemetry
-        .start_timer(metrics::MEMORY_PHASE_TWO_E2E_MS, &[])
-        .ok();
-
     let Some(db) = session.services.state_db.as_deref() else {
         // This should not happen.
         return;
@@ -182,7 +176,6 @@ pub(super) async fn run(session: &Arc<Session>, config: Arc<Config>) {
         pending_extension_resource_removals,
         thread_id,
         agent_control,
-        phase_two_e2e_timer,
     );
 
     // 7. Metrics and logs.
@@ -371,7 +364,6 @@ mod agent {
         pending_extension_resource_removals: Vec<PendingExtensionResourceRemoval>,
         thread_id: ThreadId,
         agent_control: crate::agent::AgentControl,
-        phase_two_e2e_timer: Option<crate::telemetry::Timer>,
     ) {
         let Some(db) = session.services.state_db.clone() else {
             return;
@@ -379,7 +371,6 @@ mod agent {
         let session = session.clone();
 
         tokio::spawn(async move {
-            let _phase_two_e2e_timer = phase_two_e2e_timer;
 
             // TODO(jif) we might have a very small race here.
             let rx = match agent_control.subscribe_status(thread_id).await {

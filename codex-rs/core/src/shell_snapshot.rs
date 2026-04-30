@@ -10,11 +10,11 @@ use crate::rollout::list::find_thread_path_by_id_str;
 use crate::shell::Shell;
 use crate::shell::ShellType;
 use crate::shell::get_shell;
+use crate::telemetry::SessionTelemetry;
 use anyhow::Context;
 use anyhow::Result;
 use anyhow::anyhow;
 use anyhow::bail;
-use crate::telemetry::SessionTelemetry;
 use codex_protocol::ThreadId;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use tokio::fs;
@@ -41,7 +41,7 @@ impl ShellSnapshot {
         session_id: ThreadId,
         session_cwd: AbsolutePathBuf,
         shell: &mut Shell,
-        session_telemetry: SessionTelemetry,
+        _session_telemetry: SessionTelemetry,
         state_db: Option<StateDbHandle>,
     ) -> watch::Sender<Option<Arc<ShellSnapshot>>> {
         let (shell_snapshot_tx, shell_snapshot_rx) = watch::channel(None);
@@ -53,7 +53,6 @@ impl ShellSnapshot {
             session_cwd,
             shell.clone(),
             shell_snapshot_tx.clone(),
-            session_telemetry,
             state_db,
         );
 
@@ -66,7 +65,7 @@ impl ShellSnapshot {
         session_cwd: AbsolutePathBuf,
         shell: Shell,
         shell_snapshot_tx: watch::Sender<Option<Arc<ShellSnapshot>>>,
-        session_telemetry: SessionTelemetry,
+        _session_telemetry: SessionTelemetry,
         state_db: Option<StateDbHandle>,
     ) {
         Self::spawn_snapshot_task(
@@ -75,7 +74,6 @@ impl ShellSnapshot {
             session_cwd,
             shell,
             shell_snapshot_tx,
-            session_telemetry,
             state_db,
         );
     }
@@ -86,13 +84,11 @@ impl ShellSnapshot {
         session_cwd: AbsolutePathBuf,
         snapshot_shell: Shell,
         shell_snapshot_tx: watch::Sender<Option<Arc<ShellSnapshot>>>,
-        session_telemetry: SessionTelemetry,
         state_db: Option<StateDbHandle>,
     ) {
         let snapshot_span = info_span!("shell_snapshot", thread_id = %session_id);
         tokio::spawn(
             async move {
-                let timer = session_telemetry.start_timer("codex.shell_snapshot.duration_ms", &[]);
                 let snapshot = ShellSnapshot::try_new(
                     &codex_home,
                     session_id,
@@ -102,14 +98,6 @@ impl ShellSnapshot {
                 )
                 .await
                 .map(Arc::new);
-                let success = snapshot.is_ok();
-                let success_tag = if success { "true" } else { "false" };
-                let _ = timer.map(|timer| timer.record(&[("success", success_tag)]));
-                let mut counter_tags = vec![("success", success_tag)];
-                if let Some(failure_reason) = snapshot.as_ref().err() {
-                    counter_tags.push(("failure_reason", *failure_reason));
-                }
-                session_telemetry.counter("codex.shell_snapshot", /*inc*/ 1, &counter_tags);
                 let _ = shell_snapshot_tx.send(snapshot.ok());
             }
             .instrument(snapshot_span),
