@@ -371,7 +371,7 @@ mod agent {
         pending_extension_resource_removals: Vec<PendingExtensionResourceRemoval>,
         thread_id: ThreadId,
         agent_control: crate::agent::AgentControl,
-        phase_two_e2e_timer: Option<codex_otel::Timer>,
+        phase_two_e2e_timer: Option<crate::telemetry::Timer>,
     ) {
         let Some(db) = session.services.state_db.clone() else {
             return;

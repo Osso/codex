@@ -48,7 +48,7 @@ use codex_app_server_protocol::McpServerStatusDetail;
 use codex_config::types::McpServerTransportConfig;
 #[cfg(test)]
 use codex_mcp::qualified_mcp_tool_name_prefix;
-use codex_otel::RuntimeMetricsSummary;
+use codex_core::telemetry::RuntimeMetricsSummary;
 use codex_protocol::account::PlanType;
 #[cfg(test)]
 use codex_protocol::mcp::Resource;
@@ -2913,8 +2913,8 @@ mod tests {
     use crate::legacy_core::config::ConfigBuilder;
     use codex_config::types::McpServerConfig;
     use codex_config::types::McpServerDisabledReason;
-    use codex_otel::RuntimeMetricTotals;
-    use codex_otel::RuntimeMetricsSummary;
+    use codex_core::telemetry::RuntimeMetricTotals;
+    use codex_core::telemetry::RuntimeMetricsSummary;
     use codex_protocol::ThreadId;
     use codex_protocol::account::PlanType;
     use codex_protocol::models::WebSearchAction;

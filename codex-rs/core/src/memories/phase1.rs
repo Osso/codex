@@ -12,7 +12,7 @@ use crate::session::session::Session;
 use crate::session::turn_context::TurnContext;
 use codex_api::ResponseEvent;
 use codex_config::types::MemoriesConfig;
-use codex_otel::SessionTelemetry;
+use crate::telemetry::SessionTelemetry;
 use codex_protocol::config_types::ReasoningSummary as ReasoningSummaryConfig;
 use codex_protocol::config_types::ServiceTier;
 use codex_protocol::error::CodexErr;

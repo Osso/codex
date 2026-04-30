@@ -1726,11 +1726,7 @@ fn filter_disallowed_codex_apps_tools(tools: Vec<ToolInfo>) -> Vec<ToolInfo> {
         .collect()
 }
 
-fn emit_duration(metric: &str, duration: Duration, tags: &[(&str, &str)]) {
-    if let Some(metrics) = codex_otel::global() {
-        let _ = metrics.record_duration(metric, duration, tags);
-    }
-}
+fn emit_duration(_metric: &str, _duration: Duration, _tags: &[(&str, &str)]) {}
 
 fn transport_origin(transport: &McpServerTransportConfig) -> Option<String> {
     match transport {

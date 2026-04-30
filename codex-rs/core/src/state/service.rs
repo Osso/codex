@@ -22,7 +22,7 @@ use codex_hooks::Hooks;
 use codex_login::AuthManager;
 use codex_mcp::McpConnectionManager;
 use codex_models_manager::manager::ModelsManager;
-use codex_otel::SessionTelemetry;
+use crate::telemetry::SessionTelemetry;
 use codex_rollout::state_db::StateDbHandle;
 use codex_rollout_trace::ThreadTraceContext;
 use codex_thread_store::LiveThread;

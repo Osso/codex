@@ -13,9 +13,9 @@ use crate::session::INITIAL_SUBMIT_ID;
 use crate::session::session::Session;
 use crate::session::turn::build_prompt;
 use crate::session::turn::built_tools;
-use codex_otel::STARTUP_PREWARM_AGE_AT_FIRST_TURN_METRIC;
-use codex_otel::STARTUP_PREWARM_DURATION_METRIC;
-use codex_otel::SessionTelemetry;
+use crate::telemetry::STARTUP_PREWARM_AGE_AT_FIRST_TURN_METRIC;
+use crate::telemetry::STARTUP_PREWARM_DURATION_METRIC;
+use crate::telemetry::SessionTelemetry;
 use codex_protocol::error::Result as CodexResult;
 use codex_protocol::models::BaseInstructions;
 

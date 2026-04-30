@@ -1,45 +1,9 @@
 use super::*;
-use codex_otel::set_parent_from_w3c_trace_context;
 use codex_protocol::config_types::ApprovalsReviewer;
 use codex_utils_absolute_path::test_support::PathBufExt;
 use codex_utils_absolute_path::test_support::test_path_buf;
-use opentelemetry::trace::TraceContextExt;
-use opentelemetry::trace::TraceId;
-use opentelemetry::trace::TracerProvider as _;
-use opentelemetry_sdk::trace::SdkTracerProvider;
 use pretty_assertions::assert_eq;
 use tempfile::tempdir;
-use tracing_opentelemetry::OpenTelemetrySpanExt;
-
-fn test_tracing_subscriber() -> impl tracing::Subscriber + Send + Sync {
-    let provider = SdkTracerProvider::builder().build();
-    let tracer = provider.tracer("codex-exec-tests");
-    tracing_subscriber::registry().with(tracing_opentelemetry::layer().with_tracer(tracer))
-}
-
-#[test]
-fn exec_defaults_analytics_to_enabled() {
-    assert_eq!(DEFAULT_ANALYTICS_ENABLED, true);
-}
-
-#[test]
-fn exec_root_span_can_be_parented_from_trace_context() {
-    let subscriber = test_tracing_subscriber();
-    let _guard = tracing::subscriber::set_default(subscriber);
-
-    let parent = codex_protocol::protocol::W3cTraceContext {
-        traceparent: Some("00-00000000000000000000000000000077-0000000000000088-01".into()),
-        tracestate: Some("vendor=value".into()),
-    };
-    let exec_span = exec_root_span();
-    assert!(set_parent_from_w3c_trace_context(&exec_span, &parent));
-
-    let trace_id = exec_span.context().span().span_context().trace_id();
-    assert_eq!(
-        trace_id,
-        TraceId::from_hex("00000000000000000000000000000077").expect("trace id")
-    );
-}
 
 #[test]
 fn builds_uncommitted_review_request() {

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+
 use crate::SkillLoadOutcome;
 use crate::SkillMetadata;
 use crate::build_skill_name_counts;
@@ -10,7 +11,6 @@ use codex_analytics::InvocationType;
 use codex_analytics::SkillInvocation;
 use codex_analytics::TrackEventsContext;
 use codex_exec_server::LOCAL_FS;
-use codex_otel::SessionTelemetry;
 use codex_protocol::user_input::UserInput;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use codex_utils_plugins::mention_syntax::TOOL_MENTION_SIGIL;
@@ -31,7 +31,6 @@ pub struct SkillInjection {
 pub async fn build_skill_injections(
     mentioned_skills: &[SkillMetadata],
     loaded_skills: Option<&SkillLoadOutcome>,
-    otel: Option<&SessionTelemetry>,
     analytics_client: &AnalyticsEventsClient,
     tracking: TrackEventsContext,
 ) -> SkillInjections {
@@ -54,7 +53,7 @@ pub async fn build_skill_injections(
             .await
         {
             Ok(contents) => {
-                emit_skill_injected_metric(otel, skill, "ok");
+                emit_skill_injected_metric(skill, "ok");
                 invocations.push(SkillInvocation {
                     skill_name: skill.name.clone(),
                     skill_scope: skill.scope,
@@ -68,7 +67,7 @@ pub async fn build_skill_injections(
                 });
             }
             Err(err) => {
-                emit_skill_injected_metric(otel, skill, "error");
+                emit_skill_injected_metric(skill, "error");
                 let message = format!(
                     "Failed to load skill {name} at {path}: {err:#}",
                     name = skill.name,
@@ -84,21 +83,7 @@ pub async fn build_skill_injections(
     result
 }
 
-fn emit_skill_injected_metric(
-    otel: Option<&SessionTelemetry>,
-    skill: &SkillMetadata,
-    status: &str,
-) {
-    let Some(otel) = otel else {
-        return;
-    };
-
-    otel.counter(
-        "codex.skill.injected",
-        /*inc*/ 1,
-        &[("status", status), ("skill", skill.name.as_str())],
-    );
-}
+fn emit_skill_injected_metric(_skill: &SkillMetadata, _status: &str) {}
 
 /// Collect explicitly mentioned skills from structured and text mentions.
 ///

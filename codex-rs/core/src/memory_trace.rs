@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use crate::ModelClient;
 use codex_api::RawMemory as ApiRawMemory;
 use codex_api::RawMemoryMetadata as ApiRawMemoryMetadata;
-use codex_otel::SessionTelemetry;
+use crate::telemetry::SessionTelemetry;
 use codex_protocol::error::CodexErr;
 use codex_protocol::error::Result;
 use codex_protocol::openai_models::ModelInfo;

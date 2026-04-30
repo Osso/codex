@@ -536,10 +536,6 @@ impl Session {
             let originator = originator().value;
             let terminal_type = user_agent();
             let session_model = session_configuration.collaboration_mode.model().to_string();
-            let auth_env_telemetry = collect_auth_env_telemetry(
-                &session_configuration.provider,
-                auth_manager.codex_api_key_env_enabled(),
-            );
             let mut session_telemetry = SessionTelemetry::new(
                 conversation_id,
                 session_model.as_str(),
@@ -551,8 +547,7 @@ impl Session {
                 config.otel.log_user_prompt,
                 terminal_type.clone(),
                 session_configuration.session_source.clone(),
-            )
-            .with_auth_env(auth_env_telemetry.to_otel_metadata());
+            );
             if let Some(service_name) = session_configuration.metrics_service_name.as_deref() {
                 session_telemetry = session_telemetry.with_metrics_service_name(service_name);
             }
@@ -567,7 +562,7 @@ impl Session {
                 model: Some(session_model.clone()),
                 slug: Some(session_model),
             };
-            config.features.emit_metrics(&session_telemetry);
+            config.features.emit_metrics();
             session_telemetry.counter(
                 THREAD_STARTED_METRIC,
                 /*inc*/ 1,
@@ -591,7 +586,7 @@ impl Session {
                 config.model_auto_compact_token_limit,
                 config.permissions.approval_policy.value(),
                 config.permissions.sandbox_policy.get().clone(),
-                mcp_servers.keys().map(String::as_str).collect(),
+                mcp_servers.keys().map(String::as_str).collect::<Vec<_>>(),
                 config.active_profile.clone(),
             );
 

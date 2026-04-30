@@ -20,7 +20,6 @@ codex-collaboration-mode-templates = { workspace = true }
 codex-config = { workspace = true }
 codex-login = { workspace = true }
 codex-model-provider-info = { workspace = true }
-codex-otel = { workspace = true }
 codex-model-provider = { workspace = true }
 codex-protocol = { workspace = true }
 codex-response-debug-context = { workspace = true }
