@@ -239,7 +239,7 @@ async fn list_skills_skips_cwd_roots_when_environment_disabled() -> Result<()> {
         CollaborationModesConfig::default(),
         Arc::new(EnvironmentManager::new(
             codex_exec_server::EnvironmentManagerArgs {
-                exec_server_url: Some("none".to_string()),
+                disabled: true,
                 local_runtime_paths: ExecServerRuntimePaths::new(
                     std::env::current_exe()?,
                     /*codex_linux_sandbox_exe*/ None,

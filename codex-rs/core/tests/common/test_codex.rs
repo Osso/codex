@@ -3,15 +3,10 @@ use std::io::ErrorKind;
 use std::mem::swap;
 use std::path::Path;
 use std::path::PathBuf;
-use std::process::Command;
 use std::sync::Arc;
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use anyhow::Context;
 use anyhow::Result;
-use anyhow::anyhow;
 use codex_core::CodexThread;
 use codex_core::ThreadManager;
 use codex_core::config::Config;
@@ -45,7 +40,6 @@ use wiremock::MockServer;
 
 use crate::PathBufExt;
 use crate::TempDirExt;
-use crate::get_remote_test_env;
 use crate::load_default_config_for_test;
 use crate::responses::WebSocketTestServer;
 use crate::responses::output_value_to_text;
@@ -61,8 +55,6 @@ type PreBuildHook = dyn FnOnce(&Path) + Send + 'static;
 type WorkspaceSetup = dyn FnOnce(AbsolutePathBuf, Arc<dyn ExecutorFileSystem>) -> BoxFuture<'static, Result<()>>
     + Send;
 const TEST_MODEL_WITH_EXPERIMENTAL_TOOLS: &str = "test-gpt-5.1-codex";
-const REMOTE_EXEC_SERVER_URL_ENV_VAR: &str = "CODEX_TEST_REMOTE_EXEC_SERVER_URL";
-static REMOTE_TEST_INSTANCE_COUNTER: AtomicU64 = AtomicU64::new(0);
 const SUBMIT_TURN_COMPLETE_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug)]
@@ -70,20 +62,17 @@ pub struct TestEnv {
     environment: codex_exec_server::Environment,
     cwd: AbsolutePathBuf,
     local_cwd_temp_dir: Option<Arc<TempDir>>,
-    remote_container_name: Option<String>,
 }
 
 impl TestEnv {
     pub async fn local() -> Result<Self> {
         let local_cwd_temp_dir = Arc::new(TempDir::new()?);
         let cwd = local_cwd_temp_dir.abs();
-        let environment =
-            codex_exec_server::Environment::create_for_tests(/*exec_server_url*/ None)?;
+        let environment = codex_exec_server::Environment::create_for_tests()?;
         Ok(Self {
             environment,
             cwd,
             local_cwd_temp_dir: Some(local_cwd_temp_dir),
-            remote_container_name: None,
         })
     }
 
@@ -95,91 +84,15 @@ impl TestEnv {
         &self.environment
     }
 
-    pub fn exec_server_url(&self) -> Option<&str> {
-        self.environment.exec_server_url()
-    }
-
     fn local_cwd_temp_dir(&self) -> Option<Arc<TempDir>> {
         self.local_cwd_temp_dir.clone()
     }
 }
 
-impl Drop for TestEnv {
-    fn drop(&mut self) {
-        if let Some(container_name) = &self.remote_container_name {
-            let script = format!("rm -rf {}", self.cwd.as_path().display());
-            let _ = docker_command_capture_stdout(["exec", container_name, "sh", "-lc", &script]);
-        }
-    }
-}
-
 pub async fn test_env() -> Result<TestEnv> {
-    match get_remote_test_env() {
-        Some(remote_env) => {
-            let websocket_url = remote_exec_server_url()?;
-            let environment =
-                codex_exec_server::Environment::create_for_tests(Some(websocket_url))?;
-            let cwd = remote_aware_cwd_path();
-            environment
-                .get_filesystem()
-                .create_directory(
-                    &cwd,
-                    CreateDirectoryOptions { recursive: true },
-                    /*sandbox*/ None,
-                )
-                .await?;
-            Ok(TestEnv {
-                environment,
-                cwd,
-                local_cwd_temp_dir: None,
-                remote_container_name: Some(remote_env.container_name),
-            })
-        }
-        None => TestEnv::local().await,
-    }
+    TestEnv::local().await
 }
 
-fn remote_aware_cwd_path() -> AbsolutePathBuf {
-    PathBuf::from(format!(
-        "/tmp/codex-core-test-cwd-{}",
-        remote_test_instance_id()
-    ))
-    .abs()
-}
-
-fn remote_exec_server_url() -> Result<String> {
-    let listen_url = std::env::var(REMOTE_EXEC_SERVER_URL_ENV_VAR).with_context(|| {
-        format!("{REMOTE_EXEC_SERVER_URL_ENV_VAR} must be set for remote tests")
-    })?;
-    let listen_url = listen_url.trim();
-    if listen_url.is_empty() {
-        return Err(anyhow!(
-            "{REMOTE_EXEC_SERVER_URL_ENV_VAR} must not be empty"
-        ));
-    }
-    Ok(listen_url.to_string())
-}
-
-fn remote_test_instance_id() -> String {
-    let instance = REMOTE_TEST_INSTANCE_COUNTER.fetch_add(1, Ordering::Relaxed);
-    format!("{}-{instance}", std::process::id())
-}
-
-fn docker_command_capture_stdout<const N: usize>(args: [&str; N]) -> Result<String> {
-    let output = Command::new("docker")
-        .args(args)
-        .output()
-        .with_context(|| format!("run docker {args:?}"))?;
-    if !output.status.success() {
-        return Err(anyhow!(
-            "docker {:?} failed: stdout={} stderr={}",
-            args,
-            String::from_utf8_lossy(&output.stdout).trim(),
-            String::from_utf8_lossy(&output.stderr).trim()
-        ));
-    }
-    String::from_utf8(output.stdout).context("docker stdout must be utf-8")
-}
 
 /// A collection of different ways the model can output an apply_patch call
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -207,7 +120,6 @@ pub struct TestCodexBuilder {
     workspace_setups: Vec<Box<WorkspaceSetup>>,
     home: Option<Arc<TempDir>>,
     user_shell_override: Option<Shell>,
-    exec_server_url: Option<String>,
 }
 
 impl TestCodexBuilder {
@@ -256,11 +168,6 @@ impl TestCodexBuilder {
 
     pub fn with_user_shell(mut self, user_shell: Shell) -> Self {
         self.user_shell_override = Some(user_shell);
-        self
-    }
-
-    pub fn with_exec_server_url(mut self, exec_server_url: impl Into<String>) -> Self {
-        self.exec_server_url = Some(exec_server_url.into());
         self
     }
 
@@ -359,13 +266,9 @@ impl TestCodexBuilder {
         let (config, fallback_cwd) = self
             .prepare_config(base_url, &home, test_env.cwd().clone())
             .await?;
-        let exec_server_url = self
-            .exec_server_url
-            .clone()
-            .or_else(|| test_env.exec_server_url().map(str::to_owned));
         let environment_manager = Arc::new(codex_exec_server::EnvironmentManager::new(
             codex_exec_server::EnvironmentManagerArgs {
-                exec_server_url,
+                disabled: false,
                 local_runtime_paths: codex_exec_server::ExecServerRuntimePaths::new(
                     std::env::current_exe()?,
                     /*codex_linux_sandbox_exe*/ None,
@@ -924,7 +827,6 @@ pub fn test_codex() -> TestCodexBuilder {
         workspace_setups: vec![],
         home: None,
         user_shell_override: None,
-        exec_server_url: None,
     }
 }
 

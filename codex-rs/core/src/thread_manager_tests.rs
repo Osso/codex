@@ -52,7 +52,7 @@ fn disabled_environment_manager_for_tests() -> Arc<codex_exec_server::Environmen
     .expect("runtime paths");
     Arc::new(codex_exec_server::EnvironmentManager::new(
         codex_exec_server::EnvironmentManagerArgs {
-            exec_server_url: Some("none".to_string()),
+            disabled: true,
             local_runtime_paths: runtime_paths,
         },
     ))
