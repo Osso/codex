@@ -580,6 +580,18 @@ pub async fn run_main(
     remote_auth_token: Option<String>,
 ) -> std::io::Result<AppExitInfo> {
     let remote_url = remote;
+    if remote_url.is_some() && cli.worktree.is_some() {
+        return Ok(AppExitInfo::fatal(
+            "`--worktree` cannot be used with `--remote`.",
+        ));
+    }
+    if let Some(name) = cli.worktree.take() {
+        let base_dir = cli.cwd.as_deref().unwrap_or_else(|| Path::new("."));
+        cli.cwd = Some(
+            codex_git_utils::create_or_reuse_codex_worktree(base_dir, &name)
+                .map_err(std::io::Error::other)?,
+        );
+    }
     if let (Some(websocket_url), Some(_)) = (remote_url.as_deref(), remote_auth_token.as_ref()) {
         validate_remote_auth_token_transport(websocket_url).map_err(std::io::Error::other)?;
     }

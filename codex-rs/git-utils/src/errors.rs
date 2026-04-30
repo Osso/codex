@@ -22,6 +22,10 @@ pub enum GitToolingError {
     },
     #[error("{path:?} is not a git repository")]
     NotAGitRepository { path: PathBuf },
+    #[error("invalid git worktree name `{name}`")]
+    InvalidWorktreeName { name: String },
+    #[error("git repository root {path:?} has no directory name")]
+    RepositoryRootHasNoName { path: PathBuf },
     #[error("path {path:?} must be relative to the repository root")]
     NonRelativePath { path: PathBuf },
     #[error("path {path:?} escapes the repository root")]

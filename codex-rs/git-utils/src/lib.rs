@@ -6,6 +6,7 @@ mod ghost_commits;
 mod info;
 mod operations;
 mod platform;
+mod worktree;
 
 pub use apply::ApplyGitRequest;
 pub use apply::ApplyGitResult;
@@ -50,3 +51,4 @@ pub use info::local_git_branches;
 pub use info::recent_commits;
 pub use info::resolve_root_git_project_for_trust;
 pub use platform::create_symlink;
+pub use worktree::create_or_reuse_codex_worktree;
