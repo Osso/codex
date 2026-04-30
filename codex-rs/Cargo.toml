@@ -98,6 +98,7 @@ members = [
     "plugin",
     "model-provider",
 ]
+default-members = ["cli"]
 resolver = "2"
 
 [workspace.package]
