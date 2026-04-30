@@ -271,12 +271,6 @@ fn multi_agent_v2_is_stable_and_enabled_by_default() {
 }
 
 #[test]
-fn multi_agent_v1_is_deprecated_and_disabled_by_default() {
-    assert_eq!(Feature::LegacyMultiAgentV1.stage(), Stage::Deprecated);
-    assert_eq!(Feature::LegacyMultiAgentV1.default_enabled(), false);
-}
-
-#[test]
 fn legacy_shell_compat_is_deprecated_and_disabled_by_default() {
     assert_eq!(Feature::LegacyShellCompat.stage(), Stage::Deprecated);
     assert_eq!(Feature::LegacyShellCompat.default_enabled(), false);

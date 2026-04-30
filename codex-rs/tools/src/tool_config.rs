@@ -105,7 +105,6 @@ pub struct ToolsConfig {
     pub can_request_original_image_detail: bool,
     pub collab_tools: bool,
     pub multi_agent_v2: bool,
-    pub legacy_multi_agent_v1: bool,
     pub hide_spawn_agent_metadata: bool,
     pub spawn_agent_usage_hint: bool,
     pub spawn_agent_usage_hint_text: Option<String>,
@@ -147,10 +146,7 @@ impl ToolsConfig {
             include_js_repl && features.enabled(Feature::JsReplToolsOnly);
         let collab_enabled = features.enabled(Feature::Collab);
         let include_multi_agent_v2 = collab_enabled && features.enabled(Feature::MultiAgentV2);
-        let include_legacy_multi_agent_v1 = collab_enabled
-            && !include_multi_agent_v2
-            && features.enabled(Feature::LegacyMultiAgentV1);
-        let include_collab_tools = include_multi_agent_v2 || include_legacy_multi_agent_v1;
+        let include_collab_tools = include_multi_agent_v2;
         let include_agent_jobs = features.enabled(Feature::SpawnCsv);
         let include_default_mode_request_user_input =
             features.enabled(Feature::DefaultModeRequestUserInput);
@@ -226,7 +222,6 @@ impl ToolsConfig {
             can_request_original_image_detail: include_original_image_detail,
             collab_tools: include_collab_tools,
             multi_agent_v2: include_multi_agent_v2,
-            legacy_multi_agent_v1: include_legacy_multi_agent_v1,
             hide_spawn_agent_metadata: false,
             spawn_agent_usage_hint: true,
             spawn_agent_usage_hint_text: None,

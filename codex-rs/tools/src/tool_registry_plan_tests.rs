@@ -104,29 +104,17 @@ fn test_full_toolset_specs_for_gpt5_codex_unified_exec_web_search() {
     ] {
         expected.insert(spec.name().to_string(), spec);
     }
-    let collab_specs = if config.multi_agent_v2 {
-        vec![
+    if config.multi_agent_v2 {
+        for spec in [
             create_spawn_agent_tool_v2(spawn_agent_tool_options(&config)),
             create_send_message_tool(),
             create_followup_task_tool(),
             create_wait_agent_tool_v2(wait_agent_timeout_options()),
             create_close_agent_tool_v2(),
             create_list_agents_tool(),
-        ]
-    } else {
-        vec![
-            create_spawn_agent_tool_v1(spawn_agent_tool_options(&config)),
-            create_send_input_tool_v1(),
-            create_wait_agent_tool_v1(wait_agent_timeout_options()),
-            create_close_agent_tool_v1(),
-        ]
-    };
-    for spec in collab_specs {
-        expected.insert(spec.name().to_string(), spec);
-    }
-    if !config.multi_agent_v2 {
-        let spec = create_resume_agent_tool();
-        expected.insert(spec.name().to_string(), spec);
+        ] {
+            expected.insert(spec.name().to_string(), spec);
+        }
     }
 
     if config.exec_permission_approvals_enabled {
@@ -337,54 +325,6 @@ fn test_build_specs_multi_agent_v2_uses_task_names_and_hides_resume() {
     );
     assert_lacks_tool_name(&tools, "send_input");
     assert_lacks_tool_name(&tools, "resume_agent");
-}
-
-#[test]
-fn test_build_specs_legacy_multi_agent_v1_requires_explicit_feature_gate() {
-    let model_info = model_info();
-    let mut features = Features::with_defaults();
-    features.enable(Feature::Collab);
-    features.disable(Feature::MultiAgentV2);
-    features.enable(Feature::LegacyMultiAgentV1);
-    let available_models = Vec::new();
-    let tools_config = ToolsConfig::new(&ToolsConfigParams {
-        model_info: &model_info,
-        available_models: &available_models,
-        features: &features,
-        image_generation_tool_auth_allowed: true,
-        web_search_mode: Some(WebSearchMode::Cached),
-        session_source: SessionSource::Cli,
-        sandbox_policy: &SandboxPolicy::DangerFullAccess,
-        windows_sandbox_level: WindowsSandboxLevel::Disabled,
-    });
-    let (tools, _) = build_specs(
-        &tools_config,
-        /*mcp_tools*/ None,
-        /*deferred_mcp_tools*/ None,
-        &[],
-    );
-
-    assert_contains_tool_names(
-        &tools,
-        &[
-            "spawn_agent",
-            "send_input",
-            "resume_agent",
-            "wait_agent",
-            "close_agent",
-        ],
-    );
-    assert_lacks_tool_name(&tools, "send_message");
-    assert_lacks_tool_name(&tools, "followup_task");
-    assert_lacks_tool_name(&tools, "list_agents");
-
-    let spawn_agent = find_tool(&tools, "spawn_agent");
-    let ToolSpec::Function(ResponsesApiTool { parameters, .. }) = &spawn_agent.spec else {
-        panic!("spawn_agent should be a function tool");
-    };
-    let (properties, _) = expect_object_schema(parameters);
-    assert!(properties.contains_key("fork_context"));
-    assert!(!properties.contains_key("fork_turns"));
 }
 
 #[test]

@@ -143,8 +143,6 @@ pub enum Feature {
     Collab,
     /// Enable task-path-based multi-agent routing.
     MultiAgentV2,
-    /// Expose the legacy id-based multi-agent tool workflow.
-    LegacyMultiAgentV1,
     /// Enable CSV-backed agent job tools.
     SpawnCsv,
     /// Enable apps.
@@ -811,12 +809,6 @@ pub const FEATURES: &[FeatureSpec] = &[
         key: "multi_agent_v2",
         stage: Stage::Stable,
         default_enabled: true,
-    },
-    FeatureSpec {
-        id: Feature::LegacyMultiAgentV1,
-        key: "multi_agent_v1",
-        stage: Stage::Deprecated,
-        default_enabled: false,
     },
     FeatureSpec {
         id: Feature::SpawnCsv,

@@ -12,7 +12,6 @@ use std::collections::HashMap;
 pub enum ToolHandlerKind {
     AgentJobs,
     ApplyPatch,
-    CloseAgentV1,
     CloseAgentV2,
     CodeModeExecute,
     CodeModeWait,
@@ -27,19 +26,15 @@ pub enum ToolHandlerKind {
     Plan,
     RequestPermissions,
     RequestUserInput,
-    ResumeAgentV1,
-    SendInputV1,
     SendMessageV2,
     Shell,
     ShellCommand,
-    SpawnAgentV1,
     SpawnAgentV2,
     TestSync,
     ToolSearch,
     ToolSuggest,
     UnifiedExec,
     ViewImage,
-    WaitAgentV1,
     WaitAgentV2,
 }
 

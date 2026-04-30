@@ -1135,7 +1135,6 @@ async fn resume_agent_releases_slot_after_resume_failure() {
 async fn spawn_child_completion_notifies_parent_history() {
     let mut harness = AgentControlHarness::new().await;
     let _ = harness.config.features.disable(Feature::MultiAgentV2);
-    let _ = harness.config.features.enable(Feature::LegacyMultiAgentV1);
     let (parent_thread_id, parent_thread) = harness.start_thread().await;
 
     let child_thread_id = harness

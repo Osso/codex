@@ -41,3 +41,7 @@ mod message_tool;
 mod send_message;
 mod spawn;
 pub(crate) mod wait;
+
+#[cfg(test)]
+#[path = "multi_agents_tests.rs"]
+mod tests;
