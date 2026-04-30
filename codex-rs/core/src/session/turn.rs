@@ -57,7 +57,6 @@ use crate::tools::registry::ToolArgumentDiffConsumer;
 use crate::tools::router::ToolRouterParams;
 use crate::tools::router::extension_tool_bundles;
 use crate::turn_diff_tracker::TurnDiffTracker;
-use crate::turn_timing::record_turn_ttft_metric;
 use crate::unavailable_tool::collect_unavailable_called_tools;
 use crate::util::backoff;
 use crate::util::error_or_panic;
@@ -1971,8 +1970,6 @@ async fn try_run_sampling_request(
         sess.services
             .session_telemetry
             .record_responses(&handle_responses, &event);
-        record_turn_ttft_metric(&turn_context, &event).await;
-
         match event {
             ResponseEvent::Created => {}
             ResponseEvent::OutputItemDone(item) => {

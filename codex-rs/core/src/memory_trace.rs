@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use crate::ModelClient;
 use codex_api::RawMemory as ApiRawMemory;
 use codex_api::RawMemoryMetadata as ApiRawMemoryMetadata;
-use crate::telemetry::SessionTelemetry;
 use codex_protocol::error::CodexErr;
 use codex_protocol::error::Result;
 use codex_protocol::openai_models::ModelInfo;
@@ -38,7 +37,6 @@ pub async fn build_memories_from_trace_files(
     trace_paths: &[PathBuf],
     model_info: &ModelInfo,
     effort: Option<ReasoningEffortConfig>,
-    session_telemetry: &SessionTelemetry,
 ) -> Result<Vec<BuiltMemory>> {
     if trace_paths.is_empty() {
         return Ok(Vec::new());
@@ -51,7 +49,7 @@ pub async fn build_memories_from_trace_files(
 
     let raw_memories = prepared.iter().map(|trace| trace.payload.clone()).collect();
     let output = client
-        .summarize_memories(raw_memories, model_info, effort, session_telemetry)
+        .summarize_memories(raw_memories, model_info, effort)
         .await?;
     if output.len() != prepared.len() {
         return Err(CodexErr::InvalidRequest(format!(

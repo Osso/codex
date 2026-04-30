@@ -68,7 +68,6 @@ use codex_login::RefreshTokenError;
 use codex_login::UnauthorizedRecovery;
 use codex_login::default_client::build_reqwest_client;
 use crate::telemetry::SessionTelemetry;
-use crate::telemetry::current_span_w3c_trace_context;
 
 use codex_protocol::SessionId;
 use codex_protocol::ThreadId;
@@ -147,7 +146,6 @@ const X_CODEX_WS_STREAM_REQUEST_START_MS_CLIENT_METADATA_KEY: &str =
 const RESPONSES_WEBSOCKETS_V2_BETA_HEADER_VALUE: &str = "responses_websockets=2026-02-06";
 const RESPONSES_ENDPOINT: &str = "/responses";
 const RESPONSES_COMPACT_ENDPOINT: &str = "/responses/compact";
-const MEMORIES_SUMMARIZE_ENDPOINT: &str = "/memories/trace_summarize";
 #[cfg(test)]
 pub(crate) const WEBSOCKET_CONNECT_TIMEOUT: Duration =
     Duration::from_millis(DEFAULT_WEBSOCKET_CONNECT_TIMEOUT_MS);
@@ -555,7 +553,6 @@ impl ModelClient {
         raw_memories: Vec<ApiRawMemory>,
         model_info: &ModelInfo,
         effort: Option<ReasoningEffortConfig>,
-        session_telemetry: &SessionTelemetry,
     ) -> Result<Vec<ApiMemorySummarizeOutput>> {
         if raw_memories.is_empty() {
             return Ok(Vec::new());
@@ -563,19 +560,9 @@ impl ModelClient {
 
         let client_setup = self.current_client_setup().await?;
         let transport = ReqwestTransport::new(build_reqwest_client());
-        let request_telemetry = Self::build_request_telemetry(
-            session_telemetry,
-            AuthRequestTelemetryContext::new(
-                client_setup.auth.as_ref().map(CodexAuth::auth_mode),
-                client_setup.api_auth.as_ref(),
-                PendingUnauthorizedRetry::default(),
-            ),
-            RequestRouteTelemetry::for_endpoint(MEMORIES_SUMMARIZE_ENDPOINT),
-            self.state.auth_env_telemetry.clone(),
-        );
         let client =
             ApiMemoriesClient::new(transport, client_setup.api_provider, client_setup.api_auth)
-                .with_telemetry(Some(request_telemetry));
+                .with_telemetry(None);
 
         let payload = ApiMemorySummarizeInput {
             model: model_info.slug.clone(),
@@ -1528,7 +1515,7 @@ impl ModelClientSession {
                 service_tier,
                 turn_metadata_header,
                 /*warmup*/ true,
-                current_span_w3c_trace_context(),
+                None,
                 &disabled_trace,
             )
             .await
@@ -1576,7 +1563,6 @@ impl ModelClientSession {
         match wire_api {
             WireApi::Responses => {
                 if self.client.responses_websocket_enabled() {
-                    let request_trace = current_span_w3c_trace_context();
                     match self
                         .stream_responses_websocket(
                             prompt,
@@ -1587,7 +1573,7 @@ impl ModelClientSession {
                             service_tier.clone(),
                             turn_metadata_header,
                             /*warmup*/ false,
-                            request_trace,
+                            None,
                             inference_trace,
                         )
                         .await?
