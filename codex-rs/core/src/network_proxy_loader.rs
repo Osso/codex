@@ -1,5 +1,9 @@
 use crate::config::find_codex_home;
 use crate::config::resolve_permission_profile;
+use crate::config_loader::ConfigLayerStack;
+use crate::config_loader::ConfigLayerStackOrdering;
+use crate::config_loader::LoaderOverrides;
+use crate::config_loader::load_config_layers_state;
 use crate::exec_policy::ExecPolicyError;
 use crate::exec_policy::format_exec_policy_error_with_source;
 use crate::exec_policy::load_exec_policy;
@@ -52,7 +56,6 @@ async fn build_config_state_with_mtimes() -> Result<(ConfigState, Vec<LayerMtime
         /*cwd*/ None,
         &cli_overrides,
         overrides,
-        CloudRequirementsLoader::default(),
         &codex_config::NoopThreadConfigLoader,
     )
     .await

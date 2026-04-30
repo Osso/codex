@@ -1299,7 +1299,6 @@ dependencies = [
  "codex-app-server-protocol",
  "codex-arg0",
  "codex-backend-client",
- "codex-cloud-requirements",
  "codex-config",
  "codex-core",
  "codex-core-plugins",
@@ -1640,30 +1639,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "codex-cloud-requirements"
-version = "0.0.0"
-dependencies = [
- "async-trait",
- "base64 0.22.1",
- "chrono",
- "codex-backend-client",
- "codex-config",
- "codex-core",
- "codex-login",
- "codex-protocol",
- "hmac",
- "pretty_assertions",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "thiserror 2.0.18",
- "tokio",
- "toml 0.9.12+spec-1.1.0",
- "tracing",
-]
-
-[[package]]
 name = "codex-code-mode"
 version = "0.0.0"
 dependencies = [
@@ -1703,8 +1678,6 @@ dependencies = [
  "codex-utils-path",
  "core-foundation 0.9.4",
  "dns-lookup",
- "dunce",
- "futures",
  "gethostname",
  "libc",
  "multimap",
@@ -1958,8 +1931,6 @@ dependencies = [
  "codex-app-server-protocol",
  "codex-apply-patch",
  "codex-arg0",
- "codex-cloud-requirements",
- "codex-config",
  "codex-core",
  "codex-git-utils",
  "codex-login",
@@ -2854,7 +2825,6 @@ dependencies = [
  "codex-app-server-protocol",
  "codex-arg0",
  "codex-cli",
- "codex-cloud-requirements",
  "codex-config",
  "codex-connectors",
  "codex-core",

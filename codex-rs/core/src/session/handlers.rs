@@ -14,6 +14,8 @@ use crate::session::session::Session;
 use crate::session::session::SessionSettingsUpdate;
 
 use crate::config::Config;
+use crate::config_loader::LoaderOverrides;
+use crate::config_loader::load_config_layers_state;
 use crate::realtime_context::REALTIME_TURN_TOKEN_BUDGET;
 use crate::realtime_context::truncate_realtime_text_to_token_budget;
 use crate::realtime_conversation::REALTIME_USER_TEXT_PREFIX;
@@ -468,6 +470,135 @@ pub async fn refresh_mcp_servers(sess: &Arc<Session>, refresh_config: McpServerR
 
 pub async fn reload_user_config(sess: &Arc<Session>) {
     sess.reload_user_config_layer().await;
+}
+
+#[expect(
+    clippy::await_holding_invalid_type,
+    reason = "MCP tool listing reads through the session-owned manager guard"
+)]
+pub async fn list_mcp_tools(sess: &Session, config: &Arc<Config>, sub_id: String) {
+    let mcp_connection_manager = sess.services.mcp_connection_manager.read().await;
+    let auth = sess.services.auth_manager.auth().await;
+    let mcp_servers = sess
+        .services
+        .mcp_manager
+        .effective_servers(config, auth.as_ref())
+        .await;
+    let snapshot = collect_mcp_snapshot_from_manager(
+        &mcp_connection_manager,
+        compute_auth_statuses(
+            mcp_servers.iter(),
+            config.mcp_oauth_credentials_store_mode,
+            auth.as_ref(),
+        )
+        .await,
+    )
+    .await;
+    let event = Event {
+        id: sub_id,
+        msg: EventMsg::McpListToolsResponse(snapshot),
+    };
+    sess.send_event_raw(event).await;
+}
+
+pub async fn list_skills(sess: &Session, sub_id: String, cwds: Vec<PathBuf>, force_reload: bool) {
+    let default_cwd = {
+        let state = sess.state.lock().await;
+        state.session_configuration.cwd.to_path_buf()
+    };
+    let cwds = if cwds.is_empty() {
+        vec![default_cwd]
+    } else {
+        cwds
+    };
+
+    let skills_manager = &sess.services.skills_manager;
+    let plugins_manager = &sess.services.plugins_manager;
+    let fs = sess
+        .services
+        .environment_manager
+        .default_environment()
+        .map(|environment| environment.get_filesystem());
+    let config = sess.get_config().await;
+    let codex_home = sess.codex_home().await;
+    let mut skills = Vec::new();
+    let empty_cli_overrides: &[(String, toml::Value)] = &[];
+    for cwd in cwds {
+        let cwd_abs = match AbsolutePathBuf::relative_to_current_dir(cwd.as_path()) {
+            Ok(path) => path,
+            Err(err) => {
+                let error_path = cwd.clone();
+                skills.push(SkillsListEntry {
+                    cwd,
+                    skills: Vec::new(),
+                    errors: vec![SkillErrorInfo {
+                        path: error_path,
+                        message: err.to_string(),
+                    }],
+                });
+                continue;
+            }
+        };
+        let config_layer_stack = match load_config_layers_state(
+            LOCAL_FS.as_ref(),
+            &codex_home,
+            Some(cwd_abs.clone()),
+            empty_cli_overrides,
+            LoaderOverrides::default(),
+            &codex_config::NoopThreadConfigLoader,
+            /*host_name*/ None,
+        )
+        .await
+        {
+            Ok(config_layer_stack) => config_layer_stack,
+            Err(err) => {
+                let error_path = cwd.clone();
+                skills.push(SkillsListEntry {
+                    cwd,
+                    skills: Vec::new(),
+                    errors: vec![SkillErrorInfo {
+                        path: error_path,
+                        message: err.to_string(),
+                    }],
+                });
+                continue;
+            }
+        };
+        let effective_skill_roots = plugins_manager
+            .effective_skill_roots_for_layer_stack(
+                &config_layer_stack,
+                config.features.enabled(Feature::Plugins),
+            )
+            .await;
+        let skills_input = crate::SkillsLoadInput::new(
+            cwd_abs.clone(),
+            effective_skill_roots,
+            config_layer_stack,
+            config.bundled_skills_enabled(),
+        );
+        let outcome = skills_manager
+            .skills_for_cwd(&skills_input, force_reload, fs.clone())
+            .await;
+        let errors = super::errors_to_info(&outcome.errors);
+        let skills_metadata = super::skills_to_info(&outcome.skills, &outcome.disabled_paths);
+        skills.push(SkillsListEntry {
+            cwd,
+            skills: skills_metadata,
+            errors,
+        });
+    }
+
+    let event = Event {
+        id: sub_id,
+        msg: EventMsg::ListSkillsResponse(ListSkillsResponseEvent { skills }),
+    };
+    sess.send_event_raw(event).await;
+}
+
+pub async fn undo(sess: &Arc<Session>, sub_id: String) {
+    let turn_context = sess.new_default_turn_with_sub_id(sub_id).await;
+    sess.spawn_task(turn_context, Vec::new(), UndoTask::new())
+        .await;
 }
 
 pub async fn compact(sess: &Arc<Session>, sub_id: String) {

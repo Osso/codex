@@ -4,12 +4,9 @@ use codex_app_server_protocol::AppConfig;
 use codex_app_server_protocol::AppToolApproval;
 use codex_app_server_protocol::AppsConfig;
 use codex_app_server_protocol::AskForApproval;
-use codex_config::CloudRequirementsLoader;
-use codex_config::FeatureRequirementsToml;
-use codex_config::LoaderOverrides;
+use codex_core::config_loader::LoaderOverrides;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use pretty_assertions::assert_eq;
-use std::collections::BTreeMap;
 use tempfile::tempdir;
 
 #[test]
@@ -249,7 +246,7 @@ async fn read_includes_origins_and_layers() {
         tmp.path().to_path_buf(),
         vec![],
         LoaderOverrides::with_managed_config_path_for_tests(managed_path.clone()),
-        CloudRequirementsLoader::default(),
+        /*host_name*/ None,
     );
 
     let response = service
@@ -327,7 +324,7 @@ writable_roots = ["~/code"]
         tmp.path().to_path_buf(),
         vec![],
         loader_overrides,
-        CloudRequirementsLoader::default(),
+        /*host_name*/ None,
     );
 
     let response = service
@@ -367,7 +364,7 @@ async fn write_value_reports_override() {
         tmp.path().to_path_buf(),
         vec![],
         LoaderOverrides::with_managed_config_path_for_tests(managed_path.clone()),
-        CloudRequirementsLoader::default(),
+        /*host_name*/ None,
     );
 
     let result = service
@@ -466,7 +463,7 @@ async fn invalid_user_value_rejected_even_if_overridden_by_managed() {
         tmp.path().to_path_buf(),
         vec![],
         LoaderOverrides::with_managed_config_path_for_tests(managed_path.clone()),
-        CloudRequirementsLoader::default(),
+        /*host_name*/ None,
     );
 
     let error = service
@@ -518,98 +515,6 @@ async fn reserved_builtin_provider_override_rejected() {
 }
 
 #[tokio::test]
-async fn write_value_rejects_feature_requirement_conflict() {
-    let tmp = tempdir().expect("tempdir");
-    std::fs::write(tmp.path().join(CONFIG_TOML_FILE), "").unwrap();
-
-    let service = ConfigManager::new_for_tests(
-        tmp.path().to_path_buf(),
-        vec![],
-        LoaderOverrides::without_managed_config_for_tests(),
-        CloudRequirementsLoader::new(async {
-            Ok(Some(ConfigRequirementsToml {
-                feature_requirements: Some(FeatureRequirementsToml {
-                    entries: BTreeMap::from([("personality".to_string(), true)]),
-                }),
-                ..Default::default()
-            }))
-        }),
-    );
-
-    let error = service
-        .write_value(ConfigValueWriteParams {
-            file_path: Some(tmp.path().join(CONFIG_TOML_FILE).display().to_string()),
-            key_path: "features.personality".to_string(),
-            value: serde_json::json!(false),
-            merge_strategy: MergeStrategy::Replace,
-            expected_version: None,
-        })
-        .await
-        .expect_err("conflicting feature write should fail");
-
-    assert_eq!(
-        error.write_error_code(),
-        Some(ConfigWriteErrorCode::ConfigValidationError)
-    );
-    assert!(
-        error
-            .to_string()
-            .contains("invalid value for `features`: `features.personality=false`"),
-        "{error}"
-    );
-    assert_eq!(
-        std::fs::read_to_string(tmp.path().join(CONFIG_TOML_FILE)).unwrap(),
-        ""
-    );
-}
-
-#[tokio::test]
-async fn write_value_rejects_profile_feature_requirement_conflict() {
-    let tmp = tempdir().expect("tempdir");
-    std::fs::write(tmp.path().join(CONFIG_TOML_FILE), "").unwrap();
-
-    let service = ConfigManager::new_for_tests(
-        tmp.path().to_path_buf(),
-        vec![],
-        LoaderOverrides::without_managed_config_for_tests(),
-        CloudRequirementsLoader::new(async {
-            Ok(Some(ConfigRequirementsToml {
-                feature_requirements: Some(FeatureRequirementsToml {
-                    entries: BTreeMap::from([("personality".to_string(), true)]),
-                }),
-                ..Default::default()
-            }))
-        }),
-    );
-
-    let error = service
-        .write_value(ConfigValueWriteParams {
-            file_path: Some(tmp.path().join(CONFIG_TOML_FILE).display().to_string()),
-            key_path: "profiles.enterprise.features.personality".to_string(),
-            value: serde_json::json!(false),
-            merge_strategy: MergeStrategy::Replace,
-            expected_version: None,
-        })
-        .await
-        .expect_err("conflicting profile feature write should fail");
-
-    assert_eq!(
-        error.write_error_code(),
-        Some(ConfigWriteErrorCode::ConfigValidationError)
-    );
-    assert!(
-        error.to_string().contains(
-            "invalid value for `features`: `profiles.enterprise.features.personality=false`"
-        ),
-        "{error}"
-    );
-    assert_eq!(
-        std::fs::read_to_string(tmp.path().join(CONFIG_TOML_FILE)).unwrap(),
-        ""
-    );
-}
-
-#[tokio::test]
 async fn read_reports_managed_overrides_user_and_session_flags() {
     let tmp = tempdir().expect("tempdir");
     let user_path = tmp.path().join(CONFIG_TOML_FILE);
@@ -629,7 +534,7 @@ async fn read_reports_managed_overrides_user_and_session_flags() {
         tmp.path().to_path_buf(),
         cli_overrides,
         LoaderOverrides::with_managed_config_path_for_tests(managed_path.clone()),
-        CloudRequirementsLoader::default(),
+        /*host_name*/ None,
     );
 
     let response = service
@@ -682,7 +587,7 @@ async fn write_value_reports_managed_override() {
         tmp.path().to_path_buf(),
         vec![],
         LoaderOverrides::with_managed_config_path_for_tests(managed_path.clone()),
-        CloudRequirementsLoader::default(),
+        /*host_name*/ None,
     );
 
     let result = service

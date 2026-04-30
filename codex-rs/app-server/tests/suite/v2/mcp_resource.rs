@@ -24,6 +24,7 @@ use codex_config::CloudRequirementsLoader;
 use codex_config::LoaderOverrides;
 use codex_config::types::AuthCredentialsStoreMode;
 use codex_core::config::ConfigBuilder;
+use codex_core::config_loader::LoaderOverrides;
 use codex_exec_server::EnvironmentManager;
 use codex_protocol::protocol::SessionSource;
 use core_test_support::responses;
@@ -199,7 +200,6 @@ async fn mcp_resource_read_returns_error_for_unknown_thread() -> Result<()> {
         config: Arc::new(config),
         cli_overrides: Vec::new(),
         loader_overrides,
-        cloud_requirements: CloudRequirementsLoader::default(),
         thread_config_loader: Arc::new(codex_config::NoopThreadConfigLoader),
         log_db: None,
         state_db: None,

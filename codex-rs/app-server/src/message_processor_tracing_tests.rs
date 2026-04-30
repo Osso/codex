@@ -24,6 +24,7 @@ use codex_config::CloudRequirementsLoader;
 use codex_config::LoaderOverrides;
 use codex_core::config::Config;
 use codex_core::config::ConfigBuilder;
+use codex_core::config_loader::LoaderOverrides;
 use codex_exec_server::EnvironmentManager;
 use codex_login::AuthManager;
 use codex_protocol::protocol::SessionSource;
@@ -57,33 +58,13 @@ impl TracingHarness {
         let server = create_mock_responses_server_repeating_assistant("Done").await;
         let codex_home = TempDir::new()?;
         let config = Arc::new(build_test_config(codex_home.path(), &server.uri()).await?);
-<<<<<<< HEAD:codex-rs/app-server/src/message_processor_tracing_tests.rs
-        let (processor, outgoing_rx) = build_test_processor(config).await;
-        let tracing = init_test_tracing();
-        tracing.exporter.reset();
-        tracing::callsite::rebuild_interest_cache();
-||||||| parent of 5d0c63fd45 (Remove otel crate):codex-rs/app-server/src/message_processor/tracing_tests.rs
         let (processor, outgoing_rx) = build_test_processor(config);
-        let tracing = init_test_tracing();
-        tracing.exporter.reset();
-        tracing::callsite::rebuild_interest_cache();
-=======
-        let (processor, outgoing_rx) = build_test_processor(config);
->>>>>>> 5d0c63fd45 (Remove otel crate):codex-rs/app-server/src/message_processor/tracing_tests.rs
         let mut harness = Self {
             _server: server,
             _codex_home: codex_home,
             processor,
             outgoing_rx,
-<<<<<<< HEAD:codex-rs/app-server/src/message_processor_tracing_tests.rs
-            session: Arc::new(ConnectionSessionState::new()),
-            tracing,
-||||||| parent of 5d0c63fd45 (Remove otel crate):codex-rs/app-server/src/message_processor/tracing_tests.rs
             session: Arc::new(ConnectionSessionState::new(origin)),
-            tracing,
-=======
-            session: Arc::new(ConnectionSessionState::new(origin)),
->>>>>>> 5d0c63fd45 (Remove otel crate):codex-rs/app-server/src/message_processor/tracing_tests.rs
         };
 
         let _: InitializeResponse = harness
@@ -189,7 +170,6 @@ async fn build_test_processor(
         config.codex_home.to_path_buf(),
         Vec::new(),
         LoaderOverrides::default(),
-        CloudRequirementsLoader::default(),
         Arg0DispatchPaths::default(),
         Arc::new(codex_config::NoopThreadConfigLoader),
     );
@@ -298,52 +278,6 @@ async fn read_thread_started_notification(
 
 #[tokio::test(flavor = "current_thread")]
 #[serial(app_server_tracing)]
-<<<<<<< HEAD:codex-rs/app-server/src/message_processor_tracing_tests.rs
-async fn turn_start_jsonrpc_span_parents_core_turn_spans() -> Result<()> {
-||||||| parent of 5d0c63fd45 (Remove otel crate):codex-rs/app-server/src/message_processor/tracing_tests.rs
-async fn remote_control_origin_rejects_device_key_requests() -> Result<()> {
-    let mut harness = TracingHarness::new_with_origin(ConnectionOrigin::RemoteControl).await?;
-
-    let error = harness
-        .request_error(
-            ClientRequest::DeviceKeySign {
-                request_id: RequestId::Integer(20_004),
-                params: DeviceKeySignParams {
-                    key_id: "dk_123".to_string(),
-                    payload: DeviceKeySignPayload::RemoteControlClientConnection {
-                        nonce: "nonce-123".to_string(),
-                        audience:
-                            RemoteControlClientConnectionAudience::RemoteControlClientWebsocket,
-                        session_id: "wssess_123".to_string(),
-                        target_origin: "https://chatgpt.com".to_string(),
-                        target_path: "/api/codex/remote/control/client".to_string(),
-                        account_user_id: "acct_123".to_string(),
-                        client_id: "cli_123".to_string(),
-                        token_expires_at: 4_102_444_800,
-                        token_sha256_base64url: "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU"
-                            .to_string(),
-                        scopes: vec!["remote_control_controller_websocket".to_string()],
-                    },
-                },
-            },
-            /*trace*/ None,
-        )
-        .await;
-
-    assert_eq!(error.code, crate::error_code::INVALID_REQUEST_ERROR_CODE);
-    assert_eq!(
-        error.message,
-        "device/key/sign is not available over remote transports"
-    );
-
-    harness.shutdown().await;
-    Ok(())
-}
-
-#[tokio::test(flavor = "current_thread")]
-#[serial(app_server_tracing)]
-async fn turn_start_jsonrpc_span_parents_core_turn_spans() -> Result<()> {
-=======
 async fn remote_control_origin_rejects_device_key_requests() -> Result<()> {
     let mut harness = TracingHarness::new_with_origin(ConnectionOrigin::RemoteControl).await?;
 
@@ -386,90 +320,9 @@ async fn remote_control_origin_rejects_device_key_requests() -> Result<()> {
 #[tokio::test(flavor = "current_thread")]
 #[serial(app_server_tracing)]
 async fn thread_start_creates_thread() -> Result<()> {
->>>>>>> 5d0c63fd45 (Remove otel crate):codex-rs/app-server/src/message_processor/tracing_tests.rs
     let mut harness = TracingHarness::new().await?;
-<<<<<<< HEAD:codex-rs/app-server/src/message_processor_tracing_tests.rs
-    let thread_start_response = harness.start_thread(/*request_id*/ 2, /*trace*/ None).await;
-    let thread_id = thread_start_response.thread.id.clone();
-
-    harness.reset_tracing();
-
-    let RemoteTrace {
-        trace_id: remote_trace_id,
-        parent_span_id: remote_parent_span_id,
-        context: remote_trace,
-    } = RemoteTrace::new("00000000000000000000000000000077", "0000000000000088");
-    let turn_start_response: TurnStartResponse = harness
-        .request(
-            ClientRequest::TurnStart {
-                request_id: RequestId::Integer(3),
-                params: TurnStartParams {
-                    environments: None,
-                    thread_id,
-                    input: vec![UserInput::Text {
-                        text: "hello".to_string(),
-                        text_elements: Vec::new(),
-                    }],
-                    responsesapi_client_metadata: None,
-                    cwd: None,
-                    approval_policy: None,
-                    sandbox_policy: None,
-                    permissions: None,
-                    approvals_reviewer: None,
-                    model: None,
-                    service_tier: None,
-                    effort: None,
-                    summary: None,
-                    personality: None,
-                    output_schema: None,
-                    collaboration_mode: None,
-                },
-            },
-            Some(remote_trace),
-        )
-||||||| parent of 5d0c63fd45 (Remove otel crate):codex-rs/app-server/src/message_processor/tracing_tests.rs
-    let thread_start_response = harness.start_thread(/*request_id*/ 2, /*trace*/ None).await;
-    let thread_id = thread_start_response.thread.id.clone();
-
-    harness.reset_tracing();
-
-    let RemoteTrace {
-        trace_id: remote_trace_id,
-        parent_span_id: remote_parent_span_id,
-        context: remote_trace,
-    } = RemoteTrace::new("00000000000000000000000000000077", "0000000000000088");
-    let turn_start_response: TurnStartResponse = harness
-        .request(
-            ClientRequest::TurnStart {
-                request_id: RequestId::Integer(3),
-                params: TurnStartParams {
-                    environments: None,
-                    thread_id,
-                    input: vec![UserInput::Text {
-                        text: "hello".to_string(),
-                        text_elements: Vec::new(),
-                    }],
-                    responsesapi_client_metadata: None,
-                    cwd: None,
-                    approval_policy: None,
-                    sandbox_policy: None,
-                    permission_profile: None,
-                    approvals_reviewer: None,
-                    model: None,
-                    service_tier: None,
-                    effort: None,
-                    summary: None,
-                    personality: None,
-                    output_schema: None,
-                    collaboration_mode: None,
-                },
-            },
-            Some(remote_trace),
-        )
-=======
     let response: ThreadStartResponse = harness
         .start_thread(/*request_id*/ 20_002, /*trace*/ None)
->>>>>>> 5d0c63fd45 (Remove otel crate):codex-rs/app-server/src/message_processor/tracing_tests.rs
         .await;
     assert!(!response.thread.id.is_empty());
     harness.shutdown().await;
