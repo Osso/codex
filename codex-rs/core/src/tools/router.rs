@@ -240,8 +240,7 @@ impl ToolRouter {
 
                 match action {
                     LocalShellAction::Exec(exec) => {
-                        let cmd =
-                            codex_shell_command::parse_command::shlex_join(&exec.command);
+                        let cmd = codex_shell_command::parse_command::shlex_join(&exec.command);
                         let arguments = serde_json::json!({
                             "cmd": cmd,
                             "workdir": exec.working_directory,

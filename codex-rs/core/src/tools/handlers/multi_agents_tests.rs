@@ -1,11 +1,10 @@
 use super::*;
 use crate::CodexThread;
-use crate::session::turn_context::TurnContext;
 use crate::ThreadManager;
 use crate::config::AgentRoleConfig;
-use crate::config::DEFAULT_AGENT_MAX_DEPTH;
 use crate::function_tool::FunctionCallError;
 use crate::session::tests::make_session_and_context;
+use crate::session::turn_context::TurnContext;
 use crate::session_prefix::format_subagent_notification_message;
 use crate::state::TaskKind;
 use crate::tasks::SessionTask;
@@ -20,9 +19,7 @@ use crate::tools::handlers::multi_agents_v2::WaitAgentHandler as WaitAgentHandle
 use crate::turn_diff_tracker::TurnDiffTracker;
 use codex_config::types::ShellEnvironmentPolicy;
 use codex_features::Feature;
-use codex_login::AuthManager;
 use codex_login::CodexAuth;
-use codex_model_provider::create_model_provider;
 use codex_model_provider_info::built_in_model_providers;
 use codex_protocol::AgentPath;
 use codex_protocol::ThreadId;
@@ -36,11 +33,9 @@ use codex_protocol::protocol::AgentStatus;
 use codex_protocol::protocol::AskForApproval;
 use codex_protocol::protocol::EventMsg;
 use codex_protocol::protocol::FileSystemSandboxPolicy;
-use codex_protocol::protocol::InitialHistory;
 use codex_protocol::protocol::InterAgentCommunication;
 use codex_protocol::protocol::NetworkSandboxPolicy;
 use codex_protocol::protocol::Op;
-use codex_protocol::protocol::RolloutItem;
 use codex_protocol::protocol::SandboxPolicy;
 use codex_protocol::protocol::SessionSource;
 use codex_protocol::protocol::SubAgentSource;
@@ -52,7 +47,6 @@ use core_test_support::TempDirExt;
 use pretty_assertions::assert_eq;
 use serde::Deserialize;
 use serde_json::json;
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -561,13 +555,15 @@ async fn multi_agent_v2_spawn_returns_path_and_send_message_accepts_relative_pat
         *id == child_thread_id
             && matches!(
                 op,
-                Op::InterAgentCommunication { communication }
-                    if communication.author == AgentPath::root()
-                        && communication.recipient.as_str() == "/root/test_process"
-                        && communication.other_recipients.is_empty()
-                        && communication.content == "inspect this repo"
-                        && communication.trigger_turn
+                Op::UserInput { items, .. }
+                    if items == &vec![UserInput::Text {
+                        text: "inspect this repo".to_string(),
+                        text_elements: Vec::new(),
+                    }]
             )
+    }));
+    assert!(!manager.captured_ops().iter().any(|(id, op)| {
+        *id == child_thread_id && matches!(op, Op::InterAgentCommunication { .. })
     }));
 
     SendMessageHandlerV2

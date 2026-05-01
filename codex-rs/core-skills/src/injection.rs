@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-
 use crate::SkillLoadOutcome;
 use crate::SkillMetadata;
 use crate::build_skill_name_counts;

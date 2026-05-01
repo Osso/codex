@@ -153,9 +153,7 @@ impl std::fmt::Debug for Environment {
 
 impl Environment {
     /// Builds an environment with the given local runtime paths.
-    pub fn create(
-        local_runtime_paths: ExecServerRuntimePaths,
-    ) -> Result<Self, ExecServerError> {
+    pub fn create(local_runtime_paths: ExecServerRuntimePaths) -> Result<Self, ExecServerError> {
         Ok(Self::local(local_runtime_paths))
     }
 

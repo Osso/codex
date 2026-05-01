@@ -93,7 +93,6 @@ pub async fn test_env() -> Result<TestEnv> {
     TestEnv::local().await
 }
 
-
 /// A collection of different ways the model can output an apply_patch call
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ApplyPatchModelOutput {

@@ -4,10 +4,10 @@ use codex_core::ModelClientSession;
 use codex_core::Prompt;
 use codex_core::ResponseEvent;
 use codex_core::X_RESPONSESAPI_INCLUDE_TIMING_METRICS_HEADER;
+use codex_core::telemetry::SessionTelemetry;
 use codex_features::Feature;
 use codex_model_provider_info::ModelProviderInfo;
 use codex_model_provider_info::WireApi;
-use codex_core::telemetry::SessionTelemetry;
 use codex_protocol::ThreadId;
 use codex_protocol::account::PlanType;
 use codex_protocol::config_types::ReasoningSummary;
@@ -38,7 +38,6 @@ use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
 use tempfile::TempDir;
-use tracing::Instrument;
 use tracing_test::traced_test;
 
 const MODEL: &str = "gpt-5.3-codex";
@@ -46,7 +45,6 @@ const OPENAI_BETA_HEADER: &str = "OpenAI-Beta";
 const WS_V2_BETA_HEADER_VALUE: &str = "responses_websockets=2026-02-06";
 const X_CLIENT_REQUEST_ID_HEADER: &str = "x-client-request-id";
 const TEST_INSTALLATION_ID: &str = "11111111-1111-4111-8111-111111111111";
-
 
 struct WebsocketTestHarness {
     _codex_home: TempDir,
@@ -1659,7 +1657,7 @@ async fn websocket_harness_with_provider_options(
     let config = Arc::new(config);
     let model_info = codex_core::test_support::construct_model_info_offline(MODEL, &config);
     let conversation_id = ThreadId::new();
-    let session_telemetry = SessionTelemetry::default();
+    let session_telemetry = SessionTelemetry;
     let effort = None;
     let summary = ReasoningSummary::Auto;
     let client = ModelClient::new(

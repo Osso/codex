@@ -1,5 +1,3 @@
-use std::future::Future;
-use std::sync::Arc;
 use codex_analytics::HookRunFact;
 use codex_analytics::build_track_events_context;
 use codex_hooks::PermissionRequestDecision;
@@ -25,6 +23,8 @@ use codex_protocol::protocol::HookSource;
 use codex_protocol::protocol::HookStartedEvent;
 use codex_protocol::user_input::UserInput;
 use serde_json::Value;
+use std::future::Future;
+use std::sync::Arc;
 
 use crate::context::ContextualUserFragment;
 use crate::context::HookAdditionalContext;

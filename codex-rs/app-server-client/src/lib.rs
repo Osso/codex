@@ -115,7 +115,6 @@ pub mod legacy_core {
     pub mod util {
         pub use codex_core::util::*;
     }
-
 }
 
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);

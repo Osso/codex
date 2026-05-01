@@ -6,9 +6,6 @@ use crate::agent::next_thread_spawn_depth;
 use crate::agent::role::DEFAULT_ROLE_NAME;
 use crate::agent::role::apply_role_to_config;
 use crate::session::turn_context::TurnEnvironment;
-use codex_protocol::AgentPath;
-use codex_protocol::protocol::InterAgentCommunication;
-use codex_protocol::protocol::Op;
 
 pub(crate) struct Handler;
 
@@ -100,26 +97,7 @@ impl ToolHandler for Handler {
             .agent_control
             .spawn_agent_with_metadata(
                 config,
-                match (spawn_source.get_agent_path(), initial_operation) {
-                    (Some(recipient), Op::UserInput { items, .. })
-                        if items
-                            .iter()
-                            .all(|item| matches!(item, UserInput::Text { .. })) =>
-                    {
-                        Op::InterAgentCommunication {
-                            communication: InterAgentCommunication::new(
-                                turn.session_source
-                                    .get_agent_path()
-                                    .unwrap_or_else(AgentPath::root),
-                                recipient,
-                                Vec::new(),
-                                prompt.clone(),
-                                /*trigger_turn*/ true,
-                            ),
-                        }
-                    }
-                    (_, initial_operation) => initial_operation,
-                },
+                initial_operation,
                 Some(spawn_source),
                 SpawnAgentOptions {
                     fork_parent_spawn_call_id: fork_mode.as_ref().map(|_| call_id.clone()),

@@ -109,11 +109,21 @@ impl MetricsClient {
         Ok(Self)
     }
 
-    pub fn counter(&self, _name: &str, _inc: i64, _tags: &[(&str, &str)]) -> Result<(), MetricsError> {
+    pub fn counter(
+        &self,
+        _name: &str,
+        _inc: i64,
+        _tags: &[(&str, &str)],
+    ) -> Result<(), MetricsError> {
         Ok(())
     }
 
-    pub fn record_duration(&self, _name: &str, _duration: Duration, _tags: &[(&str, &str)]) -> Result<(), MetricsError> {
+    pub fn record_duration(
+        &self,
+        _name: &str,
+        _duration: Duration,
+        _tags: &[(&str, &str)],
+    ) -> Result<(), MetricsError> {
         Ok(())
     }
 }

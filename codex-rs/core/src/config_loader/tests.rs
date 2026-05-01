@@ -736,7 +736,6 @@ personality = true
     Ok(())
 }
 
-
 #[tokio::test(flavor = "current_thread")]
 async fn cloud_requirements_are_not_overwritten_by_system_requirements() -> anyhow::Result<()> {
     let tmp = tempdir()?;
@@ -953,7 +952,6 @@ deny_read = ["./sensitive/**/*.txt"]
 
     Ok(())
 }
-
 
 #[tokio::test]
 async fn project_layers_prefer_closest_cwd() -> std::io::Result<()> {
@@ -1569,7 +1567,7 @@ async fn invalid_project_config_ignored_when_untrusted_or_unknown() -> std::io::
             Some(cwd.clone()),
             &[] as &[(String, TomlValue)],
             LoaderOverrides::default(),
-                &codex_config::NoopThreadConfigLoader,
+            &codex_config::NoopThreadConfigLoader,
             /*host_name*/ None,
         )
         .await?;
@@ -1638,7 +1636,7 @@ async fn project_layer_without_config_toml_is_disabled_when_untrusted_or_unknown
             Some(cwd.clone()),
             &[] as &[(String, TomlValue)],
             LoaderOverrides::default(),
-                &codex_config::NoopThreadConfigLoader,
+            &codex_config::NoopThreadConfigLoader,
             /*host_name*/ None,
         )
         .await?;

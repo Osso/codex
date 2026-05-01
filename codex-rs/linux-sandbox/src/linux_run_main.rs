@@ -163,14 +163,14 @@ pub fn run_main() -> ! {
 
     // Outer stage: bubblewrap first, then re-enter this binary in the
     // sandboxed environment to apply seccomp.
-    let proxy_route_spec =
-        if allow_network_for_proxy {
-            Some(prepare_host_proxy_route_spec().unwrap_or_else(|err| {
-                panic!("failed to prepare host proxy routing bridge: {err}")
-            }))
-        } else {
-            None
-        };
+    let proxy_route_spec = if allow_network_for_proxy {
+        Some(
+            prepare_host_proxy_route_spec()
+                .unwrap_or_else(|err| panic!("failed to prepare host proxy routing bridge: {err}")),
+        )
+    } else {
+        None
+    };
     let inner = build_inner_seccomp_command(InnerSeccompCommandArgs {
         sandbox_policy_cwd: &sandbox_policy_cwd,
         command_cwd: command_cwd.as_deref(),

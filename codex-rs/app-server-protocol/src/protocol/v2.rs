@@ -2016,7 +2016,6 @@ pub enum Account {
     #[serde(rename = "chatgpt", rename_all = "camelCase")]
     #[ts(rename = "chatgpt", rename_all = "camelCase")]
     Chatgpt { email: String, plan_type: PlanType },
-
 }
 
 impl From<ProviderAccount> for Account {

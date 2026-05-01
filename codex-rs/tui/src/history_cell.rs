@@ -46,9 +46,9 @@ use base64::Engine;
 use codex_app_server_protocol::McpServerStatus;
 use codex_app_server_protocol::McpServerStatusDetail;
 use codex_config::types::McpServerTransportConfig;
+use codex_core::telemetry::RuntimeMetricsSummary;
 #[cfg(test)]
 use codex_mcp::qualified_mcp_tool_name_prefix;
-use codex_core::telemetry::RuntimeMetricsSummary;
 use codex_protocol::account::PlanType;
 #[cfg(test)]
 use codex_protocol::mcp::Resource;

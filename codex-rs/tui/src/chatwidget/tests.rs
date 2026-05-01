@@ -98,14 +98,14 @@ pub(super) use codex_config::types::ApprovalsReviewer;
 pub(super) use codex_config::types::Notifications;
 #[cfg(target_os = "windows")]
 pub(super) use codex_config::types::WindowsSandboxModeToml;
+pub(super) use codex_core::telemetry::RuntimeMetricsSummary;
+pub(super) use codex_core::telemetry::SessionTelemetry;
 pub(super) use codex_core_plugins::OPENAI_CURATED_MARKETPLACE_NAME;
 pub(super) use codex_core_skills::model::SkillMetadata;
 pub(super) use codex_features::FEATURES;
 pub(super) use codex_features::Feature;
 pub(super) use codex_git_utils::CommitLogEntry;
 pub(super) use codex_models_manager::collaboration_mode_presets::CollaborationModesConfig;
-pub(super) use codex_core::telemetry::RuntimeMetricsSummary;
-pub(super) use codex_core::telemetry::SessionTelemetry;
 pub(super) use codex_protocol::ThreadId;
 pub(super) use codex_protocol::account::PlanType;
 pub(super) use codex_protocol::config_types::CollaborationMode;

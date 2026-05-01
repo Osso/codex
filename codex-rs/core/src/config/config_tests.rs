@@ -431,9 +431,8 @@ profile = "my-aws-profile"
     .unwrap_err();
 
     assert!(
-        err.to_string().contains(
-            "model_providers.custom: provider aws is not supported for custom providers"
-        )
+        err.to_string()
+            .contains("model_providers.custom: provider aws is not supported for custom providers")
     );
 }
 
@@ -6334,15 +6333,6 @@ async fn test_untrusted_project_gets_unless_trusted_approval_policy() -> anyhow:
     Ok(())
 }
 
-
-
-
-
-
-
-
-
-
 #[tokio::test]
 async fn approvals_reviewer_defaults_to_manual_only_without_guardian_feature() -> std::io::Result<()>
 {
@@ -6454,10 +6444,6 @@ approvals_reviewer = "guardian_subagent"
     assert_eq!(config.approvals_reviewer, ApprovalsReviewer::AutoReview);
     Ok(())
 }
-
-
-
-
 
 #[tokio::test]
 async fn smart_approvals_alias_is_ignored() -> std::io::Result<()> {
@@ -6580,9 +6566,6 @@ hide_spawn_agent_metadata = false
 
     Ok(())
 }
-
-
-
 
 #[tokio::test]
 async fn tool_suggest_discoverables_load_from_config_toml() -> std::io::Result<()> {

@@ -796,7 +796,6 @@ mod tests {
         assert!(config.features.enabled(Feature::Apps));
     }
 
-
     #[tokio::test]
     async fn batch_write_reloads_user_config_when_requested() {
         let codex_home = TempDir::new().expect("create temp dir");

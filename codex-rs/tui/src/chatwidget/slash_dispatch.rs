@@ -258,13 +258,10 @@ impl ChatWidget {
                 #[cfg(target_os = "windows")]
                 {
                     let windows_sandbox_level =
-                        crate::legacy_core::config::windows_sandbox_level_from_config(
-                            &self.config,
-                        );
+                        crate::legacy_core::config::windows_sandbox_level_from_config(&self.config);
                     let windows_degraded_sandbox_enabled =
                         matches!(windows_sandbox_level, WindowsSandboxLevel::RestrictedToken);
-                    if !windows_degraded_sandbox_enabled
-                    {
+                    if !windows_degraded_sandbox_enabled {
                         // This command should not be visible/recognized outside degraded mode,
                         // but guard anyway in case something dispatches it directly.
                         return;
@@ -395,10 +392,7 @@ impl ChatWidget {
                 self.add_mcp_output(McpServerStatusDetail::ToolsAndAuthOnly);
             }
             SlashCommand::Apps => {
-                self.add_info_message(
-                    "Apps UI has been removed.".to_string(),
-                    /*hint*/ None,
-                );
+                self.add_info_message("Apps UI has been removed.".to_string(), /*hint*/ None);
             }
             SlashCommand::Plugins => {
                 self.add_plugins_output();

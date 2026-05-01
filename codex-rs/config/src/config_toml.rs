@@ -850,9 +850,7 @@ pub fn validate_oss_provider(provider: &str) -> std::io::Result<()> {
         )),
         _ => Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
-            format!(
-                "Invalid OSS provider '{provider}'. Must be one of: {OLLAMA_OSS_PROVIDER_ID}"
-            ),
+            format!("Invalid OSS provider '{provider}'. Must be one of: {OLLAMA_OSS_PROVIDER_ID}"),
         )),
     }
 }

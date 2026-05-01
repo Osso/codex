@@ -224,32 +224,27 @@ impl AppServerSession {
             .or_else(|| available_models.first().map(|model| model.model.clone()))
             .wrap_err("model/list returned no models for TUI bootstrap")?;
 
-        let (
-            account_email,
-            auth_mode,
-            status_account_display,
-            plan_type,
-            has_chatgpt_account,
-        ) = match account.account {
-            Some(Account::ApiKey {}) => (
-                None,
-                Some(TelemetryAuthMode::ApiKey),
-                Some(StatusAccountDisplay::ApiKey),
-                None,
-                false,
-            ),
-            Some(Account::Chatgpt { email, plan_type }) => (
-                Some(email.clone()),
-                Some(TelemetryAuthMode::Chatgpt),
-                Some(StatusAccountDisplay::ChatGpt {
-                    email: Some(email),
-                    plan: Some(plan_type_display_name(plan_type)),
-                }),
-                Some(plan_type),
-                true,
-            ),
-            None => (None, None, None, None, false),
-        };
+        let (account_email, auth_mode, status_account_display, plan_type, has_chatgpt_account) =
+            match account.account {
+                Some(Account::ApiKey {}) => (
+                    None,
+                    Some(TelemetryAuthMode::ApiKey),
+                    Some(StatusAccountDisplay::ApiKey),
+                    None,
+                    false,
+                ),
+                Some(Account::Chatgpt { email, plan_type }) => (
+                    Some(email.clone()),
+                    Some(TelemetryAuthMode::Chatgpt),
+                    Some(StatusAccountDisplay::ChatGpt {
+                        email: Some(email),
+                        plan: Some(plan_type_display_name(plan_type)),
+                    }),
+                    Some(plan_type),
+                    true,
+                ),
+                None => (None, None, None, None, false),
+            };
         Ok(AppServerBootstrap {
             account_email,
             auth_mode,

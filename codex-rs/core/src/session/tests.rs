@@ -14,8 +14,6 @@ use crate::context::ContextualUserFragment;
 use crate::context::TurnAborted;
 use crate::function_tool::FunctionCallError;
 use crate::shell::default_user_shell;
-use crate::skills::SkillRenderSideEffects;
-use crate::skills::render::SkillMetadataBudget;
 use crate::tools::format_exec_output_str;
 
 use codex_features::Feature;
@@ -52,6 +50,7 @@ use crate::tasks::SessionTask;
 use crate::tasks::SessionTaskContext;
 use crate::tasks::UserShellCommandMode;
 use crate::tasks::execute_user_shell_command;
+use crate::telemetry::TelemetryAuthMode;
 use crate::tools::ToolRouter;
 use crate::tools::context::ToolInvocation;
 use crate::tools::context::ToolPayload;
@@ -69,7 +68,6 @@ use codex_execpolicy::Decision;
 use codex_execpolicy::NetworkRuleProtocol;
 use codex_execpolicy::Policy;
 use codex_network_proxy::NetworkProxyConfig;
-use crate::telemetry::TelemetryAuthMode;
 use codex_protocol::config_types::CollaborationMode;
 use codex_protocol::config_types::ModeKind;
 use codex_protocol::config_types::Settings;
@@ -3597,10 +3595,8 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
         /*bundled_skills_enabled*/ true,
     ));
     let network_approval = Arc::new(NetworkApprovalService::default());
-    let environment = Arc::new(
-        codex_exec_server::Environment::create_for_tests()
-            .expect("create environment"),
-    );
+    let environment =
+        Arc::new(codex_exec_server::Environment::create_for_tests().expect("create environment"));
 
     let skills_watcher = Arc::new(SkillsWatcher::noop());
     let services = SessionServices {
@@ -4756,10 +4752,8 @@ pub(crate) async fn make_session_and_context_with_dynamic_tools_and_rx(
         /*bundled_skills_enabled*/ true,
     ));
     let network_approval = Arc::new(NetworkApprovalService::default());
-    let environment = Arc::new(
-        codex_exec_server::Environment::create_for_tests()
-            .expect("create environment"),
-    );
+    let environment =
+        Arc::new(codex_exec_server::Environment::create_for_tests().expect("create environment"));
 
     let skills_watcher = Arc::new(SkillsWatcher::noop());
     let services = SessionServices {
@@ -5314,7 +5308,6 @@ async fn build_initial_context_trims_skill_metadata_from_context_window_budget()
         "expected no skill metadata entries to fit the tiny budget, got {developer_texts:?}"
     );
 }
-
 
 #[tokio::test]
 async fn build_initial_context_emits_thread_start_skill_warning_on_repeated_builds() {
@@ -7062,9 +7055,17 @@ async fn rejects_escalated_permissions_when_policy_not_on_request() {
     // command. Force DangerFullAccess so this check stays focused on approval
     // policy rather than platform-specific sandbox behavior.
     let command = if cfg!(windows) {
-        vec!["cmd.exe".to_string(), "/C".to_string(), "echo hi".to_string()]
+        vec![
+            "cmd.exe".to_string(),
+            "/C".to_string(),
+            "echo hi".to_string(),
+        ]
     } else {
-        vec!["/bin/sh".to_string(), "-c".to_string(), "echo hi".to_string()]
+        vec![
+            "/bin/sh".to_string(),
+            "-c".to_string(),
+            "echo hi".to_string(),
+        ]
     };
     let turn_context_mut = Arc::get_mut(&mut turn_context).expect("unique turn context Arc");
     turn_context_mut

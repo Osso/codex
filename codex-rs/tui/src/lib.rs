@@ -766,11 +766,7 @@ pub async fn run_main(
         ..Default::default()
     };
 
-    let config = load_config_or_exit(
-        cli_kv_overrides.clone(),
-        overrides.clone(),
-    )
-    .await;
+    let config = load_config_or_exit(cli_kv_overrides.clone(), overrides.clone()).await;
 
     #[allow(clippy::print_stderr)]
     match check_execpolicy_for_warnings(&config.config_layer_stack).await {
@@ -1030,11 +1026,7 @@ async fn run_ratatui_app(
         if onboarding_result.directory_trust_decision.is_some()
             || (show_login_screen && !remote_mode)
         {
-            load_config_or_exit(
-                cli_kv_overrides.clone(),
-                overrides.clone(),
-            )
-            .await
+            load_config_or_exit(cli_kv_overrides.clone(), overrides.clone()).await
         } else {
             initial_config
         }
@@ -1544,12 +1536,7 @@ async fn load_config_or_exit(
     cli_kv_overrides: Vec<(String, toml::Value)>,
     overrides: ConfigOverrides,
 ) -> Config {
-    load_config_or_exit_with_fallback_cwd(
-        cli_kv_overrides,
-        overrides,
-        /*fallback_cwd*/ None,
-    )
-    .await
+    load_config_or_exit_with_fallback_cwd(cli_kv_overrides, overrides, /*fallback_cwd*/ None).await
 }
 
 async fn load_config_or_exit_with_fallback_cwd(

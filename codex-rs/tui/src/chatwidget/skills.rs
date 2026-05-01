@@ -432,4 +432,3 @@ fn is_skill_path(path: &str) -> bool {
 fn normalize_skill_path(path: &str) -> &str {
     path.strip_prefix("skill://").unwrap_or(path)
 }
-

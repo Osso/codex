@@ -26,10 +26,10 @@ use codex_protocol::permissions::FileSystemPath;
 use codex_protocol::permissions::FileSystemSandboxEntry;
 use codex_sandboxing::policy_transforms::merge_permission_profiles;
 use codex_utils_absolute_path::AbsolutePathBuf;
-use pretty_assertions::assert_eq;
-use tempfile::TempDir;
 use common::exec_server::TestCodexHelperPaths;
 use common::exec_server::test_codex_helper_paths;
+use pretty_assertions::assert_eq;
+use tempfile::TempDir;
 
 struct FileSystemContext {
     file_system: Arc<dyn ExecutorFileSystem>,
@@ -167,8 +167,6 @@ fn alias_root_candidate() -> Result<Option<PathBuf>> {
     }
     Ok(None)
 }
-
-
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn file_system_get_metadata_returns_expected_fields() -> Result<()> {
@@ -339,10 +337,7 @@ async fn file_system_write_file_reports_missing_parent() -> Result<()> {
         Ok(()) => anyhow::bail!("write should fail when parent directory is absent"),
         Err(error) => error,
     };
-    assert_eq!(
-        error.kind(),
-        std::io::ErrorKind::NotFound
-    );
+    assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
     assert!(!missing_parent_path.exists());
 
     Ok(())

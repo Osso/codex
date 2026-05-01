@@ -107,6 +107,8 @@ use codex_config::ConfigLayerStackOrdering;
 use codex_config::types::ApprovalsReviewer;
 use codex_config::types::Notifications;
 use codex_config::types::WindowsSandboxModeToml;
+use codex_core::telemetry::RuntimeMetricsSummary;
+use codex_core::telemetry::SessionTelemetry;
 use codex_core_skills::model::SkillMetadata;
 use codex_features::FEATURES;
 use codex_features::Feature;
@@ -116,8 +118,6 @@ use codex_git_utils::current_branch_name;
 use codex_git_utils::get_git_repo_root;
 use codex_git_utils::local_git_branches;
 use codex_git_utils::recent_commits;
-use codex_core::telemetry::RuntimeMetricsSummary;
-use codex_core::telemetry::SessionTelemetry;
 use codex_plugin::PluginCapabilitySummary;
 use codex_protocol::ThreadId;
 use codex_protocol::account::PlanType;
@@ -342,10 +342,10 @@ mod plugins;
 use self::plugins::PluginsCacheState;
 mod plan_implementation;
 use self::plan_implementation::PLAN_IMPLEMENTATION_TITLE;
-mod steer;
 mod reasoning_shortcuts;
 mod side;
 mod status_surfaces;
+mod steer;
 use self::status_surfaces::CachedProjectRootName;
 use self::status_surfaces::TerminalTitleStatusKind;
 use crate::streaming::chunking::AdaptiveChunkingPolicy;
@@ -5780,7 +5780,6 @@ impl ChatWidget {
         let mut selected_plugin_ids: HashSet<String> = HashSet::new();
 
         if let Some(skills) = self.bottom_pane.skills() {
-
             for binding in &mention_bindings {
                 let path = binding
                     .path
@@ -8549,7 +8548,8 @@ impl ChatWidget {
         let presets: Vec<ApprovalPreset> = builtin_approval_presets();
 
         #[cfg(target_os = "windows")]
-        let windows_sandbox_level = crate::legacy_core::config::windows_sandbox_level_from_config(&self.config);
+        let windows_sandbox_level =
+            crate::legacy_core::config::windows_sandbox_level_from_config(&self.config);
         #[cfg(target_os = "windows")]
         let windows_degraded_sandbox_enabled =
             matches!(windows_sandbox_level, WindowsSandboxLevel::RestrictedToken);
@@ -9290,7 +9290,8 @@ impl ChatWidget {
     #[cfg(target_os = "windows")]
     pub(crate) fn maybe_prompt_windows_sandbox_enable(&mut self, show_now: bool) {
         if show_now
-            && crate::legacy_core::config::windows_sandbox_level_from_config(&self.config) == WindowsSandboxLevel::Disabled
+            && crate::legacy_core::config::windows_sandbox_level_from_config(&self.config)
+                == WindowsSandboxLevel::Disabled
             && let Some(preset) = builtin_approval_presets()
                 .into_iter()
                 .find(|preset| preset.id == "auto")
@@ -10549,7 +10550,6 @@ impl ChatWidget {
         RenderableItem::Owned(Box::new(flex))
     }
 }
-
 
 fn has_websocket_timing_metrics(summary: RuntimeMetricsSummary) -> bool {
     summary.responses_api_overhead_ms > 0

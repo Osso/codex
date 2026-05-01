@@ -8,11 +8,12 @@ use crate::memories::phase_one::PRUNE_BATCH_SIZE;
 use crate::memories::prompts::build_stage_one_input_message;
 use crate::rollout::INTERACTIVE_SESSION_SOURCES;
 use crate::rollout::policy::should_persist_response_item_for_memories;
+use crate::rollout_trace::InferenceTraceContext;
 use crate::session::session::Session;
 use crate::session::turn_context::TurnContext;
+use crate::telemetry::SessionTelemetry;
 use codex_api::ResponseEvent;
 use codex_config::types::MemoriesConfig;
-use crate::telemetry::SessionTelemetry;
 use codex_protocol::config_types::ReasoningSummary as ReasoningSummaryConfig;
 use codex_protocol::config_types::ServiceTier;
 use codex_protocol::error::CodexErr;
@@ -23,7 +24,6 @@ use codex_protocol::openai_models::ModelInfo;
 use codex_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
 use codex_protocol::protocol::RolloutItem;
 use codex_protocol::protocol::TokenUsage;
-use crate::rollout_trace::InferenceTraceContext;
 use codex_secrets::redact_secrets;
 use futures::StreamExt;
 use serde::Deserialize;
@@ -244,7 +244,7 @@ async fn run_jobs(
     claimed_candidates: Vec<codex_state::Stage1JobClaim>,
     stage_one_context: RequestContext,
 ) -> Vec<JobResult> {
-    futures::stream::iter(claimed_candidates.into_iter())
+    futures::stream::iter(claimed_candidates)
         .map(|claim| {
             let session = Arc::clone(session);
             let stage_one_context = stage_one_context.clone();

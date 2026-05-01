@@ -109,12 +109,12 @@ use codex_app_server_protocol::TurnStatus;
 use codex_config::ConfigLayerStackOrdering;
 use codex_config::types::ApprovalsReviewer;
 use codex_config::types::ModelAvailabilityNuxConfig;
+use codex_core::telemetry::SessionTelemetry;
 use codex_exec_server::EnvironmentManager;
 use codex_features::Feature;
 use codex_models_manager::collaboration_mode_presets::CollaborationModesConfig;
 use codex_models_manager::model_presets::HIDE_GPT_5_1_CODEX_MAX_MIGRATION_PROMPT_CONFIG;
 use codex_models_manager::model_presets::HIDE_GPT5_1_MIGRATION_PROMPT_CONFIG;
-use codex_core::telemetry::SessionTelemetry;
 use codex_protocol::ThreadId;
 use codex_protocol::approvals::ExecApprovalRequestEvent;
 use codex_protocol::config_types::Personality;
@@ -912,16 +912,16 @@ impl App {
             let should_check =
                 crate::legacy_core::config::windows_sandbox_level_from_config(&app.config)
                     != WindowsSandboxLevel::Disabled
-                && matches!(
-                    app.config.permissions.sandbox_policy.get(),
-                    codex_protocol::protocol::SandboxPolicy::WorkspaceWrite { .. }
-                        | codex_protocol::protocol::SandboxPolicy::ReadOnly { .. }
-                )
-                && !app
-                    .config
-                    .notices
-                    .hide_world_writable_warning
-                    .unwrap_or(false);
+                    && matches!(
+                        app.config.permissions.sandbox_policy.get(),
+                        codex_protocol::protocol::SandboxPolicy::WorkspaceWrite { .. }
+                            | codex_protocol::protocol::SandboxPolicy::ReadOnly { .. }
+                    )
+                    && !app
+                        .config
+                        .notices
+                        .hide_world_writable_warning
+                        .unwrap_or(false);
             if should_check {
                 let cwd = app.config.cwd.clone();
                 let env_map: std::collections::HashMap<String, String> = std::env::vars().collect();

@@ -371,7 +371,6 @@ mod agent {
         let session = session.clone();
 
         tokio::spawn(async move {
-
             // TODO(jif) we might have a very small race here.
             let rx = match agent_control.subscribe_status(thread_id).await {
                 Ok(rx) => rx,

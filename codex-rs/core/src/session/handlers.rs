@@ -1272,7 +1272,8 @@ Stored Guardian assessment event JSON:
 pub(super) fn submission_dispatch_span(sub: &Submission) -> tracing::Span {
     let op_name = sub.op.kind();
     let span_name = format!("op.dispatch.{op_name}");
-    let dispatch_span = match &sub.op {
+
+    match &sub.op {
         Op::RealtimeConversationAudio(_) => {
             debug_span!(
                 "submission_dispatch",
@@ -1287,6 +1288,5 @@ pub(super) fn submission_dispatch_span(sub: &Submission) -> tracing::Span {
             submission.id = sub.id.as_str(),
             codex.op = op_name
         ),
-    };
-    dispatch_span
+    }
 }

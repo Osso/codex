@@ -578,5 +578,4 @@ mod tests {
             Some(&McpAuthStatus::Unsupported)
         );
     }
-
 }

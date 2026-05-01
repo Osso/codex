@@ -1501,7 +1501,7 @@ async fn spawn_thread_subagent_uses_role_specific_nickname_candidates() {
 
 #[tokio::test]
 async fn resume_thread_subagent_restores_stored_nickname_and_role() {
-    let (home, mut config) = test_config().await;
+    let (home, config) = test_config().await;
     let manager = ThreadManager::with_models_provider_and_home_for_tests(
         CodexAuth::from_api_key("dummy"),
         config.model_provider.clone(),
