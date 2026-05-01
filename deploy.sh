@@ -10,12 +10,13 @@ codex_bin_path="$bin_dir/codex"
 
 cd "$workspace_root"
 
-cargo install \
-  --path ./cli \
+cargo build \
+  -p codex-cli \
   --bin codex \
-  --root "$install_root" \
-  --locked \
-  --force
+  --release \
+  --locked
+
+install -Dm755 target/release/codex "$codex_bin_path"
 
 echo "Deployed codex to $codex_bin_path"
 "$codex_bin_path" --version
