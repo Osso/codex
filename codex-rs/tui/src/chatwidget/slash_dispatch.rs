@@ -30,15 +30,15 @@ const SIDE_REVIEW_UNAVAILABLE_MESSAGE: &str =
 const SIDE_SLASH_COMMAND_UNAVAILABLE_HINT: &str = "Press Esc to return to the main thread first.";
 
 /// Return the text of the first unchecked item in a PLAN.md file, or `None`.
-fn find_next_plan_item(plan_path: &std::path::Path) -> Option<String> {
-    let contents = std::fs::read_to_string(plan_path).ok()?;
-    contents
+fn find_next_plan_item(plan_path: &std::path::Path) -> std::io::Result<Option<String>> {
+    let contents = std::fs::read_to_string(plan_path)?;
+    Ok(contents
         .lines()
         .find(|line| {
             let trimmed = line.trim();
             trimmed.starts_with("- [ ]") || trimmed.starts_with("* [ ]")
         })
-        .map(|line| line.trim().to_string())
+        .map(|line| line.trim().to_string()))
 }
 
 impl ChatWidget {
@@ -103,33 +103,48 @@ impl ChatWidget {
         let next_item = find_next_plan_item(&plan_path);
 
         match next_item {
-            Some(item) => {
-                let text = format!(
-                    "Work on the next task from {plan_filename}:\n{item}\n\n\
-                     Commit after completing this item. \
-                     Check it off (change `- [ ]` to `- [x]`). \
-                     Do not delete existing items from {plan_filename}."
-                );
-                let user_message = UserMessage {
-                    text,
-                    local_images: Vec::new(),
-                    remote_image_urls: Vec::new(),
-                    text_elements: Vec::new(),
-                    mention_bindings: Vec::new(),
-                };
-                if self.is_session_configured() {
-                    self.reasoning_buffer.clear();
-                    self.full_reasoning_buffer.clear();
-                    self.set_status_header(String::from("Working"));
-                    self.submit_user_message(user_message);
-                } else {
-                    self.queue_user_message(user_message);
-                }
-            }
-            None => {
+            Ok(Some(item)) => self.submit_run_plan_item(plan_filename, item),
+            Ok(None) => {
                 self.add_info_message(format!("No pending tasks in {plan_filename}."), None);
             }
+            Err(err) => self.report_run_plan_read_error(plan_filename, &plan_path, err),
         }
+    }
+
+    fn submit_run_plan_item(&mut self, plan_filename: &str, item: String) {
+        let text = format!(
+            "Work on the next task from {plan_filename}:\n{item}\n\n\
+             Commit after completing this item. \
+             Check it off (change `- [ ]` to `- [x]`). \
+             Do not delete existing items from {plan_filename}."
+        );
+        let user_message = UserMessage {
+            text,
+            local_images: Vec::new(),
+            remote_image_urls: Vec::new(),
+            text_elements: Vec::new(),
+            mention_bindings: Vec::new(),
+        };
+        if self.is_session_configured() {
+            self.reasoning_buffer.clear();
+            self.full_reasoning_buffer.clear();
+            self.set_status_header(String::from("Working"));
+            self.submit_user_message(user_message);
+        } else {
+            self.queue_user_message(user_message);
+        }
+    }
+
+    fn report_run_plan_read_error(
+        &mut self,
+        plan_filename: &str,
+        plan_path: &std::path::Path,
+        err: std::io::Error,
+    ) {
+        self.add_error_message(format!(
+            "Could not read {plan_filename} at {}: {err}",
+            plan_path.display()
+        ));
     }
 
     fn request_side_conversation(
@@ -638,18 +653,8 @@ impl ChatWidget {
                     .send(AppEvent::ResumeSessionByIdOrName(args));
             }
             SlashCommand::RunPlan => {
-                let prepared = if trimmed.is_empty() {
-                    None
-                } else {
-                    let Some((prepared_args, _prepared_elements)) = self
-                        .bottom_pane
-                        .prepare_inline_args_submission(/*record_history*/ false)
-                    else {
-                        return;
-                    };
-                    Some(prepared_args.trim().to_string())
-                };
-                self.dispatch_run_plan(prepared.as_deref());
+                let plan_file = (!trimmed.is_empty()).then_some(trimmed);
+                self.dispatch_run_plan(plan_file);
                 self.bottom_pane.drain_pending_submission_state();
             }
             SlashCommand::SandboxReadRoot if !trimmed.is_empty() => {
@@ -874,7 +879,7 @@ mod tests {
         .expect("write plan");
 
         assert_eq!(
-            find_next_plan_item(&plan_path),
+            find_next_plan_item(&plan_path).expect("plan file should read"),
             Some("- [ ] next item".to_string())
         );
     }
@@ -885,6 +890,17 @@ mod tests {
         let plan_path = temp.path().join("PLAN.md");
         fs::write(&plan_path, "# Plan\n- [x] done\n").expect("write plan");
 
-        assert_eq!(find_next_plan_item(&plan_path), None);
+        assert_eq!(
+            find_next_plan_item(&plan_path).expect("plan file should read"),
+            None
+        );
+    }
+
+    #[test]
+    fn returns_error_for_missing_plan_file() {
+        let temp = tempdir().expect("tempdir");
+        let plan_path = temp.path().join("PLAN.md");
+
+        assert!(find_next_plan_item(&plan_path).is_err());
     }
 }
