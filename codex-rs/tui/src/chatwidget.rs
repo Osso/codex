@@ -2521,11 +2521,13 @@ impl ChatWidget {
             self.saw_plan_item_this_turn = false;
         }
         // If there is a queued user message, send exactly one now to begin the next turn.
-        self.maybe_send_next_queued_input();
-        // Emit a notification when the turn completes (suppressed if focused).
-        self.notify(Notification::AgentTurnComplete {
-            response: notification_response,
-        });
+        let submitted_queued_follow_up = self.maybe_send_next_queued_input();
+        if !submitted_queued_follow_up {
+            // Emit a notification when the turn completes (suppressed if focused).
+            self.notify(Notification::AgentTurnComplete {
+                response: notification_response,
+            });
+        }
 
         self.maybe_show_pending_rate_limit_prompt();
     }
@@ -7341,12 +7343,13 @@ impl ChatWidget {
     }
 
     // If idle and there are queued inputs, submit exactly one to start the next turn.
-    pub(crate) fn maybe_send_next_queued_input(&mut self) {
+    // Returns true when that queued input starts a new turn.
+    pub(crate) fn maybe_send_next_queued_input(&mut self) -> bool {
         if self.suppress_queue_autosend {
-            return;
+            return false;
         }
         if self.is_user_turn_pending_or_running() {
-            return;
+            return false;
         }
         while !self.is_user_turn_pending_or_running() {
             let Some(queued_message) = self.pop_next_queued_user_message() else {
@@ -7373,6 +7376,7 @@ impl ChatWidget {
         }
         // Update the list to reflect the remaining queued messages (if any).
         self.refresh_pending_input_preview();
+        self.is_user_turn_pending_or_running()
     }
 
     pub(super) fn is_user_turn_pending_or_running(&self) -> bool {

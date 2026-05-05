@@ -588,6 +588,40 @@ async fn queued_inline_rename_does_not_drain_again_before_turn_started() {
 }
 
 #[tokio::test]
+async fn queued_follow_up_suppresses_intermediate_turn_complete_notification() {
+    let (mut chat, _rx, mut op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
+    chat.thread_id = Some(ThreadId::new());
+    chat.handle_codex_event(Event {
+        id: "turn-start".into(),
+        msg: EventMsg::TurnStarted(TurnStartedEvent {
+            turn_id: "turn-1".to_string(),
+            started_at: None,
+            model_context_window: None,
+            collaboration_mode_kind: ModeKind::Default,
+        }),
+    });
+
+    queue_composer_text_with_tab(&mut chat, "queued follow-up");
+
+    chat.handle_codex_event(Event {
+        id: "turn-complete".into(),
+        msg: EventMsg::TurnComplete(turn_complete_event("turn-1", Some("intermediate done"))),
+    });
+
+    match op_rx.try_recv() {
+        Ok(Op::UserTurn { items, .. }) => assert_eq!(
+            items,
+            vec![UserInput::Text {
+                text: "queued follow-up".to_string(),
+                text_elements: Vec::new(),
+            }]
+        ),
+        other => panic!("expected queued follow-up submission, got {other:?}"),
+    }
+    assert_matches!(chat.pending_notification, None);
+}
+
+#[tokio::test]
 async fn queued_unknown_slash_reports_error_when_dequeued() {
     let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
     chat.thread_id = Some(ThreadId::new());
