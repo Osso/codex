@@ -36,6 +36,7 @@ use codex_protocol::models::SandboxEnforcement;
 use codex_protocol::openai_models::ReasoningEffort;
 use codex_protocol::protocol::AgentStatus;
 use codex_protocol::protocol::AskForApproval;
+use codex_protocol::protocol::Event;
 use codex_protocol::protocol::EventMsg;
 use codex_protocol::protocol::FileSystemAccessMode;
 use codex_protocol::protocol::FileSystemPath;
@@ -1708,6 +1709,142 @@ async fn multi_agent_v2_wait_agent_returns_summary_for_mailbox_activity() {
         }
     );
     assert_eq!(success, None);
+}
+
+#[tokio::test]
+async fn multi_agent_v2_wait_agent_reports_completed_descendant_statuses() {
+    let (session, turn, rx_event) = crate::session::tests::make_session_and_context_with_rx().await;
+    let mut session = match Arc::try_unwrap(session) {
+        Ok(session) => session,
+        Err(_) => panic!("test session should have one owner before setup"),
+    };
+    let mut turn = match Arc::try_unwrap(turn) {
+        Ok(turn) => turn,
+        Err(_) => panic!("test turn should have one owner before setup"),
+    };
+    let manager = thread_manager();
+    let root = manager
+        .start_thread((*turn.config).clone())
+        .await
+        .expect("root thread should start");
+    session.services.agent_control = manager.agent_control();
+    session.conversation_id = root.thread_id;
+    let mut config = (*turn.config).clone();
+    config
+        .features
+        .enable(Feature::MultiAgentV2)
+        .expect("test config should allow feature update");
+    turn.config = Arc::new(config);
+    let session = Arc::new(session);
+    let turn = Arc::new(turn);
+
+    SpawnAgentHandlerV2
+        .handle(invocation(
+            session.clone(),
+            turn.clone(),
+            "spawn_agent",
+            function_payload(json!({
+                "message": "inspect this repo",
+                "task_name": "test_process"
+            })),
+        ))
+        .await
+        .expect("spawn_agent should succeed");
+
+    let agent_id = session
+        .services
+        .agent_control
+        .resolve_agent_reference(
+            session.conversation_id,
+            &turn.session_source,
+            "test_process",
+        )
+        .await
+        .expect("relative path should resolve");
+    let worker_path = session
+        .services
+        .agent_control
+        .get_agent_metadata(agent_id)
+        .expect("worker metadata")
+        .agent_path
+        .expect("worker path");
+    let thread = manager
+        .get_thread(agent_id)
+        .await
+        .expect("worker thread should exist");
+    let worker_turn = thread.codex.session.new_default_turn().await;
+    thread
+        .codex
+        .session
+        .send_event(
+            worker_turn.as_ref(),
+            EventMsg::TurnComplete(TurnCompleteEvent {
+                turn_id: worker_turn.sub_id.clone(),
+                last_agent_message: Some("done".to_string()),
+                completed_at: None,
+                duration_ms: None,
+                time_to_first_token_ms: None,
+            }),
+        )
+        .await;
+    session.enqueue_mailbox_communication(InterAgentCommunication::new(
+        worker_path,
+        AgentPath::root(),
+        Vec::new(),
+        "completed".to_string(),
+        /*trigger_turn*/ false,
+    ));
+
+    let output = timeout(
+        Duration::from_secs(5),
+        WaitAgentHandlerV2.handle(invocation(
+            session.clone(),
+            turn.clone(),
+            "wait_agent",
+            function_payload(json!({"timeout_ms": 1000})),
+        )),
+    )
+    .await
+    .expect("wait_agent should return")
+    .expect("wait_agent should succeed");
+    let (content, _) = expect_text_output(output);
+    let result: crate::tools::handlers::multi_agents_v2::wait::WaitAgentResult =
+        serde_json::from_str(&content).expect("wait_agent result should be json");
+    assert_eq!(
+        result,
+        crate::tools::handlers::multi_agents_v2::wait::WaitAgentResult {
+            message: "Wait completed.".to_string(),
+            timed_out: false,
+        }
+    );
+
+    let wait_end = timeout(Duration::from_secs(5), async {
+        loop {
+            let Event { msg, .. } = rx_event
+                .recv()
+                .await
+                .expect("event stream should stay open");
+            if let EventMsg::CollabWaitingEnd(event) = msg {
+                break event;
+            }
+        }
+    })
+    .await
+    .expect("wait end event should be emitted");
+
+    assert_eq!(
+        wait_end.statuses,
+        HashMap::from([(agent_id, AgentStatus::Completed(Some("done".to_string())))])
+    );
+    assert_eq!(
+        wait_end.agent_statuses,
+        vec![codex_protocol::protocol::CollabAgentStatusEntry {
+            thread_id: agent_id,
+            agent_nickname: None,
+            agent_role: None,
+            status: AgentStatus::Completed(Some("done".to_string())),
+        }]
+    );
 }
 
 #[tokio::test]
