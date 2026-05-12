@@ -150,7 +150,8 @@ hooks and child processes can honor a non-default plan filename.
 
 **Behavior details.** Accepts optional inline argument via
 `prepare_inline_args_submission`, so the composer clears after dispatch. The
-helper matches both `- [ ]` and `* [ ]` unchecked markers.
+helper matches both `- [ ]` and `* [ ]` unchecked markers. Missing plan files
+are reported as command errors instead of surfacing as silent no-op submissions.
 
 **Tests.** TUI unit tests in `slash_dispatch.rs`.
 
@@ -223,7 +224,7 @@ and trim the parallel-eligibility list back to the three current names.
 
 ## 9. Subagent / inter-agent communication polish
 
-**Purpose.** Three related improvements to v2 multi-agent UX:
+**Purpose.** Five related improvements to v2 multi-agent UX:
 
 1. **Inter-agent message pretty-printing.** Subagent notifications and
    inter-agent messages arrive as JSON `InterAgentCommunication` blobs embedded
@@ -234,11 +235,17 @@ and trim the parallel-eligibility list back to the three current names.
 3. **`wait_agent` early return.** If no descendant agents exist, `wait_agent`
    returns immediately ("No agents available yet.") rather than blocking until
    timeout.
+4. **Spawn delivery reliability.** Spawned agents receive their initial task
+   exactly once, including when the first turn is delivered through queued task
+   plumbing rather than an already-running agent loop.
+5. **Descendant-aware wait status.** `wait_agent` reports active descendant
+   status across nested agents instead of only looking at direct children.
 
 **Key files.**
 - `codex-rs/tui/src/inter_agent_message.rs` (new module, self-contained)
 - `codex-rs/tui/src/chatwidget/realtime.rs`
 - `codex-rs/core/src/tools/handlers/multi_agents_v2/wait.rs`
+- `codex-rs/core/src/tools/handlers/multi_agents_v2/spawn.rs`
 - `codex-rs/core/src/tools/handlers/multi_agents_v2/message_tool.rs`
 - `codex-rs/core/src/session/turn.rs` (trigger-turn propagation)
 - `codex-rs/core/src/state/session.rs`
@@ -277,6 +284,9 @@ upstream multi-agent work.
   `codex-rs/tui/src/chatwidget.rs`, snapshot updates).
 - **Pending steer pop on Up.** Pending steering messages can be popped back into
   the composer with Up, with focused coverage in composer submission tests.
+- **Suppress queued-turn completion notifications.** Queued edits and steering
+  messages do not emit a redundant completion notification when the queued turn
+  finishes.
 - **Flush queued keyboard events on terminal restore**
   (`codex-rs/tui/src/tui.rs`, 4-line change).
 - **`codex_core::Config` import cleanup** (`codex-rs/tui/src/lib.rs`).
@@ -341,14 +351,37 @@ into spawned shells and confuses path-sensitive tools.
 
 ---
 
-## 13. Local deploy script + Osso branding
+## 13. Worktree startup option
+
+**Purpose.** Add a `-w/--worktree <NAME>` startup option that creates or reuses
+a sibling Git worktree before launching TUI or exec mode, so fork work can start
+in an isolated checkout without manual `git worktree` setup. New worktrees are
+created from `origin/master` and named after the provided value.
+
+**Key files.**
+- `codex-rs/utils/cli/src/shared_options.rs`
+- `codex-rs/git-utils/src/worktree.rs`
+- `codex-rs/cli/src/main.rs`
+- `codex-rs/tui/src/lib.rs`
+- `codex-rs/exec/src/lib.rs`
+
+**Tests.** `cargo test -p codex-exec worktree`.
+
+**Rebase risk.** Medium. Shared CLI option plumbing and TUI/exec startup are
+active upstream surfaces; keep the behavior isolated in `git-utils` and
+re-check both binary entry points after merge resolution.
+
+---
+
+## 14. Local deploy script + Osso branding
 
 **Purpose.** Build and install a local fork build with the `-osso` suffix,
 independent of upstream release machinery.
 
 **Components.**
-- **`deploy.sh`** at repo root: `cargo install` into `$CODEX_INSTALL_ROOT`
-  with `--locked --force`; also installs the MCP server.
+- **`deploy.sh`** at repo root: builds `codex-cli` from the Rust workspace with
+  `cargo build -p codex-cli --bin codex --release --locked`, then installs the
+  resulting binary into `$CODEX_INSTALL_ROOT/bin`.
 - **Branding split.** `CODEX_CLI_VERSION` (machine-readable, tracks upstream
   semver) vs `CODEX_CLI_DISPLAY_VERSION` (e.g. `0.120.0-osso`). Update checks
   use the former, UI uses the latter.
@@ -366,7 +399,7 @@ branding split; walk through `version.rs` manually each time.
 
 ---
 
-## 14. Model prompt + generated-file hygiene
+## 15. Model prompt + generated-file hygiene
 
 **Purpose.** Keep the fork's model metadata and generated local artifacts aligned
 with Osso workflow expectations.
@@ -387,7 +420,7 @@ assuming a JSON merge preserved the intended prompt text.
 
 ---
 
-## 15. Permission prompt approval tool
+## 16. Permission prompt approval tool
 
 Route shell/exec approval decisions through an MCP-hosted permission prompt
 tool so approval policy can come from the user's configured server (e.g.
@@ -411,7 +444,7 @@ not done.
 
 ---
 
-## 16. OAuth image scope (net-zero)
+## 17. OAuth image scope (net-zero)
 
 Added (`47dcbd4af6`) then removed (`22b6bafafa`) — the current branch does
 **not** request `api.model.images.request`. Listed here only so a rebase
@@ -419,7 +452,7 @@ doesn't accidentally resurrect one half of the pair.
 
 ---
 
-## 17. PreToolUse command rewrites
+## 18. PreToolUse command rewrites
 
 **Purpose.** Honor Claude's `hookSpecificOutput.updatedInput` field on
 `PreToolUse` so external hooks (notably `claude-bash-hook` aliases like
@@ -472,7 +505,7 @@ unsupported-field validation, in which case re-add the explicit
 
 ---
 
-## 18. Aggressive upstream-feature removals
+## 19. Aggressive upstream-feature removals
 
 The fork has subtracted ~170K lines of upstream code that the OSS Linux-only
 fork doesn't ship. Each rebase has to re-delete these because upstream
@@ -516,6 +549,8 @@ keeps shipping them.
 - `UseLegacyLandlock` + the legacy Landlock code path (`6a713150b7`)
 - `LegacyMultiAgentV1` (`583ed3144a`)
 - `LegacyShellCompat` (`b1c1c6e350`)
+- `Sqlite`, `WindowsSandbox`, and `WindowsSandboxElevated`, plus their
+  corresponding legacy config/schema keys (`251ea266ff`)
 
 **Workspace plumbing:**
 - `default-members = ["cli"]` in workspace `Cargo.toml` so `cargo build`
@@ -523,6 +558,8 @@ keeps shipping them.
 - mold linker + `target-cpu=native` + `-Z share-generics=y` in
   `codex-rs/.cargo/config.toml`. Requires `RUSTC_BOOTSTRAP=1` in env.
 - Dev profile: `debug = "line-tables-only"`, `split-debuginfo = "unpacked"`.
+- `docs/gpt-5.4-underperformance-fix.md` records the local model-instruction
+  benchmark note added with the feature-flag cleanup commit.
 
 **Rebase risk. HIGHEST.** This is mechanical but voluminous — every rebase
 will reintroduce all of the above. Strategy:
