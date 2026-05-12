@@ -64,13 +64,14 @@ use crate::tasks::SessionTask;
 use crate::tasks::SessionTaskContext;
 use crate::tasks::UserShellCommandMode;
 use crate::tasks::execute_user_shell_command;
+use crate::telemetry::TelemetryAuthMode;
 use crate::tools::ToolRouter;
 use crate::tools::context::ToolInvocation;
 use crate::tools::context::ToolPayload;
 use crate::tools::handlers::CreateGoalHandler;
 use crate::tools::handlers::ExecCommandHandler;
-use crate::tools::handlers::UpdateGoalHandler;
 use crate::tools::handlers::UnifiedExecHandler;
+use crate::tools::handlers::UpdateGoalHandler;
 use crate::tools::registry::ToolHandler;
 use crate::tools::router::ToolCallSource;
 use crate::turn_diff_tracker::TurnDiffTracker;
@@ -85,7 +86,6 @@ use codex_execpolicy::Decision;
 use codex_execpolicy::NetworkRuleProtocol;
 use codex_execpolicy::Policy;
 use codex_network_proxy::NetworkProxyConfig;
-use crate::telemetry::TelemetryAuthMode;
 use codex_protocol::config_types::CollaborationMode;
 use codex_protocol::config_types::ModeKind;
 use codex_protocol::config_types::Settings;
@@ -4076,121 +4076,15 @@ async fn session_new_fails_when_zsh_fork_enabled_without_zsh_path() {
 
 // todo: use online model info
 pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
-    let (tx_event, _rx_event) = async_channel::unbounded();
-    let codex_home = tempfile::tempdir().expect("create temp dir");
-    let config = build_test_config(codex_home.path()).await;
-    let config = Arc::new(config);
-    let thread_id = ThreadId::default();
-    let auth_manager = AuthManager::from_auth_for_testing(CodexAuth::from_api_key("Test API Key"));
-    let models_manager = models_manager_with_provider(
-        config.codex_home.to_path_buf(),
-        auth_manager.clone(),
-        config.model_provider.clone(),
-    );
-    let agent_control = AgentControl::default();
-    let exec_policy = Arc::new(ExecPolicyManager::default());
-    let (agent_status_tx, _agent_status_rx) = watch::channel(AgentStatus::PendingInit);
-    let model = get_model_offline_for_tests(config.model.as_deref());
-    let model_info =
-        construct_model_info_offline_for_tests(model.as_str(), &config.to_models_manager_config());
-    let reasoning_effort = config.model_reasoning_effort;
-    let collaboration_mode = CollaborationMode {
-        mode: ModeKind::Default,
-        settings: Settings {
-            model,
-            reasoning_effort,
-            developer_instructions: None,
-        },
-    };
-    let default_environments = vec![TurnEnvironmentSelection {
-        environment_id: codex_exec_server::LOCAL_ENVIRONMENT_ID.to_string(),
-        cwd: config.cwd.clone(),
-    }];
-    let session_configuration = SessionConfiguration {
-        provider: config.model_provider.clone(),
-        collaboration_mode,
-        model_reasoning_summary: config.model_reasoning_summary,
-        developer_instructions: config.developer_instructions.clone(),
-        user_instructions: config.user_instructions.clone(),
-        service_tier: None,
-        personality: config.personality,
-        base_instructions: config
-            .base_instructions
-            .clone()
-            .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
-        compact_prompt: config.compact_prompt.clone(),
-        approval_policy: config.permissions.approval_policy.clone(),
-        permission_prompt_tool: config.permission_prompt_tool.clone(),
-        approvals_reviewer: config.approvals_reviewer,
-        permission_profile: config.permissions.permission_profile.clone(),
-        active_permission_profile: config.permissions.active_permission_profile(),
-        windows_sandbox_level: crate::config::windows_sandbox_level_from_config(&config),
-        cwd: config.cwd.clone(),
-        codex_home: config.codex_home.clone(),
-        thread_name: None,
-        environments: default_environments,
-        original_config_do_not_use: Arc::clone(&config),
-        metrics_service_name: None,
-        app_server_client_name: None,
-        app_server_client_version: None,
-        session_source: SessionSource::Exec,
-        thread_source: None,
-        dynamic_tools: Vec::new(),
-        persist_extended_history: false,
-        inherited_shell_snapshot: None,
-        user_shell_override: None,
-    };
-    let per_turn_config =
-        Session::build_per_turn_config(&session_configuration, session_configuration.cwd.clone());
-    let model_info = construct_model_info_offline_for_tests(
-        session_configuration.collaboration_mode.model(),
-        &per_turn_config.to_models_manager_config(),
-    );
-    let session_telemetry = session_telemetry(
-        thread_id,
-        config.as_ref(),
-        &model_info,
-        session_configuration.session_source.clone(),
-    );
-
-    let state = SessionState::new(session_configuration.clone());
-    let plugins_manager = Arc::new(PluginsManager::new(config.codex_home.to_path_buf()));
-    let mcp_manager = Arc::new(McpManager::new(Arc::clone(&plugins_manager)));
-    let skills_manager = Arc::new(SkillsManager::new(
-        config.codex_home.clone(),
-        /*bundled_skills_enabled*/ true,
-    ));
-    let network_approval = Arc::new(NetworkApprovalService::default());
-    let environment = Arc::new(
-        codex_exec_server::Environment::create_for_tests()
-            .expect("create environment"),
-    );
-
-    let services = SessionServices {
-        mcp_connection_manager: Arc::new(RwLock::new(McpConnectionManager::new_uninitialized(
-            &config.permissions.approval_policy,
-            &config.permissions.permission_profile,
-        ))),
-        mcp_startup_cancellation_token: Mutex::new(CancellationToken::new()),
-        unified_exec_manager: UnifiedExecProcessManager::new(
-            config.background_terminal_max_timeout,
-        ),
-        shell_zsh_path: None,
-        main_execve_wrapper_exe: config.main_execve_wrapper_exe.clone(),
-        analytics_events_client: AnalyticsEventsClient::new(
-            Arc::clone(&auth_manager),
-            config.chatgpt_base_url.trim_end_matches('/').to_string(),
-            config.analytics_enabled,
-        ),
-        hooks: arc_swap::ArcSwap::from_pointee(Hooks::new(HooksConfig {
-            legacy_notify_argv: config.notify.clone(),
-            ..HooksConfig::default()
-        })),
-        rollout_thread_trace: crate::rollout_trace::ThreadTraceContext::disabled(),
-    )
-    .await?;
-
-    Ok((session, rx_event))
+    let (session, turn_context, _rx_event) =
+        make_session_and_context_with_dynamic_tools_and_rx(Vec::new()).await;
+    let session = Arc::try_unwrap(session).unwrap_or_else(|_| {
+        panic!("test session should not have extra strong references");
+    });
+    let turn_context = Arc::try_unwrap(turn_context).unwrap_or_else(|_| {
+        panic!("test turn context should not have extra strong references");
+    });
+    (session, turn_context)
 }
 
 async fn make_session_with_history_source_and_agent_control_and_rx(
@@ -5404,10 +5298,8 @@ where
         /*bundled_skills_enabled*/ true,
     ));
     let network_approval = Arc::new(NetworkApprovalService::default());
-    let environment = Arc::new(
-        codex_exec_server::Environment::create_for_tests()
-            .expect("create environment"),
-    );
+    let environment =
+        Arc::new(codex_exec_server::Environment::create_for_tests().expect("create environment"));
 
     let services = SessionServices {
         mcp_connection_manager: Arc::new(RwLock::new(McpConnectionManager::new_uninitialized(
@@ -6236,7 +6128,6 @@ async fn build_initial_context_trims_skill_metadata_from_context_window_budget()
         "expected no skill metadata entries to fit the tiny budget, got {developer_texts:?}"
     );
 }
-
 
 #[tokio::test]
 async fn build_initial_context_emits_thread_start_skill_warning_on_repeated_builds() {
@@ -8884,9 +8775,17 @@ async fn rejects_escalated_permissions_when_policy_not_on_request() {
     // command. Force DangerFullAccess so this check stays focused on approval
     // policy rather than platform-specific sandbox behavior.
     let command = if cfg!(windows) {
-        vec!["cmd.exe".to_string(), "/C".to_string(), "echo hi".to_string()]
+        vec![
+            "cmd.exe".to_string(),
+            "/C".to_string(),
+            "echo hi".to_string(),
+        ]
     } else {
-        vec!["/bin/sh".to_string(), "-c".to_string(), "echo hi".to_string()]
+        vec![
+            "/bin/sh".to_string(),
+            "-c".to_string(),
+            "echo hi".to_string(),
+        ]
     };
     let turn_context_mut = Arc::get_mut(&mut turn_context).expect("unique turn context Arc");
     turn_context_mut.permission_profile = PermissionProfile::Disabled;

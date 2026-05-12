@@ -862,4 +862,3 @@ pub(crate) enum ExitMode {
     /// cleanup that normally runs before `ShutdownComplete` can be missed.
     Immediate,
 }
-

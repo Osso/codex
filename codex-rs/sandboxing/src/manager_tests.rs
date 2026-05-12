@@ -284,7 +284,6 @@ fn wsl1_rejects_linux_bubblewrap_path() {
     assert!(matches!(
         super::ensure_linux_bubblewrap_is_supported(
             &restricted_policy,
-
             /*allow_network_for_proxy*/ false,
             /*is_wsl1*/ true,
         ),
@@ -293,7 +292,6 @@ fn wsl1_rejects_linux_bubblewrap_path() {
     assert!(matches!(
         super::ensure_linux_bubblewrap_is_supported(
             &FileSystemSandboxPolicy::unrestricted(),
-
             /*allow_network_for_proxy*/ true,
             /*is_wsl1*/ true,
         ),

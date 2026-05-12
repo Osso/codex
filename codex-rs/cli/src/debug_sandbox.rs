@@ -280,13 +280,11 @@ async fn run_command_under_sandbox(
                 .codex_linux_sandbox_exe
                 .expect("codex-linux-sandbox executable not found");
             let args = create_linux_sandbox_command_args_for_policies(
-
                 command,
                 cwd.as_path(),
                 &config.permissions.permission_profile(),
                 sandbox_policy_cwd.as_path(),
                 /*allow_network_for_proxy*/ false,
-
             );
             spawn_debug_sandbox_child(
                 codex_linux_sandbox_exe,

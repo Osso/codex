@@ -123,57 +123,56 @@ async fn backfill_scans_existing_rollouts() -> Result<()> {
     ];
     let dynamic_tools_for_hook = dynamic_tools.clone();
 
-    let mut builder = test_codex()
-        .with_pre_build_hook(move |codex_home| {
-            let rollout_path = codex_home.join(&rollout_rel_path_for_hook);
-            let parent = rollout_path
-                .parent()
-                .expect("rollout path should have parent");
-            fs::create_dir_all(parent).expect("should create rollout directory");
-            let session_meta_line = SessionMetaLine {
-                meta: SessionMeta {
-                    id: thread_id,
-                    forked_from_id: None,
-                    timestamp: "2026-01-27T12:00:00Z".to_string(),
-                    cwd: codex_home.to_path_buf(),
-                    originator: "test".to_string(),
-                    cli_version: "test".to_string(),
-                    source: SessionSource::default(),
-                    thread_source: None,
-                    agent_path: None,
-                    agent_nickname: None,
-                    agent_role: None,
-                    model_provider: None,
-                    base_instructions: None,
-                    dynamic_tools: Some(dynamic_tools_for_hook),
-                    memory_mode: None,
-                },
-                git: None,
-            };
+    let mut builder = test_codex().with_pre_build_hook(move |codex_home| {
+        let rollout_path = codex_home.join(&rollout_rel_path_for_hook);
+        let parent = rollout_path
+            .parent()
+            .expect("rollout path should have parent");
+        fs::create_dir_all(parent).expect("should create rollout directory");
+        let session_meta_line = SessionMetaLine {
+            meta: SessionMeta {
+                id: thread_id,
+                forked_from_id: None,
+                timestamp: "2026-01-27T12:00:00Z".to_string(),
+                cwd: codex_home.to_path_buf(),
+                originator: "test".to_string(),
+                cli_version: "test".to_string(),
+                source: SessionSource::default(),
+                thread_source: None,
+                agent_path: None,
+                agent_nickname: None,
+                agent_role: None,
+                model_provider: None,
+                base_instructions: None,
+                dynamic_tools: Some(dynamic_tools_for_hook),
+                memory_mode: None,
+            },
+            git: None,
+        };
 
-            let lines = [
-                RolloutLine {
-                    timestamp: "2026-01-27T12:00:00Z".to_string(),
-                    item: RolloutItem::SessionMeta(session_meta_line),
-                },
-                RolloutLine {
-                    timestamp: "2026-01-27T12:00:01Z".to_string(),
-                    item: RolloutItem::EventMsg(EventMsg::UserMessage(UserMessageEvent {
-                        message: "hello from backfill".to_string(),
-                        images: None,
-                        local_images: Vec::new(),
-                        text_elements: Vec::new(),
-                    })),
-                },
-            ];
+        let lines = [
+            RolloutLine {
+                timestamp: "2026-01-27T12:00:00Z".to_string(),
+                item: RolloutItem::SessionMeta(session_meta_line),
+            },
+            RolloutLine {
+                timestamp: "2026-01-27T12:00:01Z".to_string(),
+                item: RolloutItem::EventMsg(EventMsg::UserMessage(UserMessageEvent {
+                    message: "hello from backfill".to_string(),
+                    images: None,
+                    local_images: Vec::new(),
+                    text_elements: Vec::new(),
+                })),
+            },
+        ];
 
-            let jsonl = lines
-                .iter()
-                .map(|line| serde_json::to_string(line).expect("rollout line should serialize"))
-                .collect::<Vec<_>>()
-                .join("\n");
-            fs::write(&rollout_path, format!("{jsonl}\n")).expect("should write rollout file");
-        });
+        let jsonl = lines
+            .iter()
+            .map(|line| serde_json::to_string(line).expect("rollout line should serialize"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        fs::write(&rollout_path, format!("{jsonl}\n")).expect("should write rollout file");
+    });
 
     let test = builder.build(&server).await?;
 

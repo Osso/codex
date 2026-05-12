@@ -750,6 +750,7 @@ pub async fn run_main(
     if let Err(err) = crate::legacy_core::personality_migration::maybe_migrate_personality(
         &codex_home,
         &config_toml,
+        /*state_db*/ None,
     )
     .await
     {
@@ -814,11 +815,7 @@ pub async fn run_main(
         ..Default::default()
     };
 
-    let mut config = load_config_or_exit(
-        cli_kv_overrides.clone(),
-        overrides.clone(),
-    )
-    .await;
+    let mut config = load_config_or_exit(cli_kv_overrides.clone(), overrides.clone()).await;
 
     let otel_originator = originator().value;
     let otel = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -868,12 +865,7 @@ pub async fn run_main(
                 Ok(
                     crate::legacy_core::personality_migration::PersonalityMigrationStatus::Applied,
                 ) => {
-                    config = load_config_or_exit(
-                        cli_kv_overrides.clone(),
-                        overrides.clone(),
-                        cloud_requirements.clone(),
-                    )
-                    .await;
+                    config = load_config_or_exit(cli_kv_overrides.clone(), overrides.clone()).await;
                 }
                 Ok(
                     crate::legacy_core::personality_migration::PersonalityMigrationStatus::SkippedMarker
@@ -991,7 +983,7 @@ pub async fn run_main(
         ensure_oss_provider_ready(provider_id, &config).await?;
     }
 
-    let log_db = get_state_db(&config).await.map(log_db::start);
+    let log_db = state_db::get_state_db(&config).await.map(log_db::start);
     let log_db_layer = log_db
         .clone()
         .map(|layer| layer.with_filter(Targets::new().with_default(Level::TRACE)));
@@ -1156,11 +1148,7 @@ async fn run_ratatui_app(
         if onboarding_result.directory_trust_decision.is_some()
             || (show_login_screen && !remote_mode)
         {
-            load_config_or_exit(
-                cli_kv_overrides.clone(),
-                overrides.clone(),
-            )
-            .await
+            load_config_or_exit(cli_kv_overrides.clone(), overrides.clone()).await
         } else {
             initial_config
         }
@@ -1365,12 +1353,7 @@ async fn run_ratatui_app(
             .await
         }
         resume_picker::SessionSelection::StartFresh if picker_cancelled_without_selection => {
-            load_config_or_exit(
-                cli_kv_overrides.clone(),
-                overrides.clone(),
-                cloud_requirements.clone(),
-            )
-            .await
+            load_config_or_exit(cli_kv_overrides.clone(), overrides.clone()).await
         }
         _ => config,
     };
@@ -1571,12 +1554,7 @@ async fn load_config_or_exit(
     cli_kv_overrides: Vec<(String, toml::Value)>,
     overrides: ConfigOverrides,
 ) -> Config {
-    load_config_or_exit_with_fallback_cwd(
-        cli_kv_overrides,
-        overrides,
-        /*fallback_cwd*/ None,
-    )
-    .await
+    load_config_or_exit_with_fallback_cwd(cli_kv_overrides, overrides, /*fallback_cwd*/ None).await
 }
 
 async fn load_config_or_exit_with_fallback_cwd(
@@ -2056,7 +2034,6 @@ mod tests {
     }
 
     #[tokio::test]
-
     #[serial]
     async fn windows_shows_trust_prompt_without_sandbox() -> std::io::Result<()> {
         let temp_dir = TempDir::new()?;

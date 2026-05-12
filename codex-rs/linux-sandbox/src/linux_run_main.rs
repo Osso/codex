@@ -142,9 +142,7 @@ pub fn run_main() -> ! {
     let LandlockCommand {
         sandbox_policy_cwd,
         command_cwd,
-        sandbox_policy,
-        file_system_sandbox_policy,
-        network_sandbox_policy,
+        permission_profile,
 
         apply_seccomp_then_exec,
         allow_network_for_proxy,
@@ -157,19 +155,11 @@ pub fn run_main() -> ! {
         panic!("No command specified to execute.");
     }
     ensure_inner_stage_mode_is_valid(apply_seccomp_then_exec);
-    let EffectiveSandboxPolicies {
-        sandbox_policy,
-
+    let EffectivePermissions {
+        permission_profile,
         file_system_sandbox_policy,
         network_sandbox_policy,
-    } = resolve_sandbox_policies(
-        sandbox_policy_cwd.as_path(),
-        sandbox_policy,
-        file_system_sandbox_policy,
-        network_sandbox_policy,
-    )
-    .unwrap_or_else(|err| panic!("{err}"));
-
+    } = resolve_permission_profile(permission_profile).unwrap_or_else(|err| panic!("{err}"));
 
     // Inner stage: apply seccomp/no_new_privs after bubblewrap has already
     // established the filesystem view.
@@ -210,20 +200,18 @@ pub fn run_main() -> ! {
 
     // Outer stage: bubblewrap first, then re-enter this binary in the
     // sandboxed environment to apply seccomp.
-    let proxy_route_spec =
-        if allow_network_for_proxy {
-            Some(prepare_host_proxy_route_spec().unwrap_or_else(|err| {
-                panic!("failed to prepare host proxy routing bridge: {err}")
-            }))
-        } else {
-            None
-        };
+    let proxy_route_spec = if allow_network_for_proxy {
+        Some(
+            prepare_host_proxy_route_spec()
+                .unwrap_or_else(|err| panic!("failed to prepare host proxy routing bridge: {err}")),
+        )
+    } else {
+        None
+    };
     let inner = build_inner_seccomp_command(InnerSeccompCommandArgs {
         sandbox_policy_cwd: &sandbox_policy_cwd,
         command_cwd: command_cwd.as_deref(),
-        sandbox_policy: &sandbox_policy,
-        file_system_sandbox_policy: &file_system_sandbox_policy,
-        network_sandbox_policy,
+        permission_profile: &permission_profile,
 
         allow_network_for_proxy,
         proxy_route_spec,
@@ -281,7 +269,6 @@ fn resolve_permission_profile(
 fn ensure_inner_stage_mode_is_valid(apply_seccomp_then_exec: bool) {
     // Currently no incompatible combinations; kept for future validations.
     let _ = apply_seccomp_then_exec;
-
 }
 
 fn run_bwrap_with_proc_fallback(

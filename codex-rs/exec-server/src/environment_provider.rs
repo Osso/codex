@@ -4,15 +4,14 @@ use crate::Environment;
 use crate::ExecServerError;
 use crate::environment::CODEX_EXEC_SERVER_URL_ENV_VAR;
 use crate::environment::LOCAL_ENVIRONMENT_ID;
-use crate::environment::REMOTE_ENVIRONMENT_ID;
 
 /// Lists the concrete environments available to Codex.
 ///
 /// Implementations own a startup snapshot containing both the available
 /// environment list in configured order and the default environment
-/// selection. Providers should only return provider-owned remote environments;
-/// `include_local` controls whether `EnvironmentManager` should add the local
-/// environment to the snapshot.
+/// selection. Providers can return provider-owned environments; `include_local`
+/// controls whether `EnvironmentManager` should add the local environment to
+/// the snapshot.
 #[async_trait]
 pub trait EnvironmentProvider: Send + Sync {
     /// Returns the provider-owned environment startup snapshot.
@@ -33,6 +32,9 @@ pub enum EnvironmentDefault {
 }
 
 /// Default provider backed by `CODEX_EXEC_SERVER_URL`.
+///
+/// This fork treats any non-empty value other than `none` as a legacy remote
+/// URL and ignores it, keeping the local environment as the default.
 #[derive(Clone, Debug)]
 pub struct DefaultEnvironmentProvider {
     exec_server_url: Option<String>,
@@ -50,32 +52,17 @@ impl DefaultEnvironmentProvider {
     }
 
     pub(crate) fn snapshot_inner(&self) -> EnvironmentProviderSnapshot {
-        let mut environments = Vec::new();
-        let (exec_server_url, disabled) = normalize_exec_server_url(self.exec_server_url.clone());
-
-        if let Some(exec_server_url) = exec_server_url {
-            environments.push((
-                REMOTE_ENVIRONMENT_ID.to_string(),
-                Environment::remote_inner(exec_server_url, /*local_runtime_paths*/ None),
-            ));
-        }
-
-        let has_remote = environments
-            .iter()
-            .any(|(id, _environment)| id == REMOTE_ENVIRONMENT_ID);
-        let include_local = !disabled && !has_remote;
+        let (_exec_server_url, disabled) = normalize_exec_server_url(self.exec_server_url.clone());
         let default = if disabled {
             EnvironmentDefault::Disabled
-        } else if has_remote {
-            EnvironmentDefault::EnvironmentId(REMOTE_ENVIRONMENT_ID.to_string())
         } else {
             EnvironmentDefault::EnvironmentId(LOCAL_ENVIRONMENT_ID.to_string())
         };
 
         EnvironmentProviderSnapshot {
-            environments,
+            environments: Vec::new(),
             default,
-            include_local,
+            include_local: true,
         }
     }
 }
@@ -116,7 +103,6 @@ mod tests {
 
         assert!(include_local);
         assert!(!environments.contains_key(LOCAL_ENVIRONMENT_ID));
-        assert!(!environments.contains_key(REMOTE_ENVIRONMENT_ID));
         assert_eq!(
             default,
             EnvironmentDefault::EnvironmentId(LOCAL_ENVIRONMENT_ID.to_string())
@@ -136,7 +122,6 @@ mod tests {
 
         assert!(include_local);
         assert!(!environments.contains_key(LOCAL_ENVIRONMENT_ID));
-        assert!(!environments.contains_key(REMOTE_ENVIRONMENT_ID));
         assert_eq!(
             default,
             EnvironmentDefault::EnvironmentId(LOCAL_ENVIRONMENT_ID.to_string())
@@ -154,14 +139,13 @@ mod tests {
         } = snapshot;
         let environments: HashMap<_, _> = environments.into_iter().collect();
 
-        assert!(!include_local);
+        assert!(include_local);
         assert!(!environments.contains_key(LOCAL_ENVIRONMENT_ID));
-        assert!(!environments.contains_key(REMOTE_ENVIRONMENT_ID));
         assert_eq!(default, EnvironmentDefault::Disabled);
     }
 
     #[tokio::test]
-    async fn default_provider_adds_remote_environment_for_websocket_url() {
+    async fn default_provider_ignores_websocket_url() {
         let provider = DefaultEnvironmentProvider::new(Some("ws://127.0.0.1:8765".to_string()));
         let snapshot = provider.snapshot().await.expect("environments");
         let EnvironmentProviderSnapshot {
@@ -171,29 +155,21 @@ mod tests {
         } = snapshot;
         let environments: HashMap<_, _> = environments.into_iter().collect();
 
-        assert!(!include_local);
+        assert!(include_local);
         assert!(!environments.contains_key(LOCAL_ENVIRONMENT_ID));
-        let remote_environment = &environments[REMOTE_ENVIRONMENT_ID];
-        assert!(remote_environment.is_remote());
-        assert_eq!(
-            remote_environment.exec_server_url(),
-            Some("ws://127.0.0.1:8765")
-        );
         assert_eq!(
             default,
-            EnvironmentDefault::EnvironmentId(REMOTE_ENVIRONMENT_ID.to_string())
+            EnvironmentDefault::EnvironmentId(LOCAL_ENVIRONMENT_ID.to_string())
         );
     }
 
     #[tokio::test]
-    async fn default_provider_normalizes_exec_server_url() {
+    async fn default_provider_ignores_normalized_exec_server_url() {
         let provider = DefaultEnvironmentProvider::new(Some(" ws://127.0.0.1:8765 ".to_string()));
         let snapshot = provider.snapshot().await.expect("environments");
         let environments: HashMap<_, _> = snapshot.environments.into_iter().collect();
 
-        assert_eq!(
-            environments[REMOTE_ENVIRONMENT_ID].exec_server_url(),
-            Some("ws://127.0.0.1:8765")
-        );
+        assert!(snapshot.include_local);
+        assert!(environments.is_empty());
     }
 }

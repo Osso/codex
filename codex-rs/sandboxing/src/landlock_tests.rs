@@ -13,10 +13,7 @@ fn legacy_landlock_flag_is_not_included() {
         cwd,
         /*allow_network_for_proxy*/ false,
     );
-    assert_eq!(
-        args.contains(&"--use-legacy-landlock".to_string()),
-        false
-    );
+    assert_eq!(args.contains(&"--use-legacy-landlock".to_string()), false);
 }
 
 #[test]

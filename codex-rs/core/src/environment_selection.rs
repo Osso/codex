@@ -105,10 +105,9 @@ mod tests {
     async fn default_thread_environment_selections_use_local_id() {
         let cwd = AbsolutePathBuf::current_dir().expect("cwd");
         let manager = EnvironmentManager::new(EnvironmentManagerArgs {
-            disabled: false,
             local_runtime_paths: test_runtime_paths(),
-        });
-
+        })
+        .await;
 
         assert_eq!(
             default_thread_environment_selections(&manager, &cwd),
@@ -120,7 +119,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn toml_default_thread_environment_selections_include_local_and_remote() {
+    async fn toml_default_thread_environment_selections_uses_local_only() {
         let temp_dir = tempfile::tempdir().expect("tempdir");
         std::fs::write(
             temp_dir.path().join("environments.toml"),
@@ -138,27 +137,19 @@ url = "ws://127.0.0.1:8765"
 
         assert_eq!(
             default_thread_environment_selections(&manager, &cwd),
-            vec![
-                TurnEnvironmentSelection {
-                    environment_id: LOCAL_ENVIRONMENT_ID.to_string(),
-                    cwd: cwd.clone(),
-                },
-                TurnEnvironmentSelection {
-                    environment_id: REMOTE_ENVIRONMENT_ID.to_string(),
-                    cwd,
-                },
-            ]
+            vec![TurnEnvironmentSelection {
+                environment_id: LOCAL_ENVIRONMENT_ID.to_string(),
+                cwd,
+            }]
         );
     }
 
     #[tokio::test]
     async fn default_thread_environment_selections_empty_when_default_disabled() {
         let cwd = AbsolutePathBuf::current_dir().expect("cwd");
-        let manager = EnvironmentManager::new(EnvironmentManagerArgs {
-            disabled: true,
-            local_runtime_paths: test_runtime_paths(),
-        });
-
+        let manager =
+            EnvironmentManager::create_for_tests(Some("none".to_string()), test_runtime_paths())
+                .await;
 
         assert_eq!(
             default_thread_environment_selections(&manager, &cwd),

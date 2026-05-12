@@ -8,8 +8,6 @@ use codex_api::ReqwestTransport;
 use codex_api::TransportError;
 use codex_api::auth_header_telemetry;
 use codex_api::map_api_error;
-use codex_feedback::FeedbackRequestTags;
-use codex_feedback::emit_feedback_request_tags_with_auth_env;
 use codex_login::AuthEnvTelemetry;
 use codex_login::AuthManager;
 use codex_login::CodexAuth;
@@ -26,6 +24,8 @@ use codex_response_debug_context::telemetry_transport_error_message;
 use http::HeaderMap;
 use tokio::time::timeout;
 
+use self::feedback_tags::FeedbackRequestTags;
+use self::feedback_tags::emit_feedback_request_tags_with_auth_env;
 use crate::auth::resolve_provider_auth;
 
 const MODELS_REFRESH_TIMEOUT: Duration = Duration::from_secs(5);
@@ -197,6 +197,51 @@ impl RequestTelemetry for ModelsRequestTelemetry {
                 auth_recovery_followup_status: None,
             },
             &self.auth_env,
+        );
+    }
+}
+
+mod feedback_tags {
+    use codex_login::AuthEnvTelemetry;
+
+    #[allow(dead_code)]
+    pub struct FeedbackRequestTags<'a> {
+        pub endpoint: &'a str,
+        pub auth_header_attached: bool,
+        pub auth_header_name: Option<&'a str>,
+        pub auth_mode: Option<&'a str>,
+        pub auth_retry_after_unauthorized: Option<bool>,
+        pub auth_recovery_mode: Option<&'a str>,
+        pub auth_recovery_phase: Option<&'a str>,
+        pub auth_connection_reused: Option<bool>,
+        pub auth_request_id: Option<&'a str>,
+        pub auth_cf_ray: Option<&'a str>,
+        pub auth_error: Option<&'a str>,
+        pub auth_error_code: Option<&'a str>,
+        pub auth_recovery_followup_success: Option<bool>,
+        pub auth_recovery_followup_status: Option<u16>,
+    }
+
+    pub fn emit_feedback_request_tags_with_auth_env(
+        tags: &FeedbackRequestTags<'_>,
+        auth_env: &AuthEnvTelemetry,
+    ) {
+        tracing::info!(
+            target: "feedback_tags",
+            endpoint = tags.endpoint,
+            auth_header_attached = tags.auth_header_attached,
+            auth_header_name = tags.auth_header_name,
+            auth_mode = tags.auth_mode,
+            auth_request_id = tags.auth_request_id,
+            auth_cf_ray = tags.auth_cf_ray,
+            auth_error = tags.auth_error,
+            auth_error_code = tags.auth_error_code,
+            auth_env_openai_api_key_present = auth_env.openai_api_key_env_present,
+            auth_env_codex_api_key_present = auth_env.codex_api_key_env_present,
+            auth_env_codex_api_key_enabled = auth_env.codex_api_key_env_enabled,
+            auth_env_provider_key_name = auth_env.provider_env_key_name.as_deref(),
+            auth_env_provider_key_present = auth_env.provider_env_key_present,
+            auth_env_refresh_token_url_override_present = auth_env.refresh_token_url_override_present,
         );
     }
 }

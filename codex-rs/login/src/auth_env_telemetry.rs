@@ -14,7 +14,6 @@ pub struct AuthEnvTelemetry {
     pub refresh_token_url_override_present: bool,
 }
 
-
 pub fn collect_auth_env_telemetry(
     provider: &ModelProviderInfo,
     codex_api_key_env_enabled: bool,

@@ -98,3 +98,31 @@ pub(crate) async fn write_hook_trust(
 ) -> Result<ConfigWriteResponse> {
     write_hook_trusts(request_handle, vec![HookTrustUpdate { key, current_hash }]).await
 }
+
+pub(crate) async fn write_hook_enabled(
+    request_handle: AppServerRequestHandle,
+    key: String,
+    enabled: bool,
+) -> Result<ConfigWriteResponse> {
+    let request_id = RequestId::String(format!("hooks-config-write-{}", Uuid::new_v4()));
+    request_handle
+        .request_typed(ClientRequest::ConfigBatchWrite {
+            request_id,
+            params: ConfigBatchWriteParams {
+                edits: vec![codex_app_server_protocol::ConfigEdit {
+                    key_path: "hooks.state".to_string(),
+                    value: serde_json::json!({
+                        key: {
+                            "enabled": enabled,
+                        },
+                    }),
+                    merge_strategy: MergeStrategy::Upsert,
+                }],
+                file_path: None,
+                expected_version: None,
+                reload_user_config: true,
+            },
+        })
+        .await
+        .wrap_err("config/batchWrite failed while updating hook enablement in TUI")
+}

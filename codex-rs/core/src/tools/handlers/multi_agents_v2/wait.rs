@@ -95,6 +95,13 @@ pub(crate) struct WaitAgentResult {
 }
 
 impl WaitAgentResult {
+    fn no_agents() -> Self {
+        Self {
+            message: "No live agents to wait for.".to_string(),
+            timed_out: false,
+        }
+    }
+
     fn from_timed_out(timed_out: bool) -> Self {
         let message = if timed_out {
             "Wait timed out."

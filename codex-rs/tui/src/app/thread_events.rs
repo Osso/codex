@@ -6,6 +6,7 @@
 //! together with the replay behavior that consumes them.
 
 use super::*;
+use crate::app_event::HistoryLookupResponse;
 
 #[derive(Debug, Clone)]
 pub(super) struct ThreadEventSnapshot {
@@ -19,7 +20,7 @@ pub(super) struct ThreadEventSnapshot {
 pub(super) enum ThreadBufferedEvent {
     Notification(ServerNotification),
     Request(ServerRequest),
-    HistoryEntryResponse(GetHistoryEntryResponseEvent),
+    HistoryEntryResponse(HistoryLookupResponse),
 }
 
 #[derive(Debug)]
@@ -167,8 +168,7 @@ impl ThreadEventStore {
                 }
                 ThreadBufferedEvent::Request(_)
                 | ThreadBufferedEvent::Notification(_)
-                | ThreadBufferedEvent::HistoryEntryResponse(_)
-                | ThreadBufferedEvent::FeedbackSubmission(_) => None,
+                | ThreadBufferedEvent::HistoryEntryResponse(_) => None,
             })
             .or_else(|| {
                 self.turns

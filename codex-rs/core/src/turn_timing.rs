@@ -47,6 +47,13 @@ fn now_unix_timestamp_secs() -> i64 {
     i64::try_from(duration.as_secs()).unwrap_or(i64::MAX)
 }
 
+pub(crate) fn now_unix_timestamp_ms() -> i64 {
+    let duration = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
+    i64::try_from(duration.as_millis()).unwrap_or(i64::MAX)
+}
+
 impl TurnTimingStateInner {}
 
 #[cfg(test)]

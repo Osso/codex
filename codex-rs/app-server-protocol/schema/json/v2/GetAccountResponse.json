@@ -42,7 +42,7 @@
           ],
           "title": "ChatgptAccount",
           "type": "object"
-        },
+        }
       ]
     },
     "PlanType": {

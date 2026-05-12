@@ -185,7 +185,6 @@ pub struct ExecServerClient {
     inner: Arc<Inner>,
 }
 
-
 #[derive(Debug, thiserror::Error)]
 pub enum ExecServerError {
     #[error("failed to spawn exec-server: {0}")]

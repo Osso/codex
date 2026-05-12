@@ -1,20 +1,6 @@
 use crate::agents_md::AgentsMdManager;
 use crate::config::edit::ConfigEdit;
 use crate::config::edit::ConfigEditsBuilder;
-use crate::config_loader::ConfigLayerStack;
-use crate::config_loader::ConfigLayerStackOrdering;
-use crate::config_loader::ConfigRequirements;
-use crate::config_loader::ConfigRequirementsToml;
-use crate::config_loader::ConstrainedWithSource;
-use crate::config_loader::FeatureRequirementsToml;
-use crate::config_loader::LoaderOverrides;
-use crate::config_loader::McpServerIdentity;
-use crate::config_loader::McpServerRequirement;
-use crate::config_loader::ResidencyRequirement;
-use crate::config_loader::Sourced;
-use crate::config_loader::load_config_layers_state;
-use crate::config_loader::project_trust_key;
-use crate::memories::memory_root;
 use crate::path_utils::normalize_for_native_workdir;
 use crate::unified_exec::DEFAULT_MAX_BACKGROUND_TERMINAL_TIMEOUT_MS;
 use crate::unified_exec::MIN_EMPTY_YIELD_TIME_MS;
@@ -144,10 +130,9 @@ mod managed_features;
 mod network_proxy_spec;
 mod otel;
 mod permissions;
+pub(crate) mod rules;
 #[cfg(test)]
 mod schema;
-pub(crate) mod rules;
-pub(crate) mod service;
 pub use codex_config::Constrained;
 pub use codex_config::ConstraintError;
 pub use codex_config::ConstraintResult;
@@ -903,12 +888,13 @@ impl AuthManagerConfig for Config {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct ConfigBuilder {
     codex_home: Option<PathBuf>,
     cli_overrides: Option<Vec<(String, TomlValue)>>,
     harness_overrides: Option<ConfigOverrides>,
     loader_overrides: Option<LoaderOverrides>,
+    cloud_requirements: Option<CloudRequirementsLoader>,
     thread_config_loader: Option<Arc<dyn ThreadConfigLoader>>,
     fallback_cwd: Option<PathBuf>,
     host_name: Option<String>,
@@ -921,6 +907,7 @@ impl Default for ConfigBuilder {
             cli_overrides: None,
             harness_overrides: None,
             loader_overrides: None,
+            cloud_requirements: None,
             thread_config_loader: None,
             fallback_cwd: None,
             host_name: codex_config::host_name(),
@@ -949,6 +936,11 @@ impl ConfigBuilder {
         self
     }
 
+    pub fn cloud_requirements(mut self, cloud_requirements: CloudRequirementsLoader) -> Self {
+        self.cloud_requirements = Some(cloud_requirements);
+        self
+    }
+
     pub fn thread_config_loader(
         mut self,
         thread_config_loader: Arc<dyn ThreadConfigLoader>,
@@ -973,8 +965,10 @@ impl ConfigBuilder {
             cli_overrides,
             harness_overrides,
             loader_overrides,
+            cloud_requirements: _,
             thread_config_loader,
             fallback_cwd,
+            host_name: _,
         } = self;
         let codex_home = match codex_home {
             Some(codex_home) => AbsolutePathBuf::from_absolute_path(codex_home)?,

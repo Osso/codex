@@ -77,7 +77,7 @@ mod command_exec;
 mod config;
 mod config_manager;
 mod config_manager_service;
-mod device_key_api;
+mod connection_rpc_gate;
 mod dynamic_tools;
 mod error_code;
 mod extensions;

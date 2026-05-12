@@ -48,10 +48,7 @@ impl WindowsSandboxRequestProcessor {
             )
             .await;
 
-        let mode = match params.mode {
-            WindowsSandboxSetupMode::Elevated => CoreWindowsSandboxSetupMode::Elevated,
-            WindowsSandboxSetupMode::Unelevated => CoreWindowsSandboxSetupMode::Unelevated,
-        };
+        let mode = params.mode;
         let config = Arc::clone(&self.config);
         let config_manager = self.config_manager.clone();
         let command_cwd = params
@@ -72,28 +69,14 @@ impl WindowsSandboxRequestProcessor {
                     Some(command_cwd.clone()),
                 )
                 .await;
-            let setup_result = match derived_config {
-                Ok(config) => {
-                    let setup_request = WindowsSandboxSetupRequest {
-                        mode,
-                        policy: config
-                            .permissions
-                            .legacy_sandbox_policy(config.cwd.as_path()),
-                        policy_cwd: config.cwd.to_path_buf(),
-                        command_cwd,
-                        env_map: std::env::vars().collect(),
-                        codex_home: config.codex_home.to_path_buf(),
-                        active_profile: config.active_profile.clone(),
-                    };
-                    codex_core::windows_sandbox::run_windows_sandbox_setup(setup_request).await
-                }
+            let setup_result: anyhow::Result<()> = match derived_config {
+                Ok(_config) => Err(anyhow::anyhow!(
+                    "Windows sandbox setup is not supported by this fork"
+                )),
                 Err(err) => Err(err.into()),
             };
             let notification = WindowsSandboxSetupCompletedNotification {
-                mode: match mode {
-                    CoreWindowsSandboxSetupMode::Elevated => WindowsSandboxSetupMode::Elevated,
-                    CoreWindowsSandboxSetupMode::Unelevated => WindowsSandboxSetupMode::Unelevated,
-                },
+                mode,
                 success: setup_result.is_ok(),
                 error: setup_result.err().map(|err| err.to_string()),
             };
@@ -116,8 +99,8 @@ fn determine_windows_sandbox_readiness(config: &Config) -> WindowsSandboxReadine
     }
 
     determine_windows_sandbox_readiness_from_state(
-        WindowsSandboxLevel::from_config(config),
-        sandbox_setup_is_complete(config.codex_home.as_path()),
+        windows_sandbox_level_from_config(config),
+        /*sandbox_setup_is_complete*/ false,
     )
 }
 

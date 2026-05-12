@@ -111,7 +111,7 @@ pub enum Feature {
     UseLinuxSandboxBwrap,
     /// Allow the model to request approval and propose exec rules.
     RequestRule,
-/// Experimental shell snapshotting.
+    /// Experimental shell snapshotting.
     ShellSnapshot,
     /// Enable git commit attribution guidance via model instructions.
     CodexGitCommit,
@@ -658,7 +658,6 @@ pub const FEATURES: &[FeatureSpec] = &[
         stage: Stage::Removed,
         default_enabled: false,
     },
-
     // Experimental program. Rendered in the `/experimental` menu for users.
     FeatureSpec {
         id: Feature::CodexGitCommit,
@@ -742,7 +741,7 @@ pub const FEATURES: &[FeatureSpec] = &[
         stage: Stage::Removed,
         default_enabled: false,
     },
-FeatureSpec {
+    FeatureSpec {
         id: Feature::EnableRequestCompression,
         key: "enable_request_compression",
         stage: Stage::Stable,

@@ -368,6 +368,10 @@ impl AppLinkView {
         self.complete = true;
     }
 
+    fn complete_external_flow_and_close(&mut self) {
+        self.refresh_connectors_and_close();
+    }
+
     fn back_to_link_screen(&mut self) {
         self.screen = AppLinkScreen::Link;
         self.selected_action = 0;

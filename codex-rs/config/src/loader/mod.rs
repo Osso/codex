@@ -4,7 +4,6 @@ mod macos;
 
 use self::layer_io::LoadedConfigLayers;
 use crate::CONFIG_TOML_FILE;
-use crate::cloud_requirements::CloudRequirementsLoader;
 use crate::config_requirements::ConfigRequirementsToml;
 use crate::config_requirements::ConfigRequirementsWithSources;
 use crate::config_requirements::RequirementSource;
@@ -40,51 +39,6 @@ use std::path::Path;
 #[cfg(windows)]
 use std::path::PathBuf;
 use toml::Value as TomlValue;
-
-pub use codex_config::AppRequirementToml;
-pub use codex_config::AppsRequirementsToml;
-pub use codex_config::ConfigError;
-pub use codex_config::ConfigLayerEntry;
-pub use codex_config::ConfigLayerStack;
-pub use codex_config::ConfigLayerStackOrdering;
-pub use codex_config::ConfigLoadError;
-pub use codex_config::ConfigRequirements;
-pub use codex_config::ConfigRequirementsToml;
-pub use codex_config::ConstrainedWithSource;
-pub use codex_config::FeatureRequirementsToml;
-pub use codex_config::FilesystemConstraints;
-pub use codex_config::FilesystemDenyReadPattern;
-pub use codex_config::HookEventsToml;
-pub use codex_config::HookHandlerConfig;
-pub use codex_config::LoaderOverrides;
-pub use codex_config::ManagedHooksRequirementsToml;
-pub use codex_config::MatcherGroup;
-pub use codex_config::McpServerIdentity;
-pub use codex_config::McpServerRequirement;
-pub use codex_config::NetworkConstraints;
-pub use codex_config::NetworkDomainPermissionToml;
-pub use codex_config::NetworkDomainPermissionsToml;
-pub use codex_config::NetworkRequirementsToml;
-pub use codex_config::NetworkUnixSocketPermissionToml;
-pub use codex_config::NetworkUnixSocketPermissionsToml;
-pub use codex_config::RemoteSandboxConfigToml;
-pub use codex_config::RequirementSource;
-pub use codex_config::ResidencyRequirement;
-pub use codex_config::SandboxModeRequirement;
-pub use codex_config::Sourced;
-pub use codex_config::TextPosition;
-pub use codex_config::TextRange;
-pub use codex_config::WebSearchModeRequirement;
-pub(crate) use codex_config::build_cli_overrides_layer;
-pub(crate) use codex_config::config_error_from_toml;
-pub use codex_config::default_project_root_markers;
-pub use codex_config::format_config_error;
-pub use codex_config::format_config_error_with_source;
-pub(crate) use codex_config::io_error_from_config_error;
-pub use codex_config::merge_toml_values;
-pub use codex_config::project_root_markers_from_config;
-#[cfg(test)]
-pub(crate) use codex_config::version_for_toml;
 
 /// On Unix systems, load default settings from this file path, if present.
 /// Note that /etc/codex/ is treated as a "config folder," so subfolders such
@@ -159,25 +113,20 @@ pub async fn load_config_layers_state(
         overrides.ignore_user_and_project_exec_policy_rules;
     let mut config_requirements_toml = ConfigRequirementsWithSources::default();
 
-    #[cfg(target_os = "macos")]
-    macos::load_managed_admin_requirements_toml(
-        &mut config_requirements_toml,
-        overrides
-            .macos_managed_config_requirements_base64
-            .as_deref(),
-        host_name,
-    )
-    .await?;
+    if !ignore_managed_requirements {
+        #[cfg(target_os = "macos")]
+        macos::load_managed_admin_requirements_toml(
+            &mut config_requirements_toml,
+            overrides
+                .macos_managed_config_requirements_base64
+                .as_deref(),
+        )
+        .await?;
 
-    // Honor the system requirements.toml location.
-    let requirements_toml_file = system_requirements_toml_file()?;
-    load_requirements_toml(
-        fs,
-        &mut config_requirements_toml,
-        &requirements_toml_file,
-        host_name,
-    )
-    .await?;
+        // Honor the system requirements.toml location.
+        let requirements_toml_file = system_requirements_toml_file_with_overrides(&overrides)?;
+        load_requirements_toml(fs, &mut config_requirements_toml, &requirements_toml_file).await?;
+    }
 
     // Make a best-effort to support the legacy `managed_config.toml` as a
     // requirements specification.

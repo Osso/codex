@@ -2,7 +2,6 @@
 
 mod common;
 
-
 use std::os::unix::fs::symlink;
 use std::path::Path;
 use std::path::PathBuf;
@@ -30,10 +29,10 @@ use codex_protocol::permissions::NetworkSandboxPolicy;
 use codex_sandboxing::policy_transforms::effective_file_system_sandbox_policy;
 use codex_sandboxing::policy_transforms::effective_network_sandbox_policy;
 use codex_utils_absolute_path::AbsolutePathBuf;
-use pretty_assertions::assert_eq;
-use tempfile::TempDir;
 use common::exec_server::TestCodexHelperPaths;
 use common::exec_server::test_codex_helper_paths;
+use pretty_assertions::assert_eq;
+use tempfile::TempDir;
 
 struct FileSystemContext {
     file_system: Arc<dyn ExecutorFileSystem>,
@@ -166,9 +165,6 @@ fn alias_root_candidate() -> Result<Option<PathBuf>> {
     }
     Ok(None)
 }
-
-
-
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn file_system_get_metadata_returns_expected_fields() -> Result<()> {
@@ -339,10 +335,7 @@ async fn file_system_write_file_reports_missing_parent() -> Result<()> {
         Ok(()) => anyhow::bail!("write should fail when parent directory is absent"),
         Err(error) => error,
     };
-    assert_eq!(
-        error.kind(),
-        std::io::ErrorKind::NotFound
-    );
+    assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
     assert!(!missing_parent_path.exists());
 
     Ok(())

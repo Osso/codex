@@ -287,7 +287,13 @@ fn record_skill_render_side_effects(
     omitted_count: usize,
     truncated_description_chars: usize,
 ) {
-    let _ = (side_effects, total_count, included_count, omitted_count, truncated_description_chars);
+    let _ = (
+        side_effects,
+        total_count,
+        included_count,
+        omitted_count,
+        truncated_description_chars,
+    );
 }
 
 fn render_skill_lines_from_lines(

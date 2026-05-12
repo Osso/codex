@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use anyhow::Result;
 
+use codex_config::CloudRequirementsLoader;
 use codex_core::CodexThread;
 use codex_core::ThreadManager;
 use codex_core::config::Config;
@@ -98,9 +99,7 @@ impl TestEnv {
 
 pub async fn test_env() -> Result<TestEnv> {
     TestEnv::local().await
-
 }
-
 
 /// A collection of different ways the model can output an apply_patch call
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -291,15 +290,15 @@ impl TestCodexBuilder {
         let (config, fallback_cwd) = self
             .prepare_config(base_url, &home, test_env.cwd().clone())
             .await?;
-        let environment_manager = Arc::new(codex_exec_server::EnvironmentManager::new(
-            codex_exec_server::EnvironmentManagerArgs {
-                disabled: false,
+        let environment_manager = Arc::new(
+            codex_exec_server::EnvironmentManager::new(codex_exec_server::EnvironmentManagerArgs {
                 local_runtime_paths: codex_exec_server::ExecServerRuntimePaths::new(
                     std::env::current_exe()?,
                     /*codex_linux_sandbox_exe*/ None,
                 )?,
-            },
-        ));
+            })
+            .await,
+        );
 
         let file_system = test_env.environment().get_filesystem();
         let mut workspace_setups = vec![];

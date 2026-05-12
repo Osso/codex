@@ -144,7 +144,6 @@ use uuid::Uuid;
 use crate::cli::Command as ExecCommand;
 use crate::event_processor::EventProcessor;
 
-
 enum InitialOperation {
     UserTurn {
         items: Vec<UserInput>,
@@ -448,9 +447,7 @@ pub async fn run_main(cli: Cli, arg0_paths: Arg0DispatchPaths) -> anyhow::Result
         std::process::exit(1);
     }
 
-    let _ = tracing_subscriber::registry()
-        .with(fmt_layer)
-        .try_init();
+    let _ = tracing_subscriber::registry().with(fmt_layer).try_init();
 
     let exec_span = exec_root_span();
     let config_warnings: Vec<ConfigWarningNotification> = config

@@ -43,6 +43,7 @@ use crate::tooltips;
 use crate::ui_consts::LIVE_PREFIX_COLS;
 use crate::update_action::UpdateAction;
 use crate::version::CODEX_CLI_DISPLAY_VERSION;
+use crate::version::CODEX_CLI_VERSION;
 use crate::wrapping::RtOptions;
 use crate::wrapping::adaptive_wrap_line;
 use crate::wrapping::adaptive_wrap_lines;
@@ -58,9 +59,9 @@ use codex_app_server_protocol::ToolRequestUserInputAnswer;
 use codex_app_server_protocol::ToolRequestUserInputQuestion;
 use codex_app_server_protocol::WebSearchAction;
 use codex_config::types::McpServerTransportConfig;
+use codex_core::telemetry::RuntimeMetricsSummary;
 #[cfg(test)]
 use codex_mcp::qualified_mcp_tool_name_prefix;
-use codex_core::telemetry::RuntimeMetricsSummary;
 use codex_protocol::account::PlanType;
 use codex_protocol::approvals::ExecPolicyAmendment;
 use codex_protocol::approvals::NetworkPolicyAmendment;
@@ -3431,37 +3432,37 @@ pub(crate) fn runtime_metrics_label(summary: RuntimeMetricsSummary) -> Option<St
             summary.websocket_events.count
         ));
     }
-    if summary.responses_api_overhead_ms > 0 {
+    if summary.responses_api_overhead_ms > 0.0 {
         let duration = format_duration_ms(summary.responses_api_overhead_ms);
         parts.push(format!("Responses API overhead: {duration}"));
     }
-    if summary.responses_api_inference_time_ms > 0 {
+    if summary.responses_api_inference_time_ms > 0.0 {
         let duration = format_duration_ms(summary.responses_api_inference_time_ms);
         parts.push(format!("Responses API inference: {duration}"));
     }
-    if summary.responses_api_engine_iapi_ttft_ms > 0
-        || summary.responses_api_engine_service_ttft_ms > 0
+    if summary.responses_api_engine_iapi_ttft_ms > 0.0
+        || summary.responses_api_engine_service_ttft_ms > 0.0
     {
         let mut ttft_parts = Vec::new();
-        if summary.responses_api_engine_iapi_ttft_ms > 0 {
+        if summary.responses_api_engine_iapi_ttft_ms > 0.0 {
             let duration = format_duration_ms(summary.responses_api_engine_iapi_ttft_ms);
             ttft_parts.push(format!("{duration} (iapi)"));
         }
-        if summary.responses_api_engine_service_ttft_ms > 0 {
+        if summary.responses_api_engine_service_ttft_ms > 0.0 {
             let duration = format_duration_ms(summary.responses_api_engine_service_ttft_ms);
             ttft_parts.push(format!("{duration} (service)"));
         }
         parts.push(format!("TTFT: {}", ttft_parts.join(" ")));
     }
-    if summary.responses_api_engine_iapi_tbt_ms > 0
-        || summary.responses_api_engine_service_tbt_ms > 0
+    if summary.responses_api_engine_iapi_tbt_ms > 0.0
+        || summary.responses_api_engine_service_tbt_ms > 0.0
     {
         let mut tbt_parts = Vec::new();
-        if summary.responses_api_engine_iapi_tbt_ms > 0 {
+        if summary.responses_api_engine_iapi_tbt_ms > 0.0 {
             let duration = format_duration_ms(summary.responses_api_engine_iapi_tbt_ms);
             tbt_parts.push(format!("{duration} (iapi)"));
         }
-        if summary.responses_api_engine_service_tbt_ms > 0 {
+        if summary.responses_api_engine_service_tbt_ms > 0.0 {
             let duration = format_duration_ms(summary.responses_api_engine_service_tbt_ms);
             tbt_parts.push(format!("{duration} (service)"));
         }
@@ -3474,12 +3475,31 @@ pub(crate) fn runtime_metrics_label(summary: RuntimeMetricsSummary) -> Option<St
     }
 }
 
-fn format_duration_ms(duration_ms: u64) -> String {
-    if duration_ms >= 1_000 {
-        let seconds = duration_ms as f64 / 1_000.0;
+trait DurationMillis {
+    fn to_f64(self) -> f64;
+}
+
+impl DurationMillis for u64 {
+    fn to_f64(self) -> f64 {
+        self as f64
+    }
+}
+
+impl DurationMillis for f64 {
+    fn to_f64(self) -> f64 {
+        self
+    }
+}
+
+fn format_duration_ms(duration_ms: impl DurationMillis) -> String {
+    let duration_ms = duration_ms.to_f64();
+    if duration_ms >= 1_000.0 {
+        let seconds = duration_ms / 1_000.0;
         format!("{seconds:.1}s")
+    } else if duration_ms.fract() == 0.0 {
+        format!("{duration_ms:.0}ms")
     } else {
-        format!("{duration_ms}ms")
+        format!("{duration_ms:.1}ms")
     }
 }
 

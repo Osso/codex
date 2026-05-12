@@ -3377,7 +3377,7 @@ async fn snapshot_request_shape_pre_turn_compaction_strips_incoming_model_switch
         .with_config(move |config| {
             config.model_provider = model_provider;
             set_test_compact_prompt(config);
-config.model_auto_compact_token_limit = Some(200);
+            config.model_auto_compact_token_limit = Some(200);
         })
         .build(&server)
         .await

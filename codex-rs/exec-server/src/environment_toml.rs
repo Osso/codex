@@ -8,16 +8,15 @@ use async_trait::async_trait;
 use serde::Deserialize;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 
-use crate::DefaultEnvironmentProvider;
-use crate::Environment;
-use crate::EnvironmentProvider;
 use crate::ExecServerError;
 use crate::client_api::DEFAULT_REMOTE_EXEC_SERVER_CONNECT_TIMEOUT;
 use crate::client_api::DEFAULT_REMOTE_EXEC_SERVER_INITIALIZE_TIMEOUT;
 use crate::client_api::ExecServerTransportParams;
 use crate::client_api::StdioExecServerCommand;
 use crate::environment::LOCAL_ENVIRONMENT_ID;
+use crate::environment_provider::DefaultEnvironmentProvider;
 use crate::environment_provider::EnvironmentDefault;
+use crate::environment_provider::EnvironmentProvider;
 use crate::environment_provider::EnvironmentProviderSnapshot;
 
 const ENVIRONMENTS_TOML_FILE: &str = "environments.toml";
@@ -85,19 +84,8 @@ impl TomlEnvironmentProvider {
 #[async_trait]
 impl EnvironmentProvider for TomlEnvironmentProvider {
     async fn snapshot(&self) -> Result<EnvironmentProviderSnapshot, ExecServerError> {
-        let mut environments = Vec::with_capacity(self.environments.len());
-        for (id, transport_params) in &self.environments {
-            environments.push((
-                id.clone(),
-                Environment::remote_with_transport(
-                    transport_params.clone(),
-                    /*local_runtime_paths*/ None,
-                ),
-            ));
-        }
-
         Ok(EnvironmentProviderSnapshot {
-            environments,
+            environments: Vec::new(),
             default: self.default.clone(),
             include_local: true,
         })

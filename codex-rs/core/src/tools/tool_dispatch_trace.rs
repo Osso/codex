@@ -5,16 +5,16 @@
 //! registry control flow.
 
 use crate::function_tool::FunctionCallError;
-use crate::tools::context::ToolCallSource;
-use crate::tools::context::ToolInvocation;
-use crate::tools::context::ToolOutput;
-use crate::tools::context::ToolPayload;
 use crate::rollout_trace::ExecutionStatus;
 use crate::rollout_trace::ToolDispatchInvocation;
 use crate::rollout_trace::ToolDispatchPayload;
 use crate::rollout_trace::ToolDispatchRequester;
 use crate::rollout_trace::ToolDispatchResult;
 use crate::rollout_trace::ToolDispatchTraceContext;
+use crate::tools::context::ToolCallSource;
+use crate::tools::context::ToolInvocation;
+use crate::tools::context::ToolOutput;
+use crate::tools::context::ToolPayload;
 
 /// Keeps registry early-return paths paired with trace end events.
 pub(crate) struct ToolDispatchTrace {

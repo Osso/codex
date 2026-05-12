@@ -1013,7 +1013,9 @@ impl App {
                                 self.config.permissions.windows_sandbox_mode,
                             );
                             let windows_sandbox_level =
-                                WindowsSandboxLevel::from_config(&self.config);
+                                crate::legacy_core::config::windows_sandbox_level_from_config(
+                                    &self.config,
+                                );
                             if let Some((sample_paths, extra_count, failed_scan)) =
                                 self.chat_widget.world_writable_warning_details()
                             {
@@ -1301,10 +1303,11 @@ impl App {
                         return Ok(AppRunControl::Continue);
                     }
 
-                    let should_check = WindowsSandboxLevel::from_config(&self.config)
-                        != WindowsSandboxLevel::Disabled
-                        && permission_profile_is_managed_restricted
-                        && !self.chat_widget.world_writable_warning_hidden();
+                    let should_check =
+                        crate::legacy_core::config::windows_sandbox_level_from_config(&self.config)
+                            != WindowsSandboxLevel::Disabled
+                            && permission_profile_is_managed_restricted
+                            && !self.chat_widget.world_writable_warning_hidden();
                     if should_check {
                         let cwd = self.config.cwd.clone();
                         let env_map: std::collections::HashMap<String, String> =

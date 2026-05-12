@@ -1117,7 +1117,7 @@ pub(crate) fn resolve_windows_restricted_token_filesystem_overrides(
         read_roots_override: None,
         read_roots_include_platform_defaults: false,
         write_roots_override: None,
-        additional_deny_read_paths,
+        additional_deny_read_paths: Vec::new(),
         additional_deny_write_paths: additional_deny_write_paths
             .into_iter()
             .map(|path| AbsolutePathBuf::from_absolute_path(path).map_err(|err| err.to_string()))
@@ -1263,7 +1263,10 @@ pub(crate) fn resolve_windows_elevated_filesystem_overrides(
             && file_system_sandbox_policy.include_platform_defaults(),
         read_roots_override,
         write_roots_override,
-        additional_deny_read_paths,
+        additional_deny_read_paths: additional_deny_read_paths
+            .into_iter()
+            .map(|path| AbsolutePathBuf::from_absolute_path(path).map_err(|err| err.to_string()))
+            .collect::<std::result::Result<_, _>>()?,
         additional_deny_write_paths,
     }))
 }

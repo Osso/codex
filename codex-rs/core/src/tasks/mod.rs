@@ -31,15 +31,16 @@ use crate::session::turn_context::TurnContext;
 use crate::state::ActiveTurn;
 use crate::state::RunningTask;
 use crate::state::TaskKind;
-use codex_analytics::TurnTokenUsageFact;
-use codex_login::AuthManager;
-use codex_models_manager::manager::ModelsManager;
 use crate::telemetry::SessionTelemetry;
 use crate::telemetry::TURN_E2E_DURATION_METRIC;
 use crate::telemetry::TURN_MEMORY_METRIC;
 use crate::telemetry::TURN_NETWORK_PROXY_METRIC;
 use crate::telemetry::TURN_TOKEN_USAGE_METRIC;
 use crate::telemetry::TURN_TOOL_CALL_METRIC;
+use codex_analytics::TurnTokenUsageFact;
+use codex_login::AuthManager;
+use codex_models_manager::manager::ModelsManager;
+use codex_models_manager::manager::SharedModelsManager;
 use codex_protocol::models::ResponseInputItem;
 use codex_protocol::models::ResponseItem;
 use codex_protocol::protocol::EventMsg;
@@ -310,10 +311,11 @@ impl Session {
         let task_kind = task.kind();
         let span_name = task.span_name();
         let started_at = Instant::now();
-        let turn_started_at_unix_ms = turn_context
+        turn_context
             .turn_timing_state
             .mark_turn_started(started_at)
             .await;
+        let turn_started_at_unix_ms = crate::turn_timing::now_unix_timestamp_ms();
         turn_context
             .turn_metadata_state
             .set_turn_started_at_unix_ms(turn_started_at_unix_ms);

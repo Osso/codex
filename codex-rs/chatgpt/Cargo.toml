@@ -1,0 +1,21 @@
+[package]
+edition.workspace = true
+license.workspace = true
+name = "codex-chatgpt"
+version.workspace = true
+
+[lib]
+doctest = false
+name = "codex_chatgpt"
+path = "src/lib.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+codex-app-server-protocol = { workspace = true }
+codex-core = { workspace = true }
+codex-exec-server = { workspace = true }
+codex-login = { workspace = true }
+codex-plugin = { workspace = true }

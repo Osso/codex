@@ -30,6 +30,7 @@
 //! here. That split lets the composer stage a recall entry before clearing input while this module
 //! records the attempted slash command after dispatch just like ordinary submitted text.
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
@@ -48,6 +49,7 @@ use crate::app_event::HistoryLookupResponse;
 use crate::app_server_approval_conversions::file_update_changes_to_display;
 use crate::approval_events::ApplyPatchApprovalRequestEvent;
 use crate::approval_events::ExecApprovalRequestEvent;
+use crate::bottom_pane::ColumnWidthMode;
 use crate::bottom_pane::StatusLineItem;
 use crate::bottom_pane::StatusLineSetupView;
 use crate::bottom_pane::StatusSurfacePreviewData;
@@ -98,7 +100,9 @@ use codex_app_server_protocol::ItemCompletedNotification;
 use codex_app_server_protocol::ItemStartedNotification;
 use codex_app_server_protocol::McpServerElicitationRequest;
 use codex_app_server_protocol::McpServerElicitationRequestParams;
+use codex_app_server_protocol::McpServerStartupState;
 use codex_app_server_protocol::McpServerStatusDetail;
+use codex_app_server_protocol::McpServerStatusUpdatedNotification;
 use codex_app_server_protocol::ModelVerification as AppServerModelVerification;
 use codex_app_server_protocol::RateLimitReachedType;
 use codex_app_server_protocol::RateLimitSnapshot;
@@ -118,10 +122,13 @@ use codex_app_server_protocol::Turn;
 use codex_app_server_protocol::TurnCompletedNotification;
 use codex_app_server_protocol::TurnPlanStepStatus;
 use codex_app_server_protocol::TurnStatus;
+use codex_app_server_protocol::UserInput;
 use codex_config::ConfigLayerStackOrdering;
 use codex_config::types::ApprovalsReviewer;
 use codex_config::types::Notifications;
 use codex_config::types::WindowsSandboxModeToml;
+use codex_core::telemetry::RuntimeMetricsSummary;
+use codex_core::telemetry::SessionTelemetry;
 use codex_core_skills::model::SkillMetadata;
 use codex_exec_server::EnvironmentManager;
 use codex_features::FEATURES;
@@ -132,8 +139,6 @@ use codex_git_utils::current_branch_name;
 use codex_git_utils::get_git_repo_root;
 use codex_git_utils::local_git_branches;
 use codex_git_utils::recent_commits;
-use codex_core::telemetry::RuntimeMetricsSummary;
-use codex_core::telemetry::SessionTelemetry;
 use codex_plugin::PluginCapabilitySummary;
 use codex_protocol::ThreadId;
 use codex_protocol::account::PlanType;
@@ -145,6 +150,7 @@ use codex_protocol::config_types::CollaborationMode;
 use codex_protocol::config_types::CollaborationModeMask;
 use codex_protocol::config_types::ModeKind;
 use codex_protocol::config_types::Personality;
+use codex_protocol::config_types::ServiceTier;
 use codex_protocol::config_types::Settings;
 #[cfg(target_os = "windows")]
 use codex_protocol::config_types::WindowsSandboxLevel;
@@ -158,7 +164,6 @@ use codex_protocol::plan_tool::StepStatus as UpdatePlanItemStatus;
 use codex_protocol::request_permissions::RequestPermissionsEvent;
 use codex_protocol::user_input::ByteRange;
 use codex_protocol::user_input::TextElement;
-use codex_protocol::user_input::UserInput;
 use codex_terminal_detection::Multiplexer;
 use codex_terminal_detection::TerminalInfo;
 use codex_terminal_detection::TerminalName;
@@ -210,9 +215,9 @@ fn queued_message_edit_binding() -> KeyBinding {
 
 fn queued_message_edit_hint_binding(
     bindings: &[KeyBinding],
-    terminal_info: TerminalInfo,
+    _terminal_info: TerminalInfo,
 ) -> Option<KeyBinding> {
-    let terminal_binding = queued_message_edit_binding_for_terminal(terminal_info);
+    let terminal_binding = queued_message_edit_binding();
     bindings
         .contains(&terminal_binding)
         .then_some(terminal_binding)
@@ -227,6 +232,8 @@ use crate::app_event::WindowsSandboxEnableMode;
 use crate::app_event_sender::AppEventSender;
 use crate::auto_review_denials;
 use crate::auto_review_denials::RecentAutoReviewDenials;
+use crate::bottom_pane::AppLinkView;
+use crate::bottom_pane::AppLinkViewParams;
 use crate::bottom_pane::ApprovalRequest;
 use crate::bottom_pane::BottomPane;
 use crate::bottom_pane::BottomPaneParams;
@@ -311,6 +318,7 @@ mod plugins;
 use self::plugins::PluginsCacheState;
 mod plan_implementation;
 use self::plan_implementation::PLAN_IMPLEMENTATION_TITLE;
+mod protocol;
 mod reasoning_shortcuts;
 mod review;
 use self::review::ReviewState;
@@ -700,6 +708,7 @@ pub(crate) struct ChatWidget {
     full_reasoning_buffer: String,
     status_state: StatusState,
     review: ReviewState,
+    ide_context: IdeContextState,
     // Active hook runs render in a dedicated live cell so they can run alongside tools.
     active_hook_cell: Option<HookCell>,
     thread_id: Option<ThreadId>,
@@ -2890,7 +2899,7 @@ impl ChatWidget {
     /// reopen startup. While that guard is active we buffer updates for a possible
     /// next round, and only reactivate once the buffered set is coherent enough to
     /// treat as a fresh startup round.
-    fn update_mcp_startup_status(
+    fn update_mcp_startup_status_legacy_unused(
         &mut self,
         server: String,
         status: McpStartupStatus,
@@ -3030,7 +3039,7 @@ impl ChatWidget {
         self.request_redraw();
     }
 
-    pub(crate) fn set_mcp_startup_expected_servers<I>(&mut self, server_names: I)
+    pub(crate) fn set_mcp_startup_expected_servers_legacy_unused<I>(&mut self, server_names: I)
     where
         I: IntoIterator<Item = String>,
     {
@@ -3042,7 +3051,7 @@ impl ChatWidget {
         self.update_mcp_startup_status(ev.server, ev.status, /*complete_when_settled*/ false);
     }
 
-    fn finish_mcp_startup(&mut self, failed: Vec<String>, cancelled: Vec<String>) {
+    fn finish_mcp_startup_legacy_unused(&mut self, failed: Vec<String>, cancelled: Vec<String>) {
         if !cancelled.is_empty() {
             self.on_warning(format!(
                 "MCP startup interrupted. The following servers were not initialized: {}",
@@ -3067,7 +3076,7 @@ impl ChatWidget {
         self.request_redraw();
     }
 
-    pub(crate) fn finish_mcp_startup_after_lag(&mut self) {
+    pub(crate) fn finish_mcp_startup_after_lag_legacy_unused(&mut self) {
         if self.mcp_startup_ignore_updates_until_next_start {
             if self.mcp_startup_pending_next_round.is_empty() {
                 self.mcp_startup_pending_next_round_saw_starting = false;
@@ -3105,12 +3114,15 @@ impl ChatWidget {
     }
 
     #[cfg(test)]
-    fn on_mcp_startup_complete(&mut self, ev: McpStartupCompleteEvent) {
+    fn on_mcp_startup_complete_legacy_unused(&mut self, ev: McpStartupCompleteEvent) {
         let failed = ev.failed.into_iter().map(|f| f.server).collect();
         self.finish_mcp_startup(failed, ev.cancelled);
     }
 
-    fn on_mcp_server_status_updated(&mut self, notification: McpServerStatusUpdatedNotification) {
+    fn on_mcp_server_status_updated_legacy_unused(
+        &mut self,
+        notification: McpServerStatusUpdatedNotification,
+    ) {
         let status = match notification.status {
             McpServerStartupState::Starting => McpStartupStatus::Starting,
             McpServerStartupState::Ready => McpStartupStatus::Ready,
@@ -3121,7 +3133,7 @@ impl ChatWidget {
             },
             McpServerStartupState::Cancelled => McpStartupStatus::Cancelled,
         };
-        self.update_mcp_startup_status(
+        self.update_mcp_startup_status_legacy_unused(
             notification.name,
             status,
             /*complete_when_settled*/ true,
@@ -5010,6 +5022,7 @@ impl ChatWidget {
             full_reasoning_buffer: String::new(),
             status_state: StatusState::default(),
             review: ReviewState::default(),
+            ide_context: IdeContextState::default(),
             active_hook_cell: None,
             thread_id: None,
             dismissed_plan_mode_nudge_scopes: HashSet::new(),
@@ -5471,6 +5484,23 @@ impl ChatWidget {
         self.bottom_pane.show_view(Box::new(view));
     }
 
+    pub(crate) fn open_app_link_view(&mut self, params: AppLinkViewParams) {
+        let view = AppLinkView::new(params, self.app_event_tx.clone());
+        self.bottom_pane.show_view(Box::new(view));
+    }
+
+    fn on_realtime_conversation_started<T>(&mut self, _notification: T) {}
+
+    fn on_realtime_item_added<T>(&mut self, _notification: T) {}
+
+    fn on_realtime_output_audio_delta<T>(&mut self, _notification: T) {}
+
+    fn on_realtime_error<T>(&mut self, _notification: T) {}
+
+    fn on_realtime_conversation_closed<T>(&mut self, _notification: T) {}
+
+    fn on_realtime_conversation_sdp(&mut self, _sdp: String) {}
+
     fn ensure_thread_rename_allowed(&mut self) -> bool {
         match self.thread_rename_block_message.clone() {
             Some(message) => {
@@ -5782,7 +5812,6 @@ impl ChatWidget {
         let mut selected_plugin_ids: HashSet<String> = HashSet::new();
 
         if let Some(skills) = self.bottom_pane.skills() {
-
             for binding in &mention_bindings {
                 let path = binding
                     .path
@@ -7953,7 +7982,8 @@ impl ChatWidget {
         let presets: Vec<ApprovalPreset> = builtin_approval_presets();
 
         #[cfg(target_os = "windows")]
-        let windows_sandbox_level = crate::legacy_core::config::windows_sandbox_level_from_config(&self.config);
+        let windows_sandbox_level =
+            crate::legacy_core::config::windows_sandbox_level_from_config(&self.config);
         #[cfg(target_os = "windows")]
         let windows_degraded_sandbox_enabled =
             matches!(windows_sandbox_level, WindowsSandboxLevel::RestrictedToken);
@@ -8801,7 +8831,8 @@ impl ChatWidget {
     #[cfg(target_os = "windows")]
     pub(crate) fn maybe_prompt_windows_sandbox_enable(&mut self, show_now: bool) {
         if show_now
-            && crate::legacy_core::config::windows_sandbox_level_from_config(&self.config) == WindowsSandboxLevel::Disabled
+            && crate::legacy_core::config::windows_sandbox_level_from_config(&self.config)
+                == WindowsSandboxLevel::Disabled
             && let Some(preset) = builtin_approval_presets()
                 .into_iter()
                 .find(|preset| preset.id == "auto")
@@ -9033,17 +9064,16 @@ impl ChatWidget {
         self.has_chatgpt_account = has_chatgpt_account;
     }
 
-    pub(crate) fn should_show_fast_status(
+    pub(crate) fn should_show_fast_status_legacy_unused(
         &self,
         model: &str,
         service_tier: Option<ServiceTier>,
     ) -> bool {
-        self.model_supports_fast_mode(model)
-            && matches!(service_tier, Some(ServiceTier::Fast))
-            && self.has_chatgpt_account
+        let _ = (model, service_tier);
+        false
     }
 
-    fn fast_mode_enabled(&self) -> bool {
+    fn fast_mode_enabled_legacy_unused(&self) -> bool {
         self.config.features.enabled(Feature::FastMode)
     }
 
@@ -9077,10 +9107,7 @@ impl ChatWidget {
             .unwrap_or_else(|| self.current_collaboration_mode.model())
     }
 
-    fn sync_fast_command_enabled(&mut self) {
-        self.bottom_pane
-            .set_fast_command_enabled(self.fast_mode_enabled());
-    }
+    fn sync_fast_command_enabled_legacy_unused(&mut self) {}
 
     fn sync_personality_command_enabled(&mut self) {
         self.bottom_pane
@@ -10249,14 +10276,13 @@ impl ChatWidget {
     }
 }
 
-
 fn has_websocket_timing_metrics(summary: RuntimeMetricsSummary) -> bool {
-    summary.responses_api_overhead_ms > 0
-        || summary.responses_api_inference_time_ms > 0
-        || summary.responses_api_engine_iapi_ttft_ms > 0
-        || summary.responses_api_engine_service_ttft_ms > 0
-        || summary.responses_api_engine_iapi_tbt_ms > 0
-        || summary.responses_api_engine_service_tbt_ms > 0
+    summary.responses_api_overhead_ms > 0.0
+        || summary.responses_api_inference_time_ms > 0.0
+        || summary.responses_api_engine_iapi_ttft_ms > 0.0
+        || summary.responses_api_engine_service_ttft_ms > 0.0
+        || summary.responses_api_engine_iapi_tbt_ms > 0.0
+        || summary.responses_api_engine_service_tbt_ms > 0.0
 }
 
 impl Drop for ChatWidget {

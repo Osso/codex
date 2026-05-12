@@ -8,6 +8,7 @@ use codex_core::ThreadManager;
 use codex_core::config::Config;
 use codex_core::content_items_to_text;
 use codex_core::resolve_installation_id;
+use codex_core::rollout_trace::InferenceTraceContext;
 use codex_features::Feature;
 use codex_login::AuthManager;
 use codex_login::CodexAuth;
@@ -27,7 +28,6 @@ use codex_protocol::protocol::SessionSource;
 use codex_protocol::protocol::ThreadSource;
 use codex_protocol::protocol::TokenUsage;
 use codex_protocol::user_input::UserInput;
-use codex_core::rollout_trace::InferenceTraceContext;
 use codex_state::StateRuntime;
 use codex_terminal_detection::user_agent;
 use futures::StreamExt;
@@ -102,7 +102,15 @@ impl MemoryStartupContext {
             user_agent(),
             source,
         )
-        .with_auth_env(auth_env_telemetry.to_otel_metadata());
+        .with_auth_env(codex_otel::AuthEnvTelemetryMetadata {
+            openai_api_key_env_present: auth_env_telemetry.openai_api_key_env_present,
+            codex_api_key_env_present: auth_env_telemetry.codex_api_key_env_present,
+            codex_api_key_env_enabled: auth_env_telemetry.codex_api_key_env_enabled,
+            provider_env_key_name: auth_env_telemetry.provider_env_key_name,
+            provider_env_key_present: auth_env_telemetry.provider_env_key_present,
+            refresh_token_url_override_present: auth_env_telemetry
+                .refresh_token_url_override_present,
+        });
 
         Self {
             thread_id,

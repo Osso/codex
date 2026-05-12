@@ -2,23 +2,8 @@ use super::cache::ModelsCacheManager;
 use crate::collaboration_mode_presets::builtin_collaboration_mode_presets;
 use crate::config::ModelsManagerConfig;
 use crate::model_info;
-use codex_api::ModelsClient;
-use codex_api::RequestTelemetry;
-use codex_api::ReqwestTransport;
-use codex_api::TransportError;
-use codex_api::auth_header_telemetry;
-use codex_api::map_api_error;
-use feedback_tags::FeedbackRequestTags;
-use feedback_tags::emit_feedback_request_tags_with_auth_env;
-use codex_login::AuthEnvTelemetry;
+use async_trait::async_trait;
 use codex_login::AuthManager;
-use codex_login::CodexAuth;
-use codex_login::collect_auth_env_telemetry;
-use codex_login::default_client::build_reqwest_client;
-use codex_model_provider::SharedModelProvider;
-use codex_model_provider::create_model_provider;
-use codex_app_server_protocol::AuthMode;
-use codex_model_provider_info::ModelProviderInfo;
 use codex_protocol::config_types::CollaborationModeMask;
 use codex_protocol::error::Result as CoreResult;
 use codex_protocol::openai_models::ModelInfo;
@@ -314,31 +299,6 @@ impl OpenAiModelsManager {
     }
 
     async fn fetch_and_update_models(&self) -> CoreResult<()> {
-        let auth_manager = self.provider.auth_manager();
-        let codex_api_key_env_enabled = auth_manager
-            .as_ref()
-            .is_some_and(|auth_manager| auth_manager.codex_api_key_env_enabled());
-        let auth = self.provider.auth().await;
-        let auth_mode = auth.as_ref().map(CodexAuth::auth_mode);
-        let api_provider = self.provider.api_provider().await?;
-        let api_auth = self.provider.api_auth().await?;
-        let auth_env = collect_auth_env_telemetry(self.provider.info(), codex_api_key_env_enabled);
-        let transport = ReqwestTransport::new(build_reqwest_client());
-        let auth_telemetry = auth_header_telemetry(api_auth.as_ref());
-        let request_telemetry: Arc<dyn RequestTelemetry> = Arc::new(ModelsRequestTelemetry {
-            auth_mode: auth_mode.map(|mode| match mode {
-                AuthMode::ApiKey => "apikey".to_string(),
-                AuthMode::Chatgpt | AuthMode::ChatgptAuthTokens | AuthMode::AgentIdentity => {
-                    "chatgpt".to_string()
-                }
-            }),
-            auth_header_attached: auth_telemetry.attached,
-            auth_header_name: auth_telemetry.name,
-            auth_env,
-        });
-        let client = ModelsClient::new(transport, api_provider, api_auth)
-            .with_telemetry(Some(request_telemetry));
-
         let client_version = crate::client_version_to_whole();
         let (models, etag) = self.endpoint_client.list_models(&client_version).await?;
         self.apply_remote_models(models.clone()).await;
@@ -494,61 +454,6 @@ pub(crate) fn construct_model_info_from_candidates(
         model_info::model_info_from_slug(model)
     };
     model_info::with_config_overrides(model_info, config)
-}
-
-/// Minimal local copy of the feedback-tag telemetry helpers.
-///
-/// Avoids a dependency on `codex-feedback`; emits the same tracing events to
-/// the `"feedback_tags"` target so existing subscribers can capture them.
-mod feedback_tags {
-    use codex_login::AuthEnvTelemetry;
-
-    #[allow(dead_code)]
-    pub struct FeedbackRequestTags<'a> {
-        pub endpoint: &'a str,
-        pub auth_header_attached: bool,
-        pub auth_header_name: Option<&'a str>,
-        pub auth_mode: Option<&'a str>,
-        pub auth_retry_after_unauthorized: Option<bool>,
-        pub auth_recovery_mode: Option<&'a str>,
-        pub auth_recovery_phase: Option<&'a str>,
-        pub auth_connection_reused: Option<bool>,
-        pub auth_request_id: Option<&'a str>,
-        pub auth_cf_ray: Option<&'a str>,
-        pub auth_error: Option<&'a str>,
-        pub auth_error_code: Option<&'a str>,
-        pub auth_recovery_followup_success: Option<bool>,
-        pub auth_recovery_followup_status: Option<u16>,
-    }
-
-    pub fn emit_feedback_request_tags_with_auth_env(
-        tags: &FeedbackRequestTags<'_>,
-        auth_env: &AuthEnvTelemetry,
-    ) {
-        tracing::info!(
-            target: "feedback_tags",
-            endpoint = tracing::field::debug(tags.endpoint),
-            auth_header_attached = tracing::field::debug(tags.auth_header_attached),
-            auth_header_name = tracing::field::debug(tags.auth_header_name.unwrap_or("")),
-            auth_mode = tracing::field::debug(tags.auth_mode.unwrap_or("")),
-            auth_request_id = tracing::field::debug(tags.auth_request_id.unwrap_or("")),
-            auth_cf_ray = tracing::field::debug(tags.auth_cf_ray.unwrap_or("")),
-            auth_error = tracing::field::debug(tags.auth_error.unwrap_or("")),
-            auth_error_code = tracing::field::debug(tags.auth_error_code.unwrap_or("")),
-            auth_env_openai_api_key_present = tracing::field::debug(auth_env.openai_api_key_env_present),
-            auth_env_codex_api_key_present = tracing::field::debug(auth_env.codex_api_key_env_present),
-            auth_env_codex_api_key_enabled = tracing::field::debug(auth_env.codex_api_key_env_enabled),
-            auth_env_provider_key_name = tracing::field::debug(
-                auth_env.provider_env_key_name.as_deref().unwrap_or("")
-            ),
-            auth_env_provider_key_present = tracing::field::debug(
-                &auth_env.provider_env_key_present.map_or_else(String::new, |v| v.to_string())
-            ),
-            auth_env_refresh_token_url_override_present = tracing::field::debug(
-                auth_env.refresh_token_url_override_present
-            ),
-        );
-    }
 }
 
 #[cfg(test)]

@@ -203,12 +203,16 @@ impl SlashCommand {
             | SlashCommand::Hooks
             | SlashCommand::Status
             | SlashCommand::DebugConfig
+            | SlashCommand::Ide
             | SlashCommand::Ps
             | SlashCommand::Stop
             | SlashCommand::Goal
+            | SlashCommand::AutoReview
             | SlashCommand::Mcp
             | SlashCommand::Apps
             | SlashCommand::Plugins
+            | SlashCommand::Title
+            | SlashCommand::Statusline
             | SlashCommand::Quit
             | SlashCommand::Exit
             | SlashCommand::Side => true,

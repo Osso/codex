@@ -75,7 +75,6 @@ async fn run_cmd_output(
         cmd,
         writable_roots,
         timeout_ms,
-
         /*network_access*/ false,
     )
     .await
@@ -118,13 +117,7 @@ async fn run_cmd_result_with_permission_profile(
     use_legacy_landlock: bool,
 ) -> Result<codex_protocol::exec_output::ExecToolCallOutput> {
     let cwd = AbsolutePathBuf::current_dir().expect("cwd should exist");
-    run_cmd_result_with_permission_profile_for_cwd(
-        cmd,
-        cwd,
-        permission_profile,
-        timeout_ms,
-    )
-    .await
+    run_cmd_result_with_permission_profile_for_cwd(cmd, cwd, permission_profile, timeout_ms).await
 }
 
 #[expect(clippy::expect_used)]
@@ -209,7 +202,6 @@ async fn should_skip_bwrap_tests() -> bool {
         &["bash", "-lc", "true"],
         &[],
         NETWORK_TIMEOUT_MS,
-
         /*network_access*/ true,
     )
     .await
@@ -270,7 +262,6 @@ async fn test_dev_null_write() {
         // We have seen timeouts when running this test in CI on GitHub,
         // so we are using a generous timeout until we can diagnose further.
         LONG_TIMEOUT_MS,
-
         /*network_access*/ true,
     )
     .await
@@ -332,7 +323,6 @@ async fn bwrap_preserves_writable_dev_shm_bind_mount() {
         ],
         &[PathBuf::from("/dev/shm")],
         LONG_TIMEOUT_MS,
-
         /*network_access*/ true,
     )
     .await
@@ -379,7 +369,6 @@ async fn sandbox_ignores_missing_writable_roots_under_bwrap() {
         &["bash", "-lc", "printf sandbox-ok"],
         &[existing_root, missing_root],
         LONG_TIMEOUT_MS,
-
         /*network_access*/ true,
     )
     .await
@@ -445,7 +434,6 @@ async fn assert_network_blocked(cmd: &[&str]) {
         &permission_profile,
         &sandbox_cwd,
         &codex_linux_sandbox_exe,
-
         /*stdout_stream*/ None,
     )
     .await;
@@ -521,7 +509,6 @@ async fn sandbox_blocks_git_and_codex_writes_inside_writable_root() {
             ],
             &[tmpdir.path().to_path_buf()],
             LONG_TIMEOUT_MS,
-    
             /*network_access*/ true,
         )
         .await,
@@ -537,7 +524,6 @@ async fn sandbox_blocks_git_and_codex_writes_inside_writable_root() {
             ],
             &[tmpdir.path().to_path_buf()],
             LONG_TIMEOUT_MS,
-    
             /*network_access*/ true,
         )
         .await,
@@ -574,7 +560,6 @@ async fn sandbox_blocks_codex_symlink_replacement_attack() {
             ],
             &[tmpdir.path().to_path_buf()],
             LONG_TIMEOUT_MS,
-    
             /*network_access*/ true,
         )
         .await,
@@ -817,7 +802,6 @@ async fn sandbox_blocks_explicit_split_policy_carveouts_under_bwrap() {
             ],
             permission_profile,
             LONG_TIMEOUT_MS,
-    
         )
         .await,
         "explicit split-policy carveout should be denied under bubblewrap",
@@ -894,7 +878,6 @@ async fn sandbox_reenables_writable_subpaths_under_unreadable_parents() {
         ],
         permission_profile,
         LONG_TIMEOUT_MS,
-
     )
     .await
     .expect("nested writable carveout should execute under bubblewrap");
@@ -943,7 +926,6 @@ async fn sandbox_blocks_root_read_carveouts_under_bwrap() {
             ],
             permission_profile,
             LONG_TIMEOUT_MS,
-    
         )
         .await,
         "root-read carveout should be denied under bubblewrap",

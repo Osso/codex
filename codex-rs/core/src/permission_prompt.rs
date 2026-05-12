@@ -10,7 +10,6 @@ use codex_mcp::permission_prompt::PermissionPromptDecision;
 use codex_mcp::permission_prompt::PermissionPromptRequest;
 use codex_mcp::permission_prompt::PermissionRuleBehavior;
 use codex_mcp::permission_prompt::PermissionUpdate;
-use codex_mcp::split_qualified_tool_name;
 use codex_protocol::mcp::CallToolResult;
 use codex_protocol::protocol::ReviewDecision;
 use codex_shell_command::parse_command::shlex_join;
@@ -28,6 +27,15 @@ const BASH_PERMISSION_TOOL_NAME: &str = "Bash";
 const CONFIG_LOCAL_TOML_FILE: &str = "config.local.toml";
 const FILE_PATH_PERMISSION_TOOL_NAMES: [&str; 5] =
     ["Edit", "Write", "MultiEdit", "NotebookEdit", "Read"];
+
+fn split_qualified_tool_name(name: &str) -> Option<(String, String)> {
+    let remainder = name.strip_prefix("mcp__")?;
+    let (server_name, tool_name) = remainder.split_once("__")?;
+    if server_name.is_empty() || tool_name.is_empty() {
+        return None;
+    }
+    Some((server_name.to_string(), tool_name.to_string()))
+}
 const PERMISSION_PROMPT_RULES_TABLE_KEY: &str = "permission_prompt_rules";
 const PERMISSION_PROMPT_RULE_KEY_PREFIX: &str = "content:";
 

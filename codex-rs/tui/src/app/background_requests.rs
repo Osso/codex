@@ -15,6 +15,7 @@ use codex_app_server_protocol::MarketplaceUpgradeResponse;
 use codex_app_server_protocol::RequestId;
 
 use crate::hooks_rpc::fetch_hooks_list;
+use crate::hooks_rpc::write_hook_enabled;
 use crate::hooks_rpc::write_hook_trust;
 use crate::hooks_rpc::write_hook_trusts;
 use codex_utils_absolute_path::AbsolutePathBuf;
@@ -839,5 +840,4 @@ mod tests {
             Some(&McpAuthStatus::Unsupported)
         );
     }
-
 }

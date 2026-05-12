@@ -1116,7 +1116,6 @@ async fn process_exec_tool_call_respects_cancellation_token() -> Result<()> {
         &cwd,
         &None,
         /*stdout_stream*/ None,
-
     )
     .await
     .expect("cancellation should stop the process promptly");

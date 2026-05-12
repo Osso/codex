@@ -163,12 +163,12 @@ fn track_guardian_review(
     session: &Session,
     tracking: &GuardianReviewTrackContext,
     result: GuardianReviewAnalyticsResult,
-    completed_at_ms: u64,
+    _completed_at_ms: u64,
 ) {
     session
         .services
         .analytics_events_client
-        .track_guardian_review(tracking, result, completed_at_ms);
+        .track_guardian_review(tracking, result);
 }
 
 async fn record_guardian_non_denial(session: &Arc<Session>, turn_id: &str) {
@@ -253,7 +253,7 @@ async fn run_guardian_review(
         guardian_reviewed_action(&request),
         GUARDIAN_REVIEW_TIMEOUT.as_millis() as u64,
     );
-    let started_at_ms = review_tracking.started_at_ms.try_into().unwrap_or_default();
+    let started_at_ms = now_unix_timestamp_ms();
     session
         .send_event(
             turn.as_ref(),

@@ -148,7 +148,6 @@ async fn full_access_confirmation_popup_snapshot() {
     assert_chatwidget_snapshot!("full_access_confirmation_popup", popup);
 }
 
-
 #[tokio::test]
 async fn approvals_popup_shows_disabled_presets() {
     let (mut chat, _rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;

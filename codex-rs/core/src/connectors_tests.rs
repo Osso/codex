@@ -540,7 +540,6 @@ fn requirements_enabled_does_not_override_disabled_connector() {
     );
 }
 
-
 #[tokio::test]
 async fn local_requirements_disable_connector_overrides_user_apps_config() {
     let codex_home = tempdir().expect("tempdir should succeed");

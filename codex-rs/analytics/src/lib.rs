@@ -5,15 +5,17 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use codex_app_server_protocol::ClientRequest;
-use codex_app_server_protocol::ClientResponse;
+use codex_app_server_protocol::ClientResponsePayload;
 use codex_app_server_protocol::InitializeParams;
 use codex_app_server_protocol::JSONRPCErrorError;
 use codex_app_server_protocol::RequestId;
 use codex_app_server_protocol::ServerNotification;
+use codex_app_server_protocol::ServerRequest;
+use codex_app_server_protocol::ServerResponse;
 use codex_login::AuthManager;
 use codex_plugin::PluginTelemetryMetadata;
 use codex_protocol::approvals::NetworkApprovalProtocol;
-use codex_protocol::models::PermissionProfile;
+use codex_protocol::models::AdditionalPermissionProfile;
 use codex_protocol::models::SandboxPermissions;
 use codex_protocol::protocol::GuardianAssessmentOutcome;
 use codex_protocol::protocol::GuardianCommandSource;
@@ -339,17 +341,17 @@ pub enum GuardianApprovalRequestSource {
 pub enum GuardianReviewedAction {
     Shell {
         sandbox_permissions: SandboxPermissions,
-        additional_permissions: Option<PermissionProfile>,
+        additional_permissions: Option<AdditionalPermissionProfile>,
     },
     UnifiedExec {
         sandbox_permissions: SandboxPermissions,
-        additional_permissions: Option<PermissionProfile>,
+        additional_permissions: Option<AdditionalPermissionProfile>,
         tty: bool,
     },
     Execve {
         source: GuardianCommandSource,
         program: String,
-        additional_permissions: Option<PermissionProfile>,
+        additional_permissions: Option<AdditionalPermissionProfile>,
     },
     ApplyPatch {},
     NetworkAccess {
@@ -508,7 +510,7 @@ impl AnalyticsEventsClient {
         &self,
         _connection_id: u64,
         _request_id: RequestId,
-        _request: ClientRequest,
+        _request: &ClientRequest,
     ) {
     }
 
@@ -537,7 +539,27 @@ impl AnalyticsEventsClient {
 
     pub fn track_plugin_disabled(&self, _plugin: PluginTelemetryMetadata) {}
 
-    pub fn track_response(&self, _connection_id: u64, _response: ClientResponse) {}
+    pub fn track_response(
+        &self,
+        _connection_id: u64,
+        _request_id: RequestId,
+        _response: ClientResponsePayload,
+    ) {
+    }
+
+    pub fn track_server_request(&self, _connection_id: u64, _request: ServerRequest) {}
+
+    pub fn track_server_response(&self, _completed_at_ms: u64, _response: ServerResponse) {}
+
+    pub fn track_server_request_aborted(&self, _completed_at_ms: u64, _request_id: RequestId) {}
+
+    pub fn track_effective_permissions_approval_response<T>(
+        &self,
+        _completed_at_ms: u64,
+        _request_id: RequestId,
+        _response: T,
+    ) {
+    }
 
     pub fn track_error_response(
         &self,

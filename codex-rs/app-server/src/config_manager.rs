@@ -1,13 +1,13 @@
 use codex_arg0::Arg0DispatchPaths;
+use codex_config::ConfigLayerStack;
+use codex_config::LoaderOverrides;
 use codex_config::ThreadConfigLoader;
 use codex_config::loader::load_config_layers_state;
 use codex_core::config::Config;
 use codex_core::config::ConfigOverrides;
-use codex_core::config_loader::ConfigLayerStack;
-use codex_core::config_loader::LoaderOverrides;
-use codex_core::config_loader::load_config_layers_state;
 use codex_exec_server::LOCAL_FS;
 use codex_features::feature_for_key;
+use codex_login::AuthManager;
 use codex_login::default_client::set_default_client_residency_requirement;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use codex_utils_json_to_toml::json_to_toml;
@@ -56,7 +56,7 @@ impl ConfigManager {
         loader_overrides: LoaderOverrides,
         arg0_paths: Arg0DispatchPaths,
         thread_config_loader: Arc<dyn ThreadConfigLoader>,
-        host_name: Option<String>,
+        _host_name: Option<String>,
     ) -> Self {
         Self {
             codex_home,
@@ -98,6 +98,13 @@ impl ConfigManager {
         } else {
             warn!("failed to update thread config loader");
         }
+    }
+
+    pub(crate) fn replace_cloud_requirements_loader(
+        &self,
+        _auth_manager: Arc<AuthManager>,
+        _chatgpt_base_url: String,
+    ) {
     }
 
     fn current_thread_config_loader(&self) -> Arc<dyn ThreadConfigLoader> {

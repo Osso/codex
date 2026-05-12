@@ -14,7 +14,6 @@ use codex_protocol::models::LocalShellAction;
 use codex_protocol::models::ResponseItem;
 use codex_protocol::models::SearchToolCallParams;
 use codex_tool_api::ToolBundle as ExtensionToolBundle;
-use codex_tools::ConfiguredToolSpec;
 use codex_tools::DiscoverableTool;
 use codex_tools::ResponsesApiNamespaceTool;
 use codex_tools::ToolName;
@@ -198,8 +197,7 @@ impl ToolRouter {
 
                 match action {
                     LocalShellAction::Exec(exec) => {
-                        let cmd =
-                            codex_shell_command::parse_command::shlex_join(&exec.command);
+                        let cmd = codex_shell_command::parse_command::shlex_join(&exec.command);
                         let arguments = serde_json::json!({
                             "cmd": cmd,
                             "workdir": exec.working_directory,

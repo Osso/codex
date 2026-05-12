@@ -197,6 +197,14 @@ impl CompactionTraceAttempt {
     /// Record the compaction result (ok or err).
     pub fn record_result<T>(&self, _result: T) {}
     pub fn record_failed(&self, _error: impl std::fmt::Display) {}
+
+    pub fn record_cancelled(
+        &self,
+        _reason: &str,
+        _request_id: Option<&str>,
+        _output_items: &[codex_protocol::models::ResponseItem],
+    ) {
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -232,12 +240,27 @@ impl InferenceTraceAttempt {
     pub fn record_completed(
         &self,
         _response_id: &str,
+        _request_id: Option<&str>,
         _token_usage: &Option<codex_protocol::protocol::TokenUsage>,
         _output_items: &[codex_protocol::models::ResponseItem],
     ) {
     }
 
-    pub fn record_failed(&self, _error: impl std::fmt::Display) {}
+    pub fn record_failed(
+        &self,
+        _error: impl std::fmt::Display,
+        _request_id: Option<&str>,
+        _output_items: &[codex_protocol::models::ResponseItem],
+    ) {
+    }
+
+    pub fn record_cancelled(
+        &self,
+        _reason: &str,
+        _request_id: Option<&str>,
+        _output_items: &[codex_protocol::models::ResponseItem],
+    ) {
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -269,7 +292,7 @@ impl CodeCellTraceContext {
 // ToolDispatch types
 // ---------------------------------------------------------------------------
 
-use codex_protocol::models::PermissionProfile;
+use codex_protocol::models::AdditionalPermissionProfile;
 use codex_protocol::models::ResponseInputItem;
 use codex_protocol::models::SandboxPermissions;
 use codex_protocol::models::SearchToolCallParams;
@@ -311,7 +334,7 @@ pub enum ToolDispatchPayload {
         timeout_ms: Option<u64>,
         sandbox_permissions: Option<SandboxPermissions>,
         prefix_rule: Option<Vec<String>>,
-        additional_permissions: Option<PermissionProfile>,
+        additional_permissions: Option<AdditionalPermissionProfile>,
         justification: Option<String>,
     },
     Mcp {

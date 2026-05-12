@@ -5,6 +5,7 @@
 //! when the visible thread changes.
 
 use super::*;
+use crate::app_event::HistoryLookupResponse;
 use crate::session_resume::read_session_model;
 
 impl App {

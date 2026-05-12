@@ -42,7 +42,6 @@ use codex_app_server_protocol::Result as JsonRpcResult;
 use codex_app_server_protocol::ServerNotification;
 use codex_app_server_protocol::ServerRequest;
 use codex_arg0::Arg0DispatchPaths;
-use codex_config::CloudRequirementsLoader;
 use codex_config::LoaderOverrides;
 use codex_config::NoopThreadConfigLoader;
 use codex_config::RemoteThreadConfigLoader;
@@ -72,9 +71,9 @@ pub mod legacy_core {
     pub use codex_core::McpManager;
     pub use codex_core::check_execpolicy_for_warnings;
     pub use codex_core::format_exec_policy_error_with_source;
-    pub use codex_core::lookup_message_history_entry;
-    pub use codex_core::message_history_metadata;
     pub use codex_core::web_search_detail;
+    pub use codex_message_history::history_metadata as message_history_metadata;
+    pub use codex_message_history::lookup as lookup_message_history_entry;
 
     pub mod config {
         pub use codex_core::config::*;
@@ -111,7 +110,6 @@ pub mod legacy_core {
     pub mod util {
         pub use codex_core::util::*;
     }
-
 }
 
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
@@ -2086,10 +2084,9 @@ mod tests {
             local_runtime_paths: ExecServerRuntimePaths::new(
                 std::env::current_exe().expect("current exe"),
                 /*codex_linux_sandbox_exe*/ None,
-
             )
-            .await,
-        );
+            .expect("runtime paths"),
+        }));
 
         let runtime_args = InProcessClientStartArgs {
             arg0_paths: Arg0DispatchPaths::default(),

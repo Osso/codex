@@ -3058,7 +3058,7 @@ impl ThreadRequestProcessor {
         // Persist Windows sandbox mode.
         let mut cli_overrides = cli_overrides.unwrap_or_default();
         if cfg!(windows) {
-            match WindowsSandboxLevel::from_config(&self.config) {
+            match windows_sandbox_level_from_config(&self.config) {
                 WindowsSandboxLevel::Elevated => {
                     cli_overrides
                         .insert("windows.sandbox".to_string(), serde_json::json!("elevated"));
