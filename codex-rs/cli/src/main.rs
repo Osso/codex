@@ -156,10 +156,6 @@ enum Subcommand {
     /// Fork a previous interactive session (picker by default; use --last to fork the most recent).
     Fork(ForkCommand),
 
-    /// Internal: send one raw Responses API payload through Codex auth.
-    #[clap(hide = true)]
-    Responses(ResponsesCommand),
-
     /// Internal: relay stdio to a Unix domain socket.
     #[clap(hide = true, name = "stdio-to-uds")]
     StdioToUds(StdioToUdsCommand),
@@ -1208,14 +1204,6 @@ async fn cli_main(arg0_paths: Arg0DispatchPaths) -> anyhow::Result<()> {
                 run_execpolicycheck(cmd)?
             }
         },
-        Some(Subcommand::Responses(ResponsesCommand {})) => {
-            reject_remote_mode_for_subcommand(
-                root_remote.as_deref(),
-                root_remote_auth_token_env.as_deref(),
-                "responses",
-            )?;
-            run_responses_command(root_config_overrides).await?;
-        }
         Some(Subcommand::StdioToUds(cmd)) => {
             reject_remote_mode_for_subcommand(
                 root_remote.as_deref(),
@@ -1326,16 +1314,7 @@ async fn run_exec_server_command(
         arg0_paths.codex_linux_sandbox_exe.clone(),
     )?;
     if let Some(base_url) = cmd.remote {
-        let executor_id = cmd
-            .executor_id
-            .ok_or_else(|| anyhow::anyhow!("--executor-id is required when --remote is set"))?;
-        let mut remote_config =
-            codex_exec_server::RemoteExecutorConfig::new(base_url, executor_id)?;
-        if let Some(name) = cmd.name {
-            remote_config.name = name;
-        }
-        codex_exec_server::run_remote_executor(remote_config, runtime_paths).await?;
-        return Ok(());
+        anyhow::bail!("remote exec-server registration is not available in this build: {base_url}");
     }
     let listen_url = cmd
         .listen
@@ -1499,6 +1478,7 @@ fn map_claude_rule_list(
                 .filter(|hook| hook.hook_type == "command")
                 .map(|hook| HookHandlerConfig::Command {
                     command: hook.command,
+                    command_windows: None,
                     timeout_sec: hook.timeout,
                     r#async: false,
                     status_message: None,
@@ -1574,6 +1554,7 @@ fn hook_rule_to_table(rule: &MatcherGroup) -> toml_edit::Table {
 fn command_hook_to_table(hook: &HookHandlerConfig) -> Option<toml_edit::Table> {
     let HookHandlerConfig::Command {
         command,
+        command_windows,
         timeout_sec,
         r#async,
         status_message,
@@ -1585,6 +1566,9 @@ fn command_hook_to_table(hook: &HookHandlerConfig) -> Option<toml_edit::Table> {
     let mut hook_table = toml_edit::Table::new();
     hook_table["type"] = toml_edit::value("command");
     hook_table["command"] = toml_edit::value(command.clone());
+    if let Some(command_windows) = command_windows {
+        hook_table["command_windows"] = toml_edit::value(command_windows.clone());
+    }
     if let Some(timeout_sec) = timeout_sec {
         hook_table["timeout"] = toml_edit::value(i64::try_from(*timeout_sec).unwrap_or(i64::MAX));
     }
@@ -2122,6 +2106,7 @@ mod tests {
                     matcher: Some("Bash".to_string()),
                     hooks: vec![HookHandlerConfig::Command {
                         command: "/tmp/pre".to_string(),
+                        command_windows: None,
                         timeout_sec: Some(30),
                         r#async: false,
                         status_message: None,
@@ -2131,6 +2116,7 @@ mod tests {
                     matcher: Some("startup".to_string()),
                     hooks: vec![HookHandlerConfig::Command {
                         command: "/tmp/start".to_string(),
+                        command_windows: None,
                         timeout_sec: Some(15),
                         r#async: false,
                         status_message: None,
@@ -2140,6 +2126,7 @@ mod tests {
                     matcher: None,
                     hooks: vec![HookHandlerConfig::Command {
                         command: "/tmp/stop".to_string(),
+                        command_windows: None,
                         timeout_sec: None,
                         r#async: false,
                         status_message: None,
@@ -2165,6 +2152,7 @@ mod tests {
                 matcher: Some("startup".to_string()),
                 hooks: vec![HookHandlerConfig::Command {
                     command: "/tmp/start".to_string(),
+                    command_windows: None,
                     timeout_sec: Some(10),
                     r#async: false,
                     status_message: None,

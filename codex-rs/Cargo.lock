@@ -1940,6 +1940,7 @@ dependencies = [
  "codex-app-server-protocol",
  "codex-apply-patch",
  "codex-arg0",
+ "codex-config",
  "codex-core",
  "codex-git-utils",
  "codex-login",
