@@ -6,6 +6,7 @@ pub(crate) struct ThreadGoalRequestProcessor {
     thread_manager: Arc<ThreadManager>,
     outgoing: Arc<OutgoingMessageSender>,
     config: Arc<Config>,
+    config_manager: ConfigManager,
     thread_state_manager: ThreadStateManager,
     state_db: Option<StateDbHandle>,
 }
@@ -15,6 +16,7 @@ impl ThreadGoalRequestProcessor {
         thread_manager: Arc<ThreadManager>,
         outgoing: Arc<OutgoingMessageSender>,
         config: Arc<Config>,
+        config_manager: ConfigManager,
         thread_state_manager: ThreadStateManager,
         state_db: Option<StateDbHandle>,
     ) -> Self {
@@ -22,6 +24,7 @@ impl ThreadGoalRequestProcessor {
             thread_manager,
             outgoing,
             config,
+            config_manager,
             thread_state_manager,
             state_db,
         }
@@ -61,7 +64,7 @@ impl ThreadGoalRequestProcessor {
         thread_id: ThreadId,
         thread: &CodexThread,
     ) {
-        if !self.config.features.enabled(Feature::Goals) {
+        if !self.goals_enabled_best_effort().await {
             return;
         }
         self.emit_thread_goal_snapshot(thread_id).await;
@@ -76,7 +79,7 @@ impl ThreadGoalRequestProcessor {
         &self,
         thread: &CodexThread,
     ) -> (bool, Option<StateDbHandle>) {
-        let emit_thread_goal_update = self.config.features.enabled(Feature::Goals);
+        let emit_thread_goal_update = self.goals_enabled_best_effort().await;
         let thread_goal_state_db = if emit_thread_goal_update {
             if let Some(state_db) = thread.state_db() {
                 Some(state_db)
@@ -94,9 +97,7 @@ impl ThreadGoalRequestProcessor {
         request_id: ConnectionRequestId,
         params: ThreadGoalSetParams,
     ) -> Result<(), JSONRPCErrorError> {
-        if !self.config.features.enabled(Feature::Goals) {
-            return Err(invalid_request("goals feature is disabled"));
-        }
+        self.ensure_goals_enabled().await?;
 
         let thread_id = parse_thread_id_for_request(params.thread_id.as_str())?;
         let state_db = self.state_db_for_materialized_thread(thread_id).await?;
@@ -239,9 +240,7 @@ impl ThreadGoalRequestProcessor {
         &self,
         params: ThreadGoalGetParams,
     ) -> Result<ThreadGoalGetResponse, JSONRPCErrorError> {
-        if !self.config.features.enabled(Feature::Goals) {
-            return Err(invalid_request("goals feature is disabled"));
-        }
+        self.ensure_goals_enabled().await?;
 
         let thread_id = parse_thread_id_for_request(params.thread_id.as_str())?;
         let state_db = self.state_db_for_materialized_thread(thread_id).await?;
@@ -258,9 +257,7 @@ impl ThreadGoalRequestProcessor {
         request_id: ConnectionRequestId,
         params: ThreadGoalClearParams,
     ) -> Result<(), JSONRPCErrorError> {
-        if !self.config.features.enabled(Feature::Goals) {
-            return Err(invalid_request("goals feature is disabled"));
-        }
+        self.ensure_goals_enabled().await?;
 
         let thread_id = parse_thread_id_for_request(params.thread_id.as_str())?;
         let state_db = self.state_db_for_materialized_thread(thread_id).await?;
@@ -350,6 +347,38 @@ impl ThreadGoalRequestProcessor {
         self.state_db
             .clone()
             .ok_or_else(|| internal_error("sqlite state db unavailable for thread goals"))
+    }
+
+    async fn ensure_goals_enabled(&self) -> Result<(), JSONRPCErrorError> {
+        if self.goals_enabled().await? {
+            Ok(())
+        } else {
+            Err(invalid_request("goals feature is disabled"))
+        }
+    }
+
+    async fn goals_enabled(&self) -> Result<bool, JSONRPCErrorError> {
+        let config = self
+            .config_manager
+            .load_latest_config(Some(self.config.cwd.to_path_buf()))
+            .await
+            .map_err(|err| {
+                internal_error(format!("failed to resolve goals feature state: {err}"))
+            })?;
+        Ok(config.features.enabled(Feature::Goals))
+    }
+
+    async fn goals_enabled_best_effort(&self) -> bool {
+        match self.goals_enabled().await {
+            Ok(enabled) => enabled,
+            Err(err) => {
+                warn!(
+                    "failed to resolve goals feature state before processing goal update: {}",
+                    err.message
+                );
+                false
+            }
+        }
     }
 
     async fn emit_thread_goal_snapshot(&self, thread_id: ThreadId) {

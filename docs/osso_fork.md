@@ -302,7 +302,7 @@ touch a file upstream also edits.
 
 ## 11. App-server & MCP robustness fixes
 
-**Purpose.** Four independent bug fixes:
+**Purpose.** Five independent bug fixes:
 
 - **Preserve MCP startup status notifications under backpressure.** When the
   app-server client is slow to drain, startup notifications are queued rather
@@ -326,11 +326,19 @@ touch a file upstream also edits.
   `codex-rs/tui/src/chatwidget.rs`, and
   `codex-rs/core/src/telemetry.rs` (timing-only runtime metrics are no longer
   treated as empty).
+- **Honor runtime goal feature enablement in app-server goal RPCs.** The TUI
+  can enable `/goal` via `/experimental` after app-server startup, so
+  `thread/goal/{get,set,clear}` now resolves the latest feature state through
+  `ConfigManager` instead of checking the app-server startup `Config` snapshot
+  (`codex-rs/app-server/src/request_processors/thread_goal_processor.rs`,
+  `codex-rs/app-server/src/message_processor.rs`; regression coverage in
+  `codex-rs/app-server/tests/suite/v2/thread_resume.rs`).
 
 **Tests.**
 - `cargo test -p codex-app-server suite::auth suite::v2::account`
 - `cargo test -p codex-tui`
 - `cargo test -p codex-core runtime_metrics_summary_is_not_empty_when_only_timing_fields_are_set`
+- `cargo check -p codex-app-server --lib`
 
 **Rebase risk.** Medium — upstream owns both files heavily. Carry forward as
 surgical hunks.
