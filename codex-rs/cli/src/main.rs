@@ -69,7 +69,7 @@ use codex_protocol::protocol::AskForApproval;
 use codex_protocol::user_input::UserInput;
 use codex_terminal_detection::TerminalName;
 
-const CODEX_DISPLAY_VERSION: &str = "rust-v0.120.0-osso";
+const CODEX_DISPLAY_VERSION: &str = codex_tui::CODEX_CLI_DISPLAY_VERSION;
 
 /// Codex CLI
 ///
@@ -1999,10 +1999,7 @@ mod tests {
 
     #[test]
     fn cli_display_version_matches_tui_display_version() {
-        assert_eq!(
-            CODEX_DISPLAY_VERSION,
-            format!("rust-v{}", codex_tui::CODEX_CLI_DISPLAY_VERSION)
-        );
+        assert_eq!(CODEX_DISPLAY_VERSION, codex_tui::CODEX_CLI_DISPLAY_VERSION);
     }
 
     fn finalize_resume_from_args(args: &[&str]) -> TuiCli {
