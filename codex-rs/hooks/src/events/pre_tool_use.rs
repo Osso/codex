@@ -572,7 +572,7 @@ mod tests {
     }
 
     #[test]
-    fn unsupported_permission_decision_fails_open() {
+    fn permission_decision_ask_continues_without_approval() {
         let parsed = parse_completed(
             &handler(),
             run_result(
@@ -593,14 +593,34 @@ mod tests {
                 updated_input: None,
             }
         );
-        assert_eq!(parsed.completed.run.status, HookRunStatus::Failed);
-        assert_eq!(
-            parsed.completed.run.entries,
-            vec![HookOutputEntry {
-                kind: HookOutputEntryKind::Error,
-                text: "PreToolUse hook returned unsupported permissionDecision:ask".to_string(),
-            }]
+        assert_eq!(parsed.completed.run.status, HookRunStatus::Completed);
+        assert_eq!(parsed.completed.run.entries, vec![]);
+    }
+
+    #[test]
+    fn permission_decision_ask_can_update_input_without_approval() {
+        let parsed = parse_completed(
+            &handler(),
+            run_result(
+                Some(0),
+                r#"{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","updatedInput":{"command":"echo rewritten"}}}"#,
+                "",
+            ),
+            Some("turn-1".to_string()),
         );
+
+        assert_eq!(
+            parsed.data,
+            PreToolUseHandlerData {
+                should_block: false,
+                block_reason: None,
+                additional_contexts_for_model: Vec::new(),
+                approval_granted: false,
+                updated_input: Some(serde_json::json!({ "command": "echo rewritten" })),
+            }
+        );
+        assert_eq!(parsed.completed.run.status, HookRunStatus::Completed);
+        assert_eq!(parsed.completed.run.entries, vec![]);
     }
 
     #[test]

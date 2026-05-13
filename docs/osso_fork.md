@@ -481,6 +481,9 @@ substitute `git status` for `rtk git status`.
 **Behavior details worth preserving.**
 - `permissionDecision: allow` approves the current tool invocation. When paired
   with `updatedInput`, it also rewrites the invocation before dispatch.
+- `permissionDecision: ask` is accepted as "continue, but do not approve"; the
+  normal Codex permission flow still runs. When paired with `updatedInput`, it
+  rewrites the invocation before that permission flow.
 - A rewrite is dropped if the same hook also blocks; block wins.
 - The rewrite from the hook that finishes last wins. Hooks still see the
   original input, not another hook's rewrite.
@@ -498,7 +501,8 @@ substitute `git status` for `rtk git status`.
 
 **Key files.**
 - `codex-rs/hooks/src/engine/output_parser.rs` (parse `updatedInput`,
-  preserve `permissionDecision: allow` as an approval signal)
+  preserve `permissionDecision: allow` as an approval signal, and keep
+  `permissionDecision: ask` as a valid non-approval decision)
 - `codex-rs/hooks/src/events/pre_tool_use.rs` (thread `updated_input`
   and approval through `PreToolUseOutcome`, completion-order rewrite selection)
 - `codex-rs/core/src/hook_runtime.rs` (`PreToolUseHookResult` carries
@@ -523,8 +527,8 @@ extension point; if upstream renames the dispatcher or splits the trait,
 re-port the default no-op and the unified_exec impl. The output_parser
 schema relaxation is the most fragile piece — upstream may re-tighten
 unsupported-field validation, in which case re-add the explicit
-`permissionDecision: allow` approval behavior and its optional `updatedInput`
-rewrite pairing.
+`permissionDecision: allow` approval behavior, the `permissionDecision: ask`
+non-approval behavior, and their optional `updatedInput` rewrite pairing.
 
 ---
 

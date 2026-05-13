@@ -146,7 +146,9 @@ pub(crate) fn parse_pre_tool_use(stdout: &str) -> Option<PreToolUseOutput> {
         hook_specific_output.and_then(|output| {
             matches!(
                 output.permission_decision,
-                Some(PreToolUsePermissionDecisionWire::Allow)
+                Some(
+                    PreToolUsePermissionDecisionWire::Allow | PreToolUsePermissionDecisionWire::Ask
+                )
             )
             .then(|| output.updated_input.clone())
             .flatten()
@@ -407,16 +409,17 @@ fn unsupported_pre_tool_use_hook_specific_output(
     if output.updated_input.is_some()
         && !matches!(
             output.permission_decision,
-            Some(PreToolUsePermissionDecisionWire::Allow)
+            Some(PreToolUsePermissionDecisionWire::Allow | PreToolUsePermissionDecisionWire::Ask)
         )
     {
-        Some("PreToolUse hook returned updatedInput without permissionDecision:allow".to_string())
+        Some(
+            "PreToolUse hook returned updatedInput without permissionDecision:allow or ask"
+                .to_string(),
+        )
     } else {
         match output.permission_decision {
             Some(PreToolUsePermissionDecisionWire::Allow) => None,
-            Some(PreToolUsePermissionDecisionWire::Ask) => {
-                Some("PreToolUse hook returned unsupported permissionDecision:ask".to_string())
-            }
+            Some(PreToolUsePermissionDecisionWire::Ask) => None,
             Some(PreToolUsePermissionDecisionWire::Deny) => {
                 if output
                     .permission_decision_reason
