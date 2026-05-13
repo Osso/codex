@@ -217,6 +217,41 @@ pub(crate) async fn apply_bespoke_event_handling(
                 .send_server_notification(ServerNotification::McpServerStatusUpdated(notification))
                 .await;
         }
+        EventMsg::McpStartupComplete(complete) => {
+            for name in complete.ready {
+                outgoing
+                    .send_server_notification(ServerNotification::McpServerStatusUpdated(
+                        McpServerStatusUpdatedNotification {
+                            name,
+                            status: McpServerStartupState::Ready,
+                            error: None,
+                        },
+                    ))
+                    .await;
+            }
+            for failure in complete.failed {
+                outgoing
+                    .send_server_notification(ServerNotification::McpServerStatusUpdated(
+                        McpServerStatusUpdatedNotification {
+                            name: failure.server,
+                            status: McpServerStartupState::Failed,
+                            error: Some(failure.error),
+                        },
+                    ))
+                    .await;
+            }
+            for name in complete.cancelled {
+                outgoing
+                    .send_server_notification(ServerNotification::McpServerStatusUpdated(
+                        McpServerStatusUpdatedNotification {
+                            name,
+                            status: McpServerStartupState::Cancelled,
+                            error: None,
+                        },
+                    ))
+                    .await;
+            }
+        }
         EventMsg::Warning(warning_event) => {
             let notification = WarningNotification {
                 thread_id: Some(conversation_id.to_string()),

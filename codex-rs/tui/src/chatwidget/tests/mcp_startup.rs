@@ -192,6 +192,29 @@ async fn app_server_mcp_startup_lag_settles_startup_and_ignores_late_updates() {
 }
 
 #[tokio::test]
+async fn core_mcp_startup_complete_settles_missing_terminal_update() {
+    let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
+    chat.show_welcome_banner = false;
+    chat.set_mcp_startup_expected_servers(["alpha".to_string(), "beta".to_string()]);
+
+    notify_mcp_status(&mut chat, "alpha", McpServerStartupState::Ready);
+    notify_mcp_status(&mut chat, "beta", McpServerStartupState::Starting);
+    assert!(chat.bottom_pane.is_task_running());
+
+    chat.handle_codex_event(Event {
+        id: "mcp-complete".into(),
+        msg: EventMsg::McpStartupComplete(McpStartupCompleteEvent {
+            ready: vec!["alpha".to_string(), "beta".to_string()],
+            failed: Vec::new(),
+            cancelled: Vec::new(),
+        }),
+    });
+
+    assert!(drain_insert_history(&mut rx).is_empty());
+    assert!(!chat.bottom_pane.is_task_running());
+}
+
+#[tokio::test]
 async fn app_server_mcp_startup_after_lag_can_settle_without_starting_updates() {
     let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
     chat.show_welcome_banner = false;

@@ -302,7 +302,7 @@ touch a file upstream also edits.
 
 ## 11. App-server & MCP robustness fixes
 
-**Purpose.** Five independent bug fixes:
+**Purpose.** Six independent bug fixes:
 
 - **Preserve MCP startup status notifications under backpressure.** When the
   app-server client is slow to drain, startup notifications are queued rather
@@ -333,6 +333,13 @@ touch a file upstream also edits.
   (`codex-rs/app-server/src/request_processors/thread_goal_processor.rs`,
   `codex-rs/app-server/src/message_processor.rs`; regression coverage in
   `codex-rs/app-server/tests/suite/v2/thread_resume.rs`).
+- **Forward MCP startup completion summaries through app-server.** Core emits
+  `McpStartupComplete` after the startup join-set settles; app-server now
+  converts that summary into terminal `mcpServer/startupStatus/updated`
+  notifications so the TUI clears `Starting MCP servers ...` even if an
+  individual final update was dropped or filtered
+  (`codex-rs/app-server/src/bespoke_event_handling.rs`; regression coverage in
+  `codex-rs/tui/src/chatwidget/tests/mcp_startup.rs`).
 
 **Tests.**
 - `cargo test -p codex-app-server suite::auth suite::v2::account`
@@ -469,9 +476,8 @@ the only options were allow / block; with it a hook can transparently
 substitute `git status` for `rtk git status`.
 
 **Behavior details worth preserving.**
-- `permissionDecision: allow` is accepted only when paired with
-  `updatedInput`; a bare allow is still rejected as unsupported so Codex's
-  normal permission flow remains the source of approval decisions.
+- `permissionDecision: allow` is accepted as a no-op when returned bare, and
+  enables rewrites when paired with `updatedInput`.
 - A rewrite is dropped if the same hook also blocks; block wins.
 - The rewrite from the hook that finishes last wins. Hooks still see the
   original input, not another hook's rewrite.

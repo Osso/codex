@@ -404,11 +404,7 @@ fn unsupported_pre_tool_use_hook_specific_output(
         Some("PreToolUse hook returned updatedInput without permissionDecision:allow".to_string())
     } else {
         match output.permission_decision {
-            Some(PreToolUsePermissionDecisionWire::Allow) => {
-                output.updated_input.is_none().then(|| {
-                    "PreToolUse hook returned unsupported permissionDecision:allow".to_string()
-                })
-            }
+            Some(PreToolUsePermissionDecisionWire::Allow) => None,
             Some(PreToolUsePermissionDecisionWire::Ask) => {
                 Some("PreToolUse hook returned unsupported permissionDecision:ask".to_string())
             }

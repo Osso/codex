@@ -464,7 +464,7 @@ mod tests {
     }
 
     #[test]
-    fn permission_decision_allow_without_updated_input_fails_open() {
+    fn permission_decision_allow_without_updated_input_is_noop() {
         let parsed = parse_completed(
             &handler(),
             run_result(
@@ -484,14 +484,8 @@ mod tests {
                 updated_input: None,
             }
         );
-        assert_eq!(parsed.completed.run.status, HookRunStatus::Failed);
-        assert_eq!(
-            parsed.completed.run.entries,
-            vec![HookOutputEntry {
-                kind: HookOutputEntryKind::Error,
-                text: "PreToolUse hook returned unsupported permissionDecision:allow".to_string(),
-            }]
-        );
+        assert_eq!(parsed.completed.run.status, HookRunStatus::Completed);
+        assert_eq!(parsed.completed.run.entries, vec![]);
     }
 
     #[test]
