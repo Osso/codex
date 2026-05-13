@@ -17,6 +17,7 @@ pub(crate) struct PreToolUseOutput {
     pub universal: UniversalOutput,
     pub block_reason: Option<String>,
     pub additional_context: Option<String>,
+    pub approval_granted: bool,
     pub updated_input: Option<serde_json::Value>,
     pub invalid_reason: Option<String>,
 }
@@ -153,11 +154,19 @@ pub(crate) fn parse_pre_tool_use(stdout: &str) -> Option<PreToolUseOutput> {
     } else {
         None
     };
+    let approval_granted = invalid_reason.is_none()
+        && hook_specific_output.is_some_and(|output| {
+            matches!(
+                output.permission_decision,
+                Some(PreToolUsePermissionDecisionWire::Allow)
+            )
+        });
 
     Some(PreToolUseOutput {
         universal,
         block_reason,
         additional_context,
+        approval_granted,
         updated_input,
         invalid_reason,
     })

@@ -476,8 +476,8 @@ the only options were allow / block; with it a hook can transparently
 substitute `git status` for `rtk git status`.
 
 **Behavior details worth preserving.**
-- `permissionDecision: allow` is accepted as a no-op when returned bare, and
-  enables rewrites when paired with `updatedInput`.
+- `permissionDecision: allow` approves the current tool invocation. When paired
+  with `updatedInput`, it also rewrites the invocation before dispatch.
 - A rewrite is dropped if the same hook also blocks; block wins.
 - The rewrite from the hook that finishes last wins. Hooks still see the
   original input, not another hook's rewrite.
@@ -495,15 +495,20 @@ substitute `git status` for `rtk git status`.
 
 **Key files.**
 - `codex-rs/hooks/src/engine/output_parser.rs` (parse `updatedInput`,
-  relax `Allow` rejection)
+  preserve `permissionDecision: allow` as an approval signal)
 - `codex-rs/hooks/src/events/pre_tool_use.rs` (thread `updated_input`
-  through `PreToolUseOutcome`, completion-order rewrite selection)
+  and approval through `PreToolUseOutcome`, completion-order rewrite selection)
 - `codex-rs/core/src/hook_runtime.rs` (`PreToolUseHookResult` carries
-  either a block message or `updated_input`; rewrite is dropped on block)
+  either a block message or `updated_input` plus approval; rewrite/approval is
+  dropped on block)
 - `codex-rs/core/src/tools/registry.rs` (`apply_pre_tool_use_rewrite`
-  trait method on `ToolHandler` / `AnyToolHandler`; default no-op)
+  trait method on `ToolHandler` / `AnyToolHandler`; default no-op; dispatch
+  carries the approval bit into the invocation)
 - `codex-rs/core/src/tools/handlers/unified_exec.rs` (the rewrite impl
   lives here now; `shell.rs` was deleted in `b1c1c6e350`)
+- `codex-rs/core/src/unified_exec/process_manager.rs` (`allow` skips the
+  command approval prompt for the current invocation without creating a
+  persistent exec-policy rule)
 
 **Tests to re-run.**
 - `cargo test -p codex-hooks output_parser`
@@ -515,7 +520,8 @@ extension point; if upstream renames the dispatcher or splits the trait,
 re-port the default no-op and the unified_exec impl. The output_parser
 schema relaxation is the most fragile piece — upstream may re-tighten
 unsupported-field validation, in which case re-add the explicit
-`updatedInput` + `permissionDecision: allow` pairing.
+`permissionDecision: allow` approval behavior and its optional `updatedInput`
+rewrite pairing.
 
 ---
 

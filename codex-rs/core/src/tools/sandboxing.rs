@@ -239,6 +239,20 @@ pub(crate) fn default_exec_approval_requirement(
     }
 }
 
+pub(crate) fn apply_pre_tool_use_approval(
+    requirement: ExecApprovalRequirement,
+    approved: bool,
+) -> ExecApprovalRequirement {
+    if approved {
+        ExecApprovalRequirement::Skip {
+            bypass_sandbox: false,
+            proposed_execpolicy_amendment: None,
+        }
+    } else {
+        requirement
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SandboxOverride {
     NoOverride,

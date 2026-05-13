@@ -414,13 +414,18 @@ impl ToolRegistry {
                     return Err(err);
                 }
                 PreToolUseHookResult::Continue {
+                    approval_granted,
                     updated_input: Some(updated_input),
                 } => {
                     invocation = handler.with_updated_hook_input(invocation, updated_input)?;
+                    invocation.pre_tool_use_approved = approval_granted;
                 }
                 PreToolUseHookResult::Continue {
+                    approval_granted,
                     updated_input: None,
-                } => {}
+                } => {
+                    invocation.pre_tool_use_approved = approval_granted;
+                }
             }
         }
 

@@ -38,6 +38,7 @@ pub struct PreToolUseOutcome {
     pub should_block: bool,
     pub block_reason: Option<String>,
     pub additional_contexts: Vec<String>,
+    pub approval_granted: bool,
     pub updated_input: Option<Value>,
 }
 
@@ -46,6 +47,7 @@ struct PreToolUseHandlerData {
     should_block: bool,
     block_reason: Option<String>,
     additional_contexts_for_model: Vec<String>,
+    approval_granted: bool,
     updated_input: Option<Value>,
 }
 
@@ -83,6 +85,7 @@ pub(crate) async fn run(
             should_block: false,
             block_reason: None,
             additional_contexts: Vec::new(),
+            approval_granted: false,
             updated_input: None,
         };
     }
@@ -124,6 +127,8 @@ pub(crate) async fn run(
     } else {
         latest_updated_input(&results)
     };
+    let approval_granted =
+        !should_block && results.iter().any(|result| result.data.approval_granted);
 
     PreToolUseOutcome {
         hook_events: results
@@ -135,6 +140,7 @@ pub(crate) async fn run(
         should_block,
         block_reason,
         additional_contexts,
+        approval_granted,
         updated_input,
     }
 }
@@ -194,6 +200,7 @@ fn parse_completed(
     let mut should_block = false;
     let mut block_reason = None;
     let mut additional_contexts_for_model = Vec::new();
+    let mut approval_granted = false;
     let mut updated_input = None;
 
     match run_result.error.as_deref() {
@@ -239,6 +246,7 @@ fn parse_completed(
                             });
                         }
                         if !should_block {
+                            approval_granted = parsed.approval_granted;
                             updated_input = parsed.updated_input;
                         }
                     }
@@ -295,6 +303,7 @@ fn parse_completed(
             should_block,
             block_reason,
             additional_contexts_for_model,
+            approval_granted,
             updated_input,
         },
         completion_order: 0,
@@ -307,6 +316,7 @@ fn serialization_failure_outcome(hook_events: Vec<HookCompletedEvent>) -> PreToo
         should_block: false,
         block_reason: None,
         additional_contexts: Vec::new(),
+        approval_granted: false,
         updated_input: None,
     }
 }
@@ -396,6 +406,7 @@ mod tests {
                 should_block: true,
                 block_reason: Some("do not run that".to_string()),
                 additional_contexts_for_model: Vec::new(),
+                approval_granted: false,
                 updated_input: None,
             }
         );
@@ -427,6 +438,7 @@ mod tests {
                 should_block: false,
                 block_reason: None,
                 additional_contexts_for_model: Vec::new(),
+                approval_granted: true,
                 updated_input: Some(serde_json::json!({ "command": "echo rewritten" })),
             }
         );
@@ -464,7 +476,7 @@ mod tests {
     }
 
     #[test]
-    fn permission_decision_allow_without_updated_input_is_noop() {
+    fn permission_decision_allow_without_updated_input_grants_approval() {
         let parsed = parse_completed(
             &handler(),
             run_result(
@@ -481,6 +493,7 @@ mod tests {
                 should_block: false,
                 block_reason: None,
                 additional_contexts_for_model: Vec::new(),
+                approval_granted: true,
                 updated_input: None,
             }
         );
@@ -506,6 +519,7 @@ mod tests {
                 should_block: true,
                 block_reason: Some("do not run that".to_string()),
                 additional_contexts_for_model: Vec::new(),
+                approval_granted: false,
                 updated_input: None,
             }
         );
@@ -537,6 +551,7 @@ mod tests {
                 should_block: true,
                 block_reason: Some("do not run that".to_string()),
                 additional_contexts_for_model: vec!["remember this".to_string()],
+                approval_granted: false,
                 updated_input: None,
             }
         );
@@ -574,6 +589,7 @@ mod tests {
                 should_block: false,
                 block_reason: None,
                 additional_contexts_for_model: Vec::new(),
+                approval_granted: false,
                 updated_input: None,
             }
         );
@@ -601,6 +617,7 @@ mod tests {
                 should_block: false,
                 block_reason: None,
                 additional_contexts_for_model: Vec::new(),
+                approval_granted: false,
                 updated_input: None,
             }
         );
@@ -632,6 +649,7 @@ mod tests {
                 should_block: true,
                 block_reason: Some("do not run that".to_string()),
                 additional_contexts_for_model: vec!["nope".to_string()],
+                approval_granted: false,
                 updated_input: None,
             }
         );
@@ -665,6 +683,7 @@ mod tests {
                 should_block: false,
                 block_reason: None,
                 additional_contexts_for_model: Vec::new(),
+                approval_granted: false,
                 updated_input: None,
             }
         );
@@ -686,6 +705,7 @@ mod tests {
                 should_block: false,
                 block_reason: None,
                 additional_contexts_for_model: Vec::new(),
+                approval_granted: false,
                 updated_input: None,
             }
         );
@@ -713,6 +733,7 @@ mod tests {
                 should_block: true,
                 block_reason: Some("blocked by policy".to_string()),
                 additional_contexts_for_model: Vec::new(),
+                approval_granted: false,
                 updated_input: None,
             }
         );

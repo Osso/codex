@@ -38,6 +38,7 @@ async fn invocation_for_payload(payload: ToolPayload) -> ToolInvocation {
         call_id: "call-apply-patch".to_string(),
         tool_name: codex_tools::ToolName::plain("apply_patch"),
         source: crate::tools::context::ToolCallSource::Direct,
+        pre_tool_use_approved: false,
         payload,
     }
 }

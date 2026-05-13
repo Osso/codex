@@ -289,6 +289,7 @@ mod tests {
                 call_id: "call-view-image".to_string(),
                 tool_name: codex_tools::ToolName::plain("view_image"),
                 source: ToolCallSource::Direct,
+                pre_tool_use_approved: false,
                 payload: ToolPayload::Function {
                     arguments: json!({ "path": "image.png" }).to_string(),
                 },

@@ -1019,7 +1019,7 @@ impl UnifiedExecProcessManager {
             context.turn.tools_config.unified_exec_shell_mode.clone(),
         );
         let file_system_sandbox_policy = context.turn.file_system_sandbox_policy();
-        let exec_approval_requirement = context
+        let mut exec_approval_requirement = context
             .session
             .services
             .exec_policy
@@ -1037,6 +1037,10 @@ impl UnifiedExecProcessManager {
                 prefix_rule: request.prefix_rule.clone(),
             })
             .await;
+        exec_approval_requirement = crate::tools::sandboxing::apply_pre_tool_use_approval(
+            exec_approval_requirement,
+            request.pre_tool_use_approved,
+        );
         let req = UnifiedExecToolRequest {
             command: request.command.clone(),
             hook_command: request.hook_command.clone(),

@@ -185,6 +185,7 @@ async fn failed_initial_end_for_unstored_process_uses_fallback_output() {
         sandbox_permissions: crate::sandboxing::SandboxPermissions::UseDefault,
         additional_permissions: None,
         additional_permissions_preapproved: false,
+        pre_tool_use_approved: false,
         justification: None,
         prefix_rule: None,
     };

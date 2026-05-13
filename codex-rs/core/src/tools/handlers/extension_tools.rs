@@ -217,6 +217,7 @@ mod tests {
             call_id: "call-extension".to_string(),
             tool_name: codex_tools::ToolName::plain("extension_echo"),
             source: ToolCallSource::Direct,
+            pre_tool_use_approved: false,
             payload: ToolPayload::Function {
                 arguments: json!({ "message": "hello" }).to_string(),
             },

@@ -240,6 +240,7 @@ impl ToolRouter {
             call_id,
             tool_name,
             source,
+            pre_tool_use_approved: false,
             payload,
         };
 

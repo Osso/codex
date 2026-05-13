@@ -180,6 +180,7 @@ mod tests {
                 call_id: "call-mcp-pre".to_string(),
                 tool_name: codex_tools::ToolName::namespaced("mcp__memory__", "create_entities"),
                 source: ToolCallSource::Direct,
+                pre_tool_use_approved: false,
                 payload,
             }),
             Some(PreToolUsePayload {
@@ -211,6 +212,7 @@ mod tests {
                 call_id: "call-mcp-pre-builtin-like".to_string(),
                 tool_name: codex_tools::ToolName::namespaced("mcp__foo__", "exec_command"),
                 source: ToolCallSource::Direct,
+                pre_tool_use_approved: false,
                 payload,
             }),
             Some(PreToolUsePayload {
@@ -238,6 +240,7 @@ mod tests {
                     call_id: "call-mcp-rewrite-builtin-like".to_string(),
                     tool_name: codex_tools::ToolName::namespaced("mcp__foo__", "exec_command"),
                     source: ToolCallSource::Direct,
+                    pre_tool_use_approved: false,
                     payload,
                 },
                 json!({ "message": "rewritten" }),
@@ -284,6 +287,7 @@ mod tests {
             call_id: "call-mcp-post".to_string(),
             tool_name: codex_tools::ToolName::namespaced("mcp__filesystem__", "read_file"),
             source: ToolCallSource::Direct,
+            pre_tool_use_approved: false,
             payload,
         };
         assert_eq!(

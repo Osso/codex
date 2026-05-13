@@ -115,6 +115,35 @@ fn default_exec_approval_requirement_keeps_prompt_when_granular_allows_sandbox_a
 }
 
 #[test]
+fn pre_tool_use_approval_skips_exec_approval_prompt() {
+    let requirement = ExecApprovalRequirement::NeedsApproval {
+        reason: Some("requires approval".to_string()),
+        proposed_execpolicy_amendment: None,
+    };
+
+    assert_eq!(
+        apply_pre_tool_use_approval(requirement, /*approved*/ true),
+        ExecApprovalRequirement::Skip {
+            bypass_sandbox: false,
+            proposed_execpolicy_amendment: None,
+        }
+    );
+}
+
+#[test]
+fn missing_pre_tool_use_approval_preserves_exec_approval_prompt() {
+    let requirement = ExecApprovalRequirement::NeedsApproval {
+        reason: Some("requires approval".to_string()),
+        proposed_execpolicy_amendment: None,
+    };
+
+    assert_eq!(
+        apply_pre_tool_use_approval(requirement.clone(), /*approved*/ false),
+        requirement
+    );
+}
+
+#[test]
 fn additional_permissions_allow_bypass_sandbox_first_attempt_when_execpolicy_skips() {
     assert_eq!(
         sandbox_override_for_first_attempt(
