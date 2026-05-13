@@ -84,9 +84,15 @@ impl TomlEnvironmentProvider {
 #[async_trait]
 impl EnvironmentProvider for TomlEnvironmentProvider {
     async fn snapshot(&self) -> Result<EnvironmentProviderSnapshot, ExecServerError> {
+        let default = match &self.default {
+            EnvironmentDefault::Disabled => EnvironmentDefault::Disabled,
+            EnvironmentDefault::EnvironmentId(_) => {
+                EnvironmentDefault::EnvironmentId(LOCAL_ENVIRONMENT_ID.to_string())
+            }
+        };
         Ok(EnvironmentProviderSnapshot {
             environments: Vec::new(),
-            default: self.default.clone(),
+            default,
             include_local: true,
         })
     }
@@ -315,7 +321,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn toml_provider_includes_local_and_adds_configured_environments() {
+    async fn toml_provider_uses_local_environment_and_ignores_configured_remote_environments() {
         let provider = TomlEnvironmentProvider::new(EnvironmentsToml {
             default: Some("ssh-dev".to_string()),
             environments: vec![
@@ -347,24 +353,13 @@ mod tests {
             default,
             include_local,
         } = snapshot;
-        let environment_ids: Vec<_> = environments
-            .iter()
-            .map(|(id, _environment)| id.as_str())
-            .collect();
-        assert_eq!(environment_ids, vec!["devbox", "ssh-dev"]);
         let environments: HashMap<_, _> = environments.into_iter().collect();
 
         assert!(include_local);
-        assert!(!environments.contains_key(LOCAL_ENVIRONMENT_ID));
-        assert_eq!(
-            environments["devbox"].exec_server_url(),
-            Some("ws://127.0.0.1:8765")
-        );
-        assert!(environments["ssh-dev"].is_remote());
-        assert_eq!(environments["ssh-dev"].exec_server_url(), None);
+        assert!(environments.is_empty());
         assert_eq!(
             default,
-            EnvironmentDefault::EnvironmentId("ssh-dev".to_string())
+            EnvironmentDefault::EnvironmentId(LOCAL_ENVIRONMENT_ID.to_string())
         );
     }
 

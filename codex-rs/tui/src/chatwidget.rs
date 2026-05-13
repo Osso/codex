@@ -30,7 +30,6 @@
 //! here. That split lets the composer stage a recall entry before clearing input while this module
 //! records the attempted slash command after dispatch just like ordinary submitted text.
 use std::collections::BTreeMap;
-use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
@@ -100,9 +99,7 @@ use codex_app_server_protocol::ItemCompletedNotification;
 use codex_app_server_protocol::ItemStartedNotification;
 use codex_app_server_protocol::McpServerElicitationRequest;
 use codex_app_server_protocol::McpServerElicitationRequestParams;
-use codex_app_server_protocol::McpServerStartupState;
 use codex_app_server_protocol::McpServerStatusDetail;
-use codex_app_server_protocol::McpServerStatusUpdatedNotification;
 use codex_app_server_protocol::ModelVerification as AppServerModelVerification;
 use codex_app_server_protocol::RateLimitReachedType;
 use codex_app_server_protocol::RateLimitSnapshot;
@@ -130,7 +127,6 @@ use codex_config::types::WindowsSandboxModeToml;
 use codex_core::telemetry::RuntimeMetricsSummary;
 use codex_core::telemetry::SessionTelemetry;
 use codex_core_skills::model::SkillMetadata;
-use codex_exec_server::EnvironmentManager;
 use codex_features::FEATURES;
 use codex_features::Feature;
 #[cfg(test)]
@@ -150,7 +146,6 @@ use codex_protocol::config_types::CollaborationMode;
 use codex_protocol::config_types::CollaborationModeMask;
 use codex_protocol::config_types::ModeKind;
 use codex_protocol::config_types::Personality;
-use codex_protocol::config_types::ServiceTier;
 use codex_protocol::config_types::Settings;
 #[cfg(target_os = "windows")]
 use codex_protocol::config_types::WindowsSandboxLevel;
@@ -164,9 +159,7 @@ use codex_protocol::plan_tool::StepStatus as UpdatePlanItemStatus;
 use codex_protocol::request_permissions::RequestPermissionsEvent;
 use codex_protocol::user_input::ByteRange;
 use codex_protocol::user_input::TextElement;
-use codex_terminal_detection::Multiplexer;
 use codex_terminal_detection::TerminalInfo;
-use codex_terminal_detection::TerminalName;
 use codex_terminal_detection::terminal_info;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use crossterm::event::KeyCode;
@@ -289,9 +282,6 @@ use crate::status_indicator_widget::STATUS_DETAILS_DEFAULT_MAX_LINES;
 use crate::status_indicator_widget::StatusDetailsCapitalization;
 use crate::text_formatting::truncate_text;
 use crate::tui::FrameRequester;
-mod connectors;
-use self::connectors::ConnectorsCacheState;
-use self::connectors::ConnectorsState;
 mod goal_status;
 use self::goal_status::GoalStatusState;
 #[cfg(test)]
@@ -538,7 +528,6 @@ pub(crate) fn get_limits_duration(windows_minutes: i64) -> String {
 /// Common initialization parameters shared by all `ChatWidget` constructors.
 pub(crate) struct ChatWidgetInit {
     pub(crate) config: Config,
-    pub(crate) environment_manager: Arc<EnvironmentManager>,
     pub(crate) frame_requester: FrameRequester,
     pub(crate) app_event_tx: AppEventSender,
     /// App-server-backed runner used by status surfaces for workspace metadata probes.
@@ -631,7 +620,6 @@ pub(crate) struct ChatWidget {
     bottom_pane: BottomPane,
     transcript: TranscriptState,
     config: Config,
-    environment_manager: Arc<EnvironmentManager>,
     raw_output_mode: bool,
     /// Runtime value resolved by core. `config.service_tier` remains the explicit user choice.
     effective_service_tier: Option<String>,
@@ -2904,261 +2892,11 @@ impl ChatWidget {
         }
     }
 
-    /// Record one MCP startup update, promoting it into either the active startup
-    /// round or a buffered "next" round.
-    ///
-    /// This path has to deal with lossy app-server delivery. After
-    /// `finish_mcp_startup()` or `finish_mcp_startup_after_lag()`, we briefly
-    /// ignore incoming updates so stale events from the just-finished round do not
-    /// reopen startup. While that guard is active we buffer updates for a possible
-    /// next round, and only reactivate once the buffered set is coherent enough to
-    /// treat as a fresh startup round.
-    fn update_mcp_startup_status_legacy_unused(
-        &mut self,
-        server: String,
-        status: McpStartupStatus,
-        complete_when_settled: bool,
-    ) {
-        let mut activated_pending_round = false;
-        let starts_new_round = self.mcp_startup_status.is_none();
-        let startup_status = if self.mcp_startup_ignore_updates_until_next_start {
-            // Ignore-mode buffers the next plausible round so stale post-finish
-            // updates cannot immediately reopen startup. A fresh `Starting`
-            // update resets the buffer only if we have not already seen a
-            // pending-round `Starting`; this preserves valid interleavings like
-            // `alpha: Starting -> alpha: Ready -> beta: Starting`.
-            if matches!(status, McpStartupStatus::Starting)
-                && !self.mcp_startup_pending_next_round_saw_starting
-            {
-                self.mcp_startup_pending_next_round.clear();
-                self.mcp_startup_allow_terminal_only_next_round = false;
-            }
-            self.mcp_startup_pending_next_round_saw_starting |=
-                matches!(status, McpStartupStatus::Starting);
-            self.mcp_startup_pending_next_round.insert(server, status);
-            let Some(expected_servers) = &self.mcp_startup_expected_servers else {
-                return;
-            };
-            let saw_full_round = expected_servers.is_empty()
-                || expected_servers
-                    .iter()
-                    .all(|name| self.mcp_startup_pending_next_round.contains_key(name));
-            let saw_starting = self
-                .mcp_startup_pending_next_round
-                .values()
-                .any(|state| matches!(state, McpStartupStatus::Starting));
-            if !(saw_full_round
-                && (saw_starting || self.mcp_startup_allow_terminal_only_next_round))
-            {
-                return;
-            }
-
-            // The buffered map now looks like a complete next round, so promote it
-            // to the active round and resume normal completion tracking.
-            self.mcp_startup_ignore_updates_until_next_start = false;
-            self.mcp_startup_allow_terminal_only_next_round = false;
-            self.mcp_startup_pending_next_round_saw_starting = false;
-            activated_pending_round = true;
-            std::mem::take(&mut self.mcp_startup_pending_next_round)
-        } else {
-            // Normal path: fold the update into the active round and surface
-            // per-server failures immediately.
-            let mut startup_status = self.mcp_startup_status.take().unwrap_or_default();
-            if let McpStartupStatus::Failed { error } = &status {
-                self.on_warning(error);
-            }
-            startup_status.insert(server, status);
-            startup_status
-        };
-        if activated_pending_round {
-            // A promoted buffered round may already contain terminal failures.
-            for state in startup_status.values() {
-                if let McpStartupStatus::Failed { error } = state {
-                    self.on_warning(error);
-                }
-            }
-        }
-        self.mcp_startup_status = Some(startup_status);
-        self.update_task_running_state();
-        if starts_new_round || activated_pending_round {
-            self.bottom_pane.reset_status_timer();
-        }
-
-        // App-server-backed startup completes when every expected server has
-        // reported a non-Starting status. Lag handling can force an earlier
-        // settle via `finish_mcp_startup_after_lag()`.
-        if complete_when_settled
-            && let Some(current) = &self.mcp_startup_status
-            && let Some(expected_servers) = &self.mcp_startup_expected_servers
-            && !current.is_empty()
-            && expected_servers
-                .iter()
-                .all(|name| current.contains_key(name))
-            && current
-                .values()
-                .all(|state| !matches!(state, McpStartupStatus::Starting))
-        {
-            let mut failed = Vec::new();
-            let mut cancelled = Vec::new();
-            for (name, state) in current {
-                match state {
-                    McpStartupStatus::Ready => {}
-                    McpStartupStatus::Failed { .. } => failed.push(name.clone()),
-                    McpStartupStatus::Cancelled => cancelled.push(name.clone()),
-                    McpStartupStatus::Starting => {}
-                }
-            }
-            failed.sort();
-            cancelled.sort();
-            self.finish_mcp_startup(failed, cancelled);
-            return;
-        }
-        if let Some(current) = &self.mcp_startup_status {
-            // Otherwise keep the status header focused on the remaining
-            // in-progress servers for the active round.
-            let total = current.len();
-            let mut starting: Vec<_> = current
-                .iter()
-                .filter_map(|(name, state)| {
-                    if matches!(state, McpStartupStatus::Starting) {
-                        Some(name)
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-            starting.sort();
-            if let Some(first) = starting.first() {
-                let completed = total.saturating_sub(starting.len());
-                let max_to_show = 3;
-                let mut to_show: Vec<String> = starting
-                    .iter()
-                    .take(max_to_show)
-                    .map(ToString::to_string)
-                    .collect();
-                if starting.len() > max_to_show {
-                    to_show.push("…".to_string());
-                }
-                let header = if total > 1 {
-                    format!(
-                        "Starting MCP servers ({completed}/{total}): {}",
-                        to_show.join(", ")
-                    )
-                } else {
-                    format!("Booting MCP server: {first}")
-                };
-                self.set_status_header(header);
-            }
-        }
-        self.request_redraw();
-    }
-
-    pub(crate) fn set_mcp_startup_expected_servers_legacy_unused<I>(&mut self, server_names: I)
-    where
-        I: IntoIterator<Item = String>,
-    {
-        self.mcp_startup_expected_servers = Some(server_names.into_iter().collect());
-    }
-
-    #[cfg(test)]
-    fn on_mcp_startup_update(&mut self, ev: McpStartupUpdateEvent) {
-        self.update_mcp_startup_status(ev.server, ev.status, /*complete_when_settled*/ false);
-    }
-
-    fn finish_mcp_startup_legacy_unused(&mut self, failed: Vec<String>, cancelled: Vec<String>) {
-        if !cancelled.is_empty() {
-            self.on_warning(format!(
-                "MCP startup interrupted. The following servers were not initialized: {}",
-                cancelled.join(", ")
-            ));
-        }
-        let mut parts = Vec::new();
-        if !failed.is_empty() {
-            parts.push(format!("failed: {}", failed.join(", ")));
-        }
-        if !parts.is_empty() {
-            self.on_warning(format!("MCP startup incomplete ({})", parts.join("; ")));
-        }
-
-        self.mcp_startup_status = None;
-        self.mcp_startup_ignore_updates_until_next_start = true;
-        self.mcp_startup_allow_terminal_only_next_round = false;
-        self.mcp_startup_pending_next_round.clear();
-        self.mcp_startup_pending_next_round_saw_starting = false;
-        self.update_task_running_state();
-        self.maybe_send_next_queued_input();
-        self.request_redraw();
-    }
-
-    pub(crate) fn finish_mcp_startup_after_lag_legacy_unused(&mut self) {
-        if self.mcp_startup_ignore_updates_until_next_start {
-            if self.mcp_startup_pending_next_round.is_empty() {
-                self.mcp_startup_pending_next_round_saw_starting = false;
-            }
-            self.mcp_startup_allow_terminal_only_next_round = true;
-        }
-
-        let Some(current) = &self.mcp_startup_status else {
-            return;
-        };
-
-        let mut failed = Vec::new();
-        let mut cancelled = Vec::new();
-
-        let mut server_names: BTreeSet<String> = current.keys().cloned().collect();
-        if let Some(expected_servers) = &self.mcp_startup_expected_servers {
-            server_names.extend(expected_servers.iter().cloned());
-        }
-
-        for name in server_names {
-            match current.get(&name) {
-                Some(McpStartupStatus::Ready) => {}
-                Some(McpStartupStatus::Failed { .. }) => failed.push(name),
-                Some(McpStartupStatus::Cancelled | McpStartupStatus::Starting) | None => {
-                    cancelled.push(name);
-                }
-            }
-        }
-
-        failed.sort();
-        failed.dedup();
-        cancelled.sort();
-        cancelled.dedup();
-        self.finish_mcp_startup(failed, cancelled);
-    }
-
-    #[cfg(test)]
-    fn on_mcp_startup_complete_legacy_unused(&mut self, ev: McpStartupCompleteEvent) {
-        let failed = ev.failed.into_iter().map(|f| f.server).collect();
-        self.finish_mcp_startup(failed, ev.cancelled);
-    }
-
-    fn on_mcp_server_status_updated_legacy_unused(
-        &mut self,
-        notification: McpServerStatusUpdatedNotification,
-    ) {
-        let status = match notification.status {
-            McpServerStartupState::Starting => McpStartupStatus::Starting,
-            McpServerStartupState::Ready => McpStartupStatus::Ready,
-            McpServerStartupState::Failed => McpStartupStatus::Failed {
-                error: notification.error.unwrap_or_else(|| {
-                    format!("MCP client for `{}` failed to start", notification.name)
-                }),
-            },
-            McpServerStartupState::Cancelled => McpStartupStatus::Cancelled,
-        };
-        self.update_mcp_startup_status_legacy_unused(
-            notification.name,
-            status,
-            /*complete_when_settled*/ true,
-        );
-    }
-
     /// Handle a turn aborted due to user interrupt (Esc), budget exhaustion,
     /// or review completion.
     /// When there are queued user messages, restore them into the composer
     /// separated by newlines rather than auto‑submitting the next one.
-    fn on_interrupted_turn(&mut self, reason: TurnAbortReason) {
+    fn on_interrupted_turn(&mut self, _reason: TurnAbortReason) {
         // Finalize, log a gentle prompt, and clear running state.
         self.finalize_turn();
         let send_pending_steers_immediately =
@@ -4105,14 +3843,6 @@ impl ChatWidget {
         self.refresh_status_line();
     }
 
-    fn interrupted_turn_message(&self, reason: TurnAbortReason) -> String {
-        if reason == TurnAbortReason::BudgetLimited {
-            return "Goal budget reached - the turn was stopped.".to_string();
-        }
-
-        "Conversation interrupted - tell the model what to do differently. Something went wrong? Hit `/feedback` to report the issue.".to_string()
-    }
-
     fn on_deprecation_notice(&mut self, summary: String, details: Option<String>) {
         self.add_to_history(history_cell::new_deprecation_notice(summary, details));
         self.request_redraw();
@@ -4911,7 +4641,6 @@ impl ChatWidget {
     fn new_with_op_target(common: ChatWidgetInit, codex_op_target: CodexOpTarget) -> Self {
         let ChatWidgetInit {
             config,
-            environment_manager,
             frame_requester,
             app_event_tx,
             workspace_command_runner,
@@ -4995,7 +4724,6 @@ impl ChatWidget {
             transcript: TranscriptState::new(active_cell),
             raw_output_mode: config.tui_raw_output_mode,
             config,
-            environment_manager,
             effective_service_tier,
             skills_all: Vec::new(),
             skills_initial_state: None,
@@ -9111,19 +8839,6 @@ impl ChatWidget {
         self.has_chatgpt_account = has_chatgpt_account;
     }
 
-    pub(crate) fn should_show_fast_status_legacy_unused(
-        &self,
-        model: &str,
-        service_tier: Option<ServiceTier>,
-    ) -> bool {
-        let _ = (model, service_tier);
-        false
-    }
-
-    fn fast_mode_enabled_legacy_unused(&self) -> bool {
-        self.config.features.enabled(Feature::FastMode)
-    }
-
     /// Set the syntax theme override in the widget's config copy.
     pub(crate) fn set_tui_theme(&mut self, theme: Option<String>) {
         self.config.tui_theme = theme;
@@ -9153,8 +8868,6 @@ impl ChatWidget {
             .and_then(|mask| mask.model.as_deref())
             .unwrap_or_else(|| self.current_collaboration_mode.model())
     }
-
-    fn sync_fast_command_enabled_legacy_unused(&mut self) {}
 
     fn sync_personality_command_enabled(&mut self) {
         self.bottom_pane

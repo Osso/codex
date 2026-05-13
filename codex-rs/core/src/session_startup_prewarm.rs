@@ -25,10 +25,7 @@ pub(crate) struct SessionStartupPrewarmHandle {
 pub(crate) enum SessionStartupPrewarmResolution {
     Cancelled,
     Ready(Box<ModelClientSession>),
-    Unavailable {
-        status: &'static str,
-        prewarm_duration: Option<Duration>,
-    },
+    Unavailable,
 }
 
 impl SessionStartupPrewarmHandle {
@@ -57,20 +54,17 @@ impl SessionStartupPrewarmHandle {
         let remaining = timeout.saturating_sub(age_at_first_turn);
 
         if task.is_finished() {
-            Self::resolution_from_join_result(task.await, started_at)
+            Self::resolution_from_join_result(task.await)
         } else {
             match tokio::select! {
                 _ = cancellation_token.cancelled() => None,
                 result = tokio::time::timeout(remaining, &mut task) => Some(result),
             } {
-                Some(Ok(result)) => Self::resolution_from_join_result(result, started_at),
+                Some(Ok(result)) => Self::resolution_from_join_result(result),
                 Some(Err(_elapsed)) => {
                     task.abort();
                     info!("startup websocket prewarm timed out before the first turn could use it");
-                    SessionStartupPrewarmResolution::Unavailable {
-                        status: "timed_out",
-                        prewarm_duration: Some(started_at.elapsed()),
-                    }
+                    SessionStartupPrewarmResolution::Unavailable
                 }
                 None => {
                     task.abort();
@@ -82,7 +76,6 @@ impl SessionStartupPrewarmHandle {
 
     fn resolution_from_join_result(
         result: std::result::Result<CodexResult<ModelClientSession>, tokio::task::JoinError>,
-        started_at: Instant,
     ) -> SessionStartupPrewarmResolution {
         match result {
             Ok(Ok(prewarmed_session)) => {
@@ -90,17 +83,11 @@ impl SessionStartupPrewarmHandle {
             }
             Ok(Err(err)) => {
                 warn!("startup websocket prewarm setup failed: {err:#}");
-                SessionStartupPrewarmResolution::Unavailable {
-                    status: "failed",
-                    prewarm_duration: None,
-                }
+                SessionStartupPrewarmResolution::Unavailable
             }
             Err(err) => {
                 warn!("startup websocket prewarm setup join failed: {err}");
-                SessionStartupPrewarmResolution::Unavailable {
-                    status: "join_failed",
-                    prewarm_duration: Some(started_at.elapsed()),
-                }
+                SessionStartupPrewarmResolution::Unavailable
             }
         }
     }
@@ -127,10 +114,7 @@ impl Session {
         cancellation_token: &CancellationToken,
     ) -> SessionStartupPrewarmResolution {
         let Some(startup_prewarm) = self.take_session_startup_prewarm().await else {
-            return SessionStartupPrewarmResolution::Unavailable {
-                status: "not_scheduled",
-                prewarm_duration: None,
-            };
+            return SessionStartupPrewarmResolution::Unavailable;
         };
         startup_prewarm.resolve(cancellation_token).await
     }

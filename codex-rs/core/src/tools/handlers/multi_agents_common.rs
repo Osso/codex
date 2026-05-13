@@ -211,6 +211,7 @@ pub(crate) fn build_agent_spawn_config(
     Ok(config)
 }
 
+#[cfg(test)]
 pub(crate) fn build_agent_resume_config(
     turn: &TurnContext,
     child_depth: i32,

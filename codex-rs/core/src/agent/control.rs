@@ -9,6 +9,7 @@ use crate::session::emit_subagent_session_started;
 use crate::session_prefix::format_subagent_context_line;
 use crate::session_prefix::format_subagent_notification_message;
 use crate::shell_snapshot::ShellSnapshot;
+#[cfg(test)]
 use crate::thread_manager::ResumeThreadWithHistoryOptions;
 use crate::thread_manager::ThreadManagerState;
 use crate::thread_rollout_truncation::truncate_rollout_to_last_n_fork_turns;
@@ -24,6 +25,7 @@ use codex_protocol::models::ResponseItem;
 use codex_protocol::protocol::InitialHistory;
 use codex_protocol::protocol::InterAgentCommunication;
 use codex_protocol::protocol::Op;
+#[cfg(test)]
 use codex_protocol::protocol::ResumedHistory;
 use codex_protocol::protocol::RolloutItem;
 use codex_protocol::protocol::SessionSource;
@@ -35,6 +37,7 @@ use codex_state::DirectionalThreadSpawnEdgeStatus;
 use codex_thread_store::ReadThreadParams;
 use serde::Serialize;
 use std::collections::HashMap;
+#[cfg(test)]
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::sync::Weak;
@@ -447,6 +450,7 @@ impl AgentControl {
     }
 
     /// Resume an existing agent thread from a recorded rollout file.
+    #[cfg(test)]
     pub(crate) async fn resume_agent_from_rollout(
         &self,
         config: crate::config::Config,
@@ -523,6 +527,7 @@ impl AgentControl {
         Ok(resumed_thread_id)
     }
 
+    #[cfg(test)]
     async fn resume_single_agent_from_rollout(
         &self,
         mut config: crate::config::Config,
@@ -692,6 +697,7 @@ impl AgentControl {
     }
 
     /// Interrupt the current task for an existing agent thread.
+    #[cfg(test)]
     pub(crate) async fn interrupt_agent(&self, agent_id: ThreadId) -> CodexResult<String> {
         let state = self.upgrade()?;
         state.send_op(agent_id, Op::Interrupt).await
@@ -1247,6 +1253,7 @@ pub(crate) fn render_input_preview(initial_operation: &Op) -> String {
     }
 }
 
+#[cfg(test)]
 fn thread_spawn_depth(session_source: &SessionSource) -> Option<i32> {
     match session_source {
         SessionSource::SubAgent(SubAgentSource::ThreadSpawn { depth, .. }) => Some(*depth),

@@ -19,7 +19,7 @@ use crate::connection::JsonRpcConnection;
 const ENVIRONMENT_CLIENT_NAME: &str = "codex-environment";
 
 impl ExecServerClient {
-    pub(crate) async fn connect_for_transport(
+    pub async fn connect_for_transport(
         transport_params: crate::client_api::ExecServerTransportParams,
     ) -> Result<Self, ExecServerError> {
         match transport_params {
@@ -79,7 +79,7 @@ impl ExecServerClient {
         .await
     }
 
-    pub(crate) async fn connect_stdio_command(
+    pub async fn connect_stdio_command(
         args: StdioExecServerConnectArgs,
     ) -> Result<Self, ExecServerError> {
         let mut child = stdio_command_process(&args.command)

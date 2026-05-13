@@ -61,7 +61,7 @@ impl SessionTask for RegularTask {
             .await
         {
             SessionStartupPrewarmResolution::Cancelled => return None,
-            SessionStartupPrewarmResolution::Unavailable { .. } => None,
+            SessionStartupPrewarmResolution::Unavailable => None,
             SessionStartupPrewarmResolution::Ready(prewarmed_client_session) => {
                 Some(*prewarmed_client_session)
             }

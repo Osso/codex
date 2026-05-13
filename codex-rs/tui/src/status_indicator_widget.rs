@@ -158,10 +158,6 @@ impl StatusIndicatorWidget {
         self.resume_timer_at(Instant::now());
     }
 
-    pub(crate) fn reset_timer(&mut self) {
-        self.reset_timer_at(Instant::now());
-    }
-
     pub(crate) fn pause_timer_at(&mut self, now: Instant) {
         if self.is_paused {
             return;
@@ -179,6 +175,7 @@ impl StatusIndicatorWidget {
         self.frame_requester.schedule_frame();
     }
 
+    #[cfg(test)]
     fn reset_timer_at(&mut self, now: Instant) {
         self.elapsed_running = Duration::ZERO;
         self.last_resume_at = now;

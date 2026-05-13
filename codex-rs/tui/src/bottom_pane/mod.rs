@@ -921,13 +921,6 @@ impl BottomPane {
         self.composer.status_line_text()
     }
 
-    pub(crate) fn reset_status_timer(&mut self) {
-        if let Some(status) = self.status.as_mut() {
-            status.reset_timer();
-            self.request_redraw();
-        }
-    }
-
     #[cfg(test)]
     pub(crate) fn force_status_elapsed_for_test(&mut self, elapsed: Duration) {
         if let Some(status) = self.status.as_mut() {

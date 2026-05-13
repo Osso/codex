@@ -39,16 +39,9 @@ use tokio_util::sync::CancellationToken;
 use tracing::warn;
 use uuid::Uuid;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum NetworkApprovalMode {
-    Immediate,
-    Deferred,
-}
-
 #[derive(Clone, Debug)]
 pub(crate) struct NetworkApprovalSpec {
     pub network: Option<NetworkProxy>,
-    pub mode: NetworkApprovalMode,
     pub trigger: GuardianNetworkAccessTrigger,
     pub command: String,
 }
@@ -86,15 +79,10 @@ impl DeferredNetworkApproval {
 #[derive(Debug)]
 pub(crate) struct ActiveNetworkApproval {
     registration_id: Option<String>,
-    mode: NetworkApprovalMode,
     cancellation_token: CancellationToken,
 }
 
 impl ActiveNetworkApproval {
-    pub(crate) fn mode(&self) -> NetworkApprovalMode {
-        self.mode
-    }
-
     pub(crate) fn cancellation_token(&self) -> CancellationToken {
         self.cancellation_token.clone()
     }
@@ -102,18 +90,15 @@ impl ActiveNetworkApproval {
     pub(crate) fn into_deferred(self) -> Option<DeferredNetworkApproval> {
         let ActiveNetworkApproval {
             registration_id,
-            mode,
             cancellation_token,
         } = self;
-        match (mode, registration_id) {
-            (NetworkApprovalMode::Deferred, Some(registration_id)) => {
-                Some(DeferredNetworkApproval {
-                    registration_id,
-                    cancellation_token,
-                    finish_outcome: Arc::new(OnceCell::new()),
-                })
-            }
-            _ => None,
+        match registration_id {
+            Some(registration_id) => Some(DeferredNetworkApproval {
+                registration_id,
+                cancellation_token,
+                finish_outcome: Arc::new(OnceCell::new()),
+            }),
+            None => None,
         }
     }
 }
@@ -354,10 +339,6 @@ impl NetworkApprovalService {
 
     async fn finish_call_outcome(&self, registration_id: &str) -> Option<NetworkApprovalOutcome> {
         self.remove_call(registration_id).await
-    }
-
-    async fn finish_call(&self, registration_id: &str) -> Result<(), ToolError> {
-        network_approval_outcome_to_result(self.finish_call_outcome(registration_id).await)
     }
 
     pub(crate) async fn record_blocked_request(&self, blocked: BlockedRequest) {
@@ -707,7 +688,6 @@ pub(crate) async fn begin_network_approval(
 ) -> Option<ActiveNetworkApproval> {
     let NetworkApprovalSpec {
         network,
-        mode,
         trigger,
         command,
     } = spec?;
@@ -731,24 +711,8 @@ pub(crate) async fn begin_network_approval(
 
     Some(ActiveNetworkApproval {
         registration_id: Some(registration_id),
-        mode,
         cancellation_token,
     })
-}
-
-pub(crate) async fn finish_immediate_network_approval(
-    session: &Session,
-    active: ActiveNetworkApproval,
-) -> Result<(), ToolError> {
-    let Some(registration_id) = active.registration_id.as_deref() else {
-        return Ok(());
-    };
-
-    session
-        .services
-        .network_approval
-        .finish_call(registration_id)
-        .await
 }
 
 pub(crate) async fn finish_deferred_network_approval(

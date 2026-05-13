@@ -141,7 +141,7 @@ struct OrderedSessionEvents {
 }
 
 #[derive(Clone)]
-pub(crate) struct Session {
+pub struct Session {
     client: ExecServerClient,
     process_id: ProcessId,
     state: Arc<SessionState>,
@@ -347,7 +347,7 @@ impl ExecServerClient {
         self.call(FS_COPY_METHOD, &params).await
     }
 
-    pub(crate) async fn register_session(
+    pub async fn register_session(
         &self,
         process_id: &ProcessId,
     ) -> Result<Session, ExecServerError> {
@@ -362,7 +362,7 @@ impl ExecServerClient {
         })
     }
 
-    pub(crate) async fn unregister_session(&self, process_id: &ProcessId) {
+    pub async fn unregister_session(&self, process_id: &ProcessId) {
         self.inner.remove_session(process_id).await;
     }
 
@@ -500,7 +500,7 @@ impl SessionState {
         self.wake_tx.subscribe()
     }
 
-    pub(crate) fn subscribe_events(&self) -> ExecProcessEventReceiver {
+    pub fn subscribe_events(&self) -> ExecProcessEventReceiver {
         self.events.subscribe()
     }
 
@@ -589,19 +589,19 @@ impl SessionState {
 }
 
 impl Session {
-    pub(crate) fn process_id(&self) -> &ProcessId {
+    pub fn process_id(&self) -> &ProcessId {
         &self.process_id
     }
 
-    pub(crate) fn subscribe_wake(&self) -> watch::Receiver<u64> {
+    pub fn subscribe_wake(&self) -> watch::Receiver<u64> {
         self.state.subscribe()
     }
 
-    pub(crate) fn subscribe_events(&self) -> ExecProcessEventReceiver {
+    pub fn subscribe_events(&self) -> ExecProcessEventReceiver {
         self.state.subscribe_events()
     }
 
-    pub(crate) async fn read(
+    pub async fn read(
         &self,
         after_seq: Option<u64>,
         max_bytes: Option<usize>,
@@ -631,16 +631,16 @@ impl Session {
         }
     }
 
-    pub(crate) async fn write(&self, chunk: Vec<u8>) -> Result<WriteResponse, ExecServerError> {
+    pub async fn write(&self, chunk: Vec<u8>) -> Result<WriteResponse, ExecServerError> {
         self.client.write(&self.process_id, chunk).await
     }
 
-    pub(crate) async fn terminate(&self) -> Result<(), ExecServerError> {
+    pub async fn terminate(&self) -> Result<(), ExecServerError> {
         self.client.terminate(&self.process_id).await?;
         Ok(())
     }
 
-    pub(crate) async fn unregister(&self) {
+    pub async fn unregister(&self) {
         self.client.unregister_session(&self.process_id).await;
     }
 }

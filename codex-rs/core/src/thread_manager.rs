@@ -182,6 +182,7 @@ pub struct StartThreadOptions {
     pub environments: Vec<TurnEnvironmentSelection>,
 }
 
+#[cfg(test)]
 pub(crate) struct ResumeThreadWithHistoryOptions {
     pub(crate) config: Config,
     pub(crate) initial_history: InitialHistory,
@@ -209,6 +210,7 @@ pub(crate) struct ThreadManagerState {
     session_source: SessionSource,
     installation_id: String,
     analytics_events_client: Option<AnalyticsEventsClient>,
+    #[cfg(test)]
     state_db: Option<StateDbHandle>,
     // Captures submitted ops for testing purpose when test mode is enabled.
     ops_log: Option<SharedCapturedOps>,
@@ -248,7 +250,7 @@ impl ThreadManager {
         extensions: Arc<ExtensionRegistry<Config>>,
         analytics_events_client: Option<AnalyticsEventsClient>,
         thread_store: Arc<dyn ThreadStore>,
-        state_db: Option<StateDbHandle>,
+        _state_db: Option<StateDbHandle>,
         installation_id: String,
         attestation_provider: Option<Arc<dyn AttestationProvider>>,
     ) -> Self {
@@ -281,7 +283,8 @@ impl ThreadManager {
                 session_source,
                 installation_id,
                 analytics_events_client,
-                state_db,
+                #[cfg(test)]
+                state_db: _state_db,
                 ops_log: should_use_test_thread_manager_behavior()
                     .then(|| Arc::new(std::sync::Mutex::new(Vec::new()))),
             }),
@@ -382,6 +385,7 @@ impl ThreadManager {
                 session_source: SessionSource::Exec,
                 installation_id,
                 analytics_events_client: None,
+                #[cfg(test)]
                 state_db,
                 ops_log: should_use_test_thread_manager_behavior()
                     .then(|| Arc::new(std::sync::Mutex::new(Vec::new()))),
@@ -843,6 +847,7 @@ impl ThreadManager {
 }
 
 impl ThreadManagerState {
+    #[cfg(test)]
     pub(crate) fn state_db(&self) -> Option<StateDbHandle> {
         self.state_db.clone()
     }
@@ -974,6 +979,7 @@ impl ThreadManagerState {
         .await
     }
 
+    #[cfg(test)]
     pub(crate) async fn resume_thread_with_history_with_source(
         &self,
         options: ResumeThreadWithHistoryOptions,

@@ -309,7 +309,6 @@ use crate::unified_exec::UnifiedExecProcessManager;
 use codex_core_plugins::PluginsManager;
 use codex_git_utils::get_git_repo_root;
 use codex_mcp::compute_auth_statuses;
-use codex_mcp::with_codex_apps_mcp;
 use codex_protocol::config_types::CollaborationMode;
 use codex_protocol::config_types::Personality;
 use codex_protocol::config_types::ReasoningSummary as ReasoningSummaryConfig;
@@ -756,6 +755,7 @@ impl Codex {
         Ok(event)
     }
 
+    #[cfg(test)]
     pub async fn steer_input(
         &self,
         input: Vec<UserInput>,
@@ -3043,6 +3043,7 @@ impl Session {
         clippy::await_holding_invalid_type,
         reason = "active turn checks and turn state updates must remain atomic"
     )]
+    #[cfg(test)]
     pub async fn steer_input(
         &self,
         input: Vec<UserInput>,

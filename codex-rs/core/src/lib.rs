@@ -29,10 +29,7 @@ mod attestation;
 mod codex_delegate;
 mod command_canonicalization;
 pub mod config;
-pub mod config_loader {
-    pub(crate) use codex_config::loader::*;
-    pub(crate) use codex_config::*;
-}
+pub mod config_loader {}
 pub mod connectors;
 pub mod context;
 mod context_manager;
@@ -203,8 +200,6 @@ pub use installation_id::resolve_installation_id;
 pub use turn_metadata::build_turn_metadata_header;
 pub mod compact;
 mod memory_usage;
-mod memories {
-    pub(crate) use codex_memories_read::memory_root;
-}
+mod memories {}
 pub mod otel_init;
 pub mod telemetry;

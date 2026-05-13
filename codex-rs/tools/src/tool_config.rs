@@ -176,9 +176,6 @@ impl ToolsConfig {
         let include_code_mode = features.enabled(Feature::CodeMode);
         let include_code_mode_only = include_code_mode && features.enabled(Feature::CodeModeOnly);
         let include_goal_tools = features.enabled(Feature::Goals);
-        let include_js_repl = features.enabled(Feature::JsRepl);
-        let include_js_repl_tools_only =
-            include_js_repl && features.enabled(Feature::JsReplToolsOnly);
         let include_multi_agent_v2 = features.enabled(Feature::MultiAgentV2);
         let include_collab_tools = include_multi_agent_v2;
         let include_agent_jobs = features.enabled(Feature::SpawnCsv);
@@ -202,11 +199,12 @@ impl ToolsConfig {
                 ShellCommandBackendConfig::Classic
             };
         let unified_exec_enabled = features.enabled(Feature::UnifiedExec);
-        let shell_type = if features.enabled(Feature::ShellTool)
-            && unified_exec_enabled
-            && codex_utils_pty::conpty_supported()
-        {
-            ConfigShellToolType::UnifiedExec
+        let shell_type = if features.enabled(Feature::ShellTool) {
+            if unified_exec_enabled && codex_utils_pty::conpty_supported() {
+                ConfigShellToolType::UnifiedExec
+            } else {
+                ConfigShellToolType::ShellCommand
+            }
         } else {
             ConfigShellToolType::Disabled
         };

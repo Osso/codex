@@ -32,7 +32,7 @@ pub struct RemoteExecServerConnectArgs {
 
 /// Stdio connection arguments for a command-backed exec-server.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct StdioExecServerConnectArgs {
+pub struct StdioExecServerConnectArgs {
     pub command: StdioExecServerCommand,
     pub client_name: String,
     pub initialize_timeout: Duration,
@@ -41,7 +41,7 @@ pub(crate) struct StdioExecServerConnectArgs {
 
 /// Structured process command used to start an exec-server over stdio.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct StdioExecServerCommand {
+pub struct StdioExecServerCommand {
     pub program: String,
     pub args: Vec<String>,
     pub env: HashMap<String, String>,
@@ -50,13 +50,12 @@ pub(crate) struct StdioExecServerCommand {
 
 /// Parameters used to connect to a remote exec-server environment.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum ExecServerTransportParams {
+pub enum ExecServerTransportParams {
     WebSocketUrl {
         websocket_url: String,
         connect_timeout: Duration,
         initialize_timeout: Duration,
     },
-    #[allow(dead_code)]
     StdioCommand {
         command: StdioExecServerCommand,
         initialize_timeout: Duration,
@@ -64,7 +63,7 @@ pub(crate) enum ExecServerTransportParams {
 }
 
 impl ExecServerTransportParams {
-    pub(crate) fn websocket_url(websocket_url: String) -> Self {
+    pub fn websocket_url(websocket_url: String) -> Self {
         Self::WebSocketUrl {
             websocket_url,
             connect_timeout: DEFAULT_REMOTE_EXEC_SERVER_CONNECT_TIMEOUT,

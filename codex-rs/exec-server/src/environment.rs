@@ -348,24 +348,9 @@ mod tests {
     use super::EnvironmentManagerArgs;
     use super::LOCAL_ENVIRONMENT_ID;
 
-    use crate::ExecServerError;
     use crate::ExecServerRuntimePaths;
     use crate::ProcessId;
-    use crate::environment_provider::EnvironmentDefault;
-    use crate::environment_provider::EnvironmentProvider;
-    use crate::environment_provider::EnvironmentProviderSnapshot;
     use pretty_assertions::assert_eq;
-
-    struct TestEnvironmentProvider {
-        snapshot: EnvironmentProviderSnapshot,
-    }
-
-    #[async_trait::async_trait]
-    impl EnvironmentProvider for TestEnvironmentProvider {
-        async fn snapshot(&self) -> Result<EnvironmentProviderSnapshot, ExecServerError> {
-            Ok(self.snapshot.clone())
-        }
-    }
 
     fn test_runtime_paths() -> ExecServerRuntimePaths {
         ExecServerRuntimePaths::new(

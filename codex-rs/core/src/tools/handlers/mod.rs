@@ -131,18 +131,6 @@ where
     parse_arguments(arguments)
 }
 
-fn resolve_workdir_base_path(
-    arguments: &str,
-    default_cwd: &AbsolutePathBuf,
-) -> Result<AbsolutePathBuf, FunctionCallError> {
-    let arguments: Value = parse_arguments(arguments)?;
-    Ok(arguments
-        .get("workdir")
-        .and_then(Value::as_str)
-        .filter(|workdir| !workdir.is_empty())
-        .map_or_else(|| default_cwd.clone(), |workdir| default_cwd.join(workdir)))
-}
-
 fn resolve_tool_environment<'a>(
     turn: &'a TurnContext,
     environment_id: Option<&str>,

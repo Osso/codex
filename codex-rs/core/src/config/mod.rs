@@ -897,7 +897,6 @@ pub struct ConfigBuilder {
     cloud_requirements: Option<CloudRequirementsLoader>,
     thread_config_loader: Option<Arc<dyn ThreadConfigLoader>>,
     fallback_cwd: Option<PathBuf>,
-    host_name: Option<String>,
 }
 
 impl Default for ConfigBuilder {
@@ -910,7 +909,6 @@ impl Default for ConfigBuilder {
             cloud_requirements: None,
             thread_config_loader: None,
             fallback_cwd: None,
-            host_name: codex_config::host_name(),
         }
     }
 }
@@ -968,7 +966,6 @@ impl ConfigBuilder {
             cloud_requirements: _,
             thread_config_loader,
             fallback_cwd,
-            host_name: _,
         } = self;
         let codex_home = match codex_home {
             Some(codex_home) => AbsolutePathBuf::from_absolute_path(codex_home)?,

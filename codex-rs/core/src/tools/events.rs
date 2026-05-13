@@ -111,13 +111,6 @@ pub(crate) async fn emit_exec_command_begin(
 }
 // Concrete, allocation-free emitter: avoid trait objects and boxed futures.
 pub(crate) enum ToolEmitter {
-    Shell {
-        command: Vec<String>,
-        cwd: AbsolutePathBuf,
-        source: ExecCommandSource,
-        parsed_cmd: Vec<ParsedCommand>,
-        freeform: bool,
-    },
     ApplyPatch {
         changes: HashMap<PathBuf, FileChange>,
         auto_approved: bool,
@@ -132,22 +125,6 @@ pub(crate) enum ToolEmitter {
 }
 
 impl ToolEmitter {
-    pub fn shell(
-        command: Vec<String>,
-        cwd: AbsolutePathBuf,
-        source: ExecCommandSource,
-        freeform: bool,
-    ) -> Self {
-        let parsed_cmd = parse_command(&command);
-        Self::Shell {
-            command,
-            cwd,
-            source,
-            parsed_cmd,
-            freeform,
-        }
-    }
-
     pub fn apply_patch(changes: HashMap<PathBuf, FileChange>, auto_approved: bool) -> Self {
         Self::ApplyPatch {
             changes,
@@ -173,27 +150,6 @@ impl ToolEmitter {
 
     pub async fn emit(&self, ctx: ToolEventCtx<'_>, stage: ToolEventStage<'_>) {
         match (self, stage) {
-            (
-                Self::Shell {
-                    command,
-                    cwd,
-                    source,
-                    parsed_cmd,
-                    ..
-                },
-                stage,
-            ) => {
-                emit_exec_stage(
-                    ctx,
-                    ExecCommandInput::new(
-                        command, cwd, parsed_cmd, *source, /*interaction_input*/ None,
-                        /*process_id*/ None,
-                    ),
-                    stage,
-                )
-                .await;
-            }
-
             (
                 Self::ApplyPatch {
                     changes,
@@ -328,12 +284,7 @@ impl ToolEmitter {
         output: &ExecToolCallOutput,
         ctx: ToolEventCtx<'_>,
     ) -> String {
-        match self {
-            Self::Shell { freeform: true, .. } => {
-                super::format_exec_output_for_model_freeform(output, ctx.turn.truncation_policy)
-            }
-            _ => super::format_exec_output_for_model_structured(output, ctx.turn.truncation_policy),
-        }
+        super::format_exec_output_for_model_structured(output, ctx.turn.truncation_policy)
     }
 
     pub async fn finish(
@@ -396,9 +347,7 @@ impl ToolEmitter {
                 // TODO: We should add a new ToolError variant for user-declined approvals.
                 let normalized = if msg == "rejected by user" {
                     match self {
-                        Self::Shell { .. } | Self::UnifiedExec { .. } => {
-                            "exec command rejected by user".to_string()
-                        }
+                        Self::UnifiedExec { .. } => "exec command rejected by user".to_string(),
                         Self::ApplyPatch { .. } => "patch rejected by user".to_string(),
                     }
                 } else {

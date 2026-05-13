@@ -39,7 +39,6 @@ use crate::telemetry::TURN_TOKEN_USAGE_METRIC;
 use crate::telemetry::TURN_TOOL_CALL_METRIC;
 use codex_analytics::TurnTokenUsageFact;
 use codex_login::AuthManager;
-use codex_models_manager::manager::ModelsManager;
 use codex_models_manager::manager::SharedModelsManager;
 use codex_protocol::models::ResponseInputItem;
 use codex_protocol::models::ResponseItem;
