@@ -105,6 +105,7 @@ async fn refresh_models_on_models_etag_mismatch_and_avoid_duplicate_models_fetch
 
     codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "please run a tool".into(),

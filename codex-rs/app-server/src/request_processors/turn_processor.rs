@@ -596,10 +596,11 @@ impl TurnRequestProcessor {
             .collect();
 
         let turn_id = thread
-            .steer_input(
+            .steer_input_with_id(
                 mapped_items,
                 Some(&params.expected_turn_id),
                 params.responsesapi_client_metadata,
+                params.steer_id,
             )
             .await
             .map_err(|err| {

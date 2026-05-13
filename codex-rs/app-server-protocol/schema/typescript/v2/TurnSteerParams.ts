@@ -4,6 +4,11 @@
 import type { UserInput } from "./UserInput";
 
 export type TurnSteerParams = {threadId: string, input: Array<UserInput>, /**
+ * Optional client-generated identity for editable same-turn steering.
+ * When another pending steer with this id exists, core replaces it before
+ * delivery instead of appending duplicate input.
+ */
+steerId?: string | null, /**
  * Required active turn id precondition. The request fails when it does not
  * match the currently active turn.
  */

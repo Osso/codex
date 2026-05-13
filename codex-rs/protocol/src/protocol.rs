@@ -527,6 +527,12 @@ pub enum Op {
         /// User input items, see `InputItem`
         items: Vec<UserInput>,
 
+        /// Optional same-turn steering identity. When this turn is accepted as
+        /// input for an already-running turn, matching pending input is
+        /// replaced before the model consumes it.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        steer_id: Option<String>,
+
         /// `cwd` to use with the [`SandboxPolicy`] and potentially tool calls
         /// such as `local_shell`.
         cwd: PathBuf,

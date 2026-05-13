@@ -68,6 +68,7 @@ async fn submit_turn_with_approval_and_environments(
 ) -> Result<()> {
     test.codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: Some(environments),
             items: vec![UserInput::Text {
                 text: prompt.into(),

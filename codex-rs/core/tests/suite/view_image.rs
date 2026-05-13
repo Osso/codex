@@ -73,6 +73,7 @@ fn disabled_user_turn(test: &TestCodex, items: Vec<UserInput>, model: String) ->
     let (sandbox_policy, permission_profile) =
         turn_permission_fields(PermissionProfile::Disabled, test.config.cwd.as_path());
     Op::UserTurn {
+        steer_id: None,
         environments: None,
         items,
         final_output_json_schema: None,

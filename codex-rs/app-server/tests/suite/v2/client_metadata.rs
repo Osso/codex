@@ -178,6 +178,7 @@ async fn turn_steer_updates_client_metadata_on_follow_up_responses_request_v2() 
                 text: "Focus on the failure".to_string(),
                 text_elements: Vec::new(),
             }],
+            steer_id: None,
             responsesapi_client_metadata: Some(steer_metadata.clone()),
             expected_turn_id: turn_id.clone(),
         })

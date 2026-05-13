@@ -918,6 +918,47 @@ async fn pending_steer_esc_does_not_steal_vim_insert_escape() {
 }
 
 #[tokio::test]
+async fn edit_queued_message_replaces_pending_steer_by_id() {
+    let (mut chat, _rx, mut op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
+
+    chat.bottom_pane.set_task_running(/*running*/ true);
+    let pending = pending_steer("already submitted");
+    let steer_id = pending.steer_id.clone();
+    chat.input_queue.pending_steers.push_back(pending);
+
+    chat.handle_key_event(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+
+    assert_eq!(chat.bottom_pane.composer_text(), "already submitted");
+    chat.bottom_pane
+        .set_composer_text("edited steer".to_string(), Vec::new(), Vec::new());
+    chat.handle_key_event(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+
+    match next_submit_op(&mut op_rx) {
+        Op::UserTurn {
+            items,
+            steer_id: op_steer_id,
+            ..
+        } => {
+            assert_eq!(op_steer_id.as_deref(), Some(steer_id.as_str()));
+            assert_eq!(
+                items,
+                vec![UserInput::Text {
+                    text: "edited steer".to_string(),
+                    text_elements: Vec::new(),
+                }]
+            );
+        }
+        other => panic!("expected Op::UserTurn, got {other:?}"),
+    }
+    assert_eq!(chat.input_queue.pending_steers.len(), 1);
+    assert_eq!(chat.input_queue.pending_steers[0].steer_id, steer_id);
+    assert_eq!(
+        chat.input_queue.pending_steers[0].user_message.text,
+        "edited steer"
+    );
+}
+
+#[tokio::test]
 async fn restore_thread_input_state_syncs_sleep_inhibitor_state() {
     let (mut chat, _rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
     chat.set_feature_enabled(Feature::PreventIdleSleep, /*enabled*/ true);
@@ -925,6 +966,7 @@ async fn restore_thread_input_state_syncs_sleep_inhibitor_state() {
     chat.restore_thread_input_state(Some(ThreadInputState {
         composer: None,
         pending_steers: VecDeque::new(),
+        pending_steer_ids: VecDeque::new(),
         pending_steer_history_records: VecDeque::new(),
         pending_steer_compare_keys: VecDeque::new(),
         rejected_steers_queue: VecDeque::new(),

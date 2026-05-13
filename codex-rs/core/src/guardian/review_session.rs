@@ -708,6 +708,7 @@ async fn run_review_on_session(
         Box::pin(review_session.codex.submit(Op::UserTurn {
             environments: None,
             items: prompt_items.items,
+            steer_id: None,
             cwd: params.parent_turn.cwd.to_path_buf(),
             approval_policy: AskForApproval::Never,
             approvals_reviewer: None,

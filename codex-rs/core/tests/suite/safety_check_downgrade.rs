@@ -38,6 +38,7 @@ fn disabled_text_turn(test: &TestCodex, text: &str) -> Op {
     let (sandbox_policy, permission_profile) =
         turn_permission_fields(PermissionProfile::Disabled, test.cwd_path());
     Op::UserTurn {
+        steer_id: None,
         environments: None,
         items: vec![UserInput::Text {
             text: text.to_string(),

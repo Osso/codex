@@ -737,6 +737,7 @@ pub(crate) struct ChatWidget {
     // order.
     suppress_initial_user_message_submit: bool,
     input_queue: InputQueueState,
+    editing_pending_steer_id: Option<String>,
     /// Main chat-surface bindings resolved from `tui.keymap.chat`.
     chat_keymap: ChatKeymap,
     /// Keybinding to show for popping the most-recently queued message back
@@ -936,6 +937,7 @@ impl ThreadComposerState {
 pub(crate) struct ThreadInputState {
     composer: Option<ThreadComposerState>,
     pending_steers: VecDeque<UserMessage>,
+    pending_steer_ids: VecDeque<String>,
     pending_steer_history_records: VecDeque<UserMessageHistoryRecord>,
     pending_steer_compare_keys: VecDeque<PendingSteerCompareKey>,
     rejected_steers_queue: VecDeque<UserMessage>,
@@ -977,6 +979,7 @@ impl From<&str> for UserMessage {
 
 #[derive(Debug)]
 struct PendingSteer {
+    steer_id: String,
     user_message: UserMessage,
     history_record: UserMessageHistoryRecord,
     compare_key: PendingSteerCompareKey,
@@ -2426,7 +2429,7 @@ impl ChatWidget {
         }
     }
 
-    fn pop_latest_queued_message_for_edit(&mut self) -> Option<UserMessage> {
+    fn pop_latest_queued_message_for_edit(&mut self) -> Option<(UserMessage, Option<String>)> {
         self.input_queue
             .queued_user_messages
             .pop_back()
@@ -2436,7 +2439,10 @@ impl ChatWidget {
                     .queued_user_message_history_records
                     .pop_back()
                     .unwrap_or(UserMessageHistoryRecord::UserMessageText);
-                user_message_for_restore(queued_message.into_user_message(), &history_record)
+                (
+                    user_message_for_restore(queued_message.into_user_message(), &history_record),
+                    None,
+                )
             })
             .or_else(|| {
                 self.input_queue
@@ -2448,14 +2454,22 @@ impl ChatWidget {
                             .rejected_steer_history_records
                             .pop_back()
                             .unwrap_or(UserMessageHistoryRecord::UserMessageText);
-                        user_message_for_restore(user_message, &history_record)
+                        (
+                            user_message_for_restore(user_message, &history_record),
+                            None,
+                        )
                     })
             })
             .or_else(|| {
-                self.input_queue
-                    .pending_steers
-                    .pop_back()
-                    .map(|pending| pending.user_message)
+                self.input_queue.pending_steers.back().map(|pending| {
+                    (
+                        user_message_for_restore(
+                            pending.user_message.clone(),
+                            &pending.history_record,
+                        ),
+                        Some(pending.steer_id.clone()),
+                    )
+                })
             })
     }
 
@@ -3300,6 +3314,12 @@ impl ChatWidget {
                 .iter()
                 .map(|pending| pending.user_message.clone())
                 .collect(),
+            pending_steer_ids: self
+                .input_queue
+                .pending_steers
+                .iter()
+                .map(|pending| pending.steer_id.clone())
+                .collect(),
             pending_steer_history_records: self
                 .input_queue
                 .pending_steers
@@ -3329,6 +3349,7 @@ impl ChatWidget {
 
     pub(crate) fn restore_thread_input_state(&mut self, input_state: Option<ThreadInputState>) {
         let restored_task_running = input_state.as_ref().is_some_and(|state| state.task_running);
+        self.editing_pending_steer_id = None;
         if let Some(input_state) = input_state {
             self.current_collaboration_mode = input_state.current_collaboration_mode;
             self.active_collaboration_mask = input_state.active_collaboration_mask;
@@ -3367,12 +3388,18 @@ impl ChatWidget {
                 input_state.pending_steers.len(),
                 UserMessageHistoryRecord::UserMessageText,
             );
+            let mut pending_steer_ids = input_state.pending_steer_ids;
+            pending_steer_ids.resize_with(input_state.pending_steers.len(), || {
+                uuid::Uuid::new_v4().to_string()
+            });
             let mut pending_steer_compare_keys = input_state.pending_steer_compare_keys;
             self.input_queue.pending_steers = input_state
                 .pending_steers
                 .into_iter()
                 .zip(pending_steer_history_records)
-                .map(|(user_message, history_record)| PendingSteer {
+                .zip(pending_steer_ids)
+                .map(|((user_message, history_record), steer_id)| PendingSteer {
+                    steer_id,
                     compare_key: pending_steer_compare_keys.pop_front().unwrap_or_else(|| {
                         PendingSteerCompareKey {
                             message: user_message.text.clone(),
@@ -5041,6 +5068,7 @@ impl ChatWidget {
             suppress_session_configured_redraw: false,
             suppress_initial_user_message_submit: false,
             pending_notification: None,
+            editing_pending_steer_id: None,
             quit_shortcut_expires_at: None,
             quit_shortcut_key: None,
             turn_runtime_metrics: RuntimeMetricsSummary::default(),
@@ -5210,7 +5238,8 @@ impl ChatWidget {
             && self.bottom_pane.no_modal_or_popup_active()
             && self.has_poppable_queued_messages();
         if should_restore_queued_message {
-            if let Some(user_message) = self.pop_latest_queued_message_for_edit() {
+            if let Some((user_message, steer_id)) = self.pop_latest_queued_message_for_edit() {
+                self.editing_pending_steer_id = steer_id;
                 self.restore_user_message_to_composer(user_message);
                 self.refresh_pending_input_preview();
                 self.request_redraw();
@@ -5320,6 +5349,7 @@ impl ChatWidget {
                                 .take_recent_submission_mention_bindings(),
                         };
                         self.queue_user_message_with_options(user_message, action);
+                        self.editing_pending_steer_id = None;
                     }
                     InputResult::Command(cmd) => {
                         self.handle_slash_command_dispatch(cmd);
@@ -5895,7 +5925,13 @@ impl ChatWidget {
         } else {
             None
         };
-        let pending_steer = (!render_in_history).then(|| PendingSteer {
+        let pending_steer_id = (!render_in_history).then(|| {
+            self.editing_pending_steer_id
+                .clone()
+                .unwrap_or_else(|| uuid::Uuid::new_v4().to_string())
+        });
+        let pending_steer = pending_steer_id.as_ref().map(|steer_id| PendingSteer {
+            steer_id: steer_id.clone(),
             user_message: UserMessage {
                 text: text.clone(),
                 local_images: local_images.clone(),
@@ -5929,11 +5965,13 @@ impl ChatWidget {
             /*final_output_json_schema*/ None,
             collaboration_mode,
             personality,
+            pending_steer_id.clone(),
         );
 
         if !self.submit_op(op.clone()) {
             return (false, None);
         }
+        self.editing_pending_steer_id = None;
         if render_in_history {
             self.input_queue.user_turn_pending_start = true;
         }
@@ -5963,7 +6001,16 @@ impl ChatWidget {
         }
 
         if let Some(pending_steer) = pending_steer {
-            self.input_queue.pending_steers.push_back(pending_steer);
+            if let Some(existing) = self
+                .input_queue
+                .pending_steers
+                .iter_mut()
+                .find(|existing| existing.steer_id == pending_steer.steer_id)
+            {
+                *existing = pending_steer;
+            } else {
+                self.input_queue.pending_steers.push_back(pending_steer);
+            }
             self.transcript.saw_plan_item_this_turn = false;
             self.refresh_pending_input_preview();
         }

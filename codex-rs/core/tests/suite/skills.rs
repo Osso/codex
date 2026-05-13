@@ -77,6 +77,7 @@ async fn user_turn_includes_skill_instructions() -> Result<()> {
         turn_permission_fields(PermissionProfile::Disabled, test.config.cwd.as_path());
     test.codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![
                 UserInput::Text {

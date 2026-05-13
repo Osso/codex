@@ -104,6 +104,7 @@ fn sample_turn_steer_request() -> ClientRequest {
             thread_id: "thread-1".to_string(),
             expected_turn_id: "turn-1".to_string(),
             input: Vec::new(),
+            steer_id: None,
             responsesapi_client_metadata: None,
         },
     }

@@ -637,6 +637,7 @@ impl TestCodex {
                     text: prompt.into(),
                     text_elements: Vec::new(),
                 }],
+                steer_id: None,
                 final_output_json_schema: None,
                 cwd: self.config.cwd.to_path_buf(),
                 approval_policy,

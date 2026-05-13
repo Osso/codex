@@ -81,6 +81,7 @@ fn disabled_permission_user_turn(text: impl Into<String>, cwd: PathBuf, model: S
     let (sandbox_policy, permission_profile) =
         turn_permission_fields(PermissionProfile::Disabled, cwd.as_path());
     Op::UserTurn {
+        steer_id: None,
         environments: None,
         items: vec![UserInput::Text {
             text: text.into(),

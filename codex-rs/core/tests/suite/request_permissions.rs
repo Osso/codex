@@ -187,6 +187,7 @@ async fn submit_turn(
     let session_model = test.session_configured.model.clone();
     test.codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: prompt.into(),

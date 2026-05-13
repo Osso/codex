@@ -133,6 +133,11 @@ pub struct TurnStartResponse {
 pub struct TurnSteerParams {
     pub thread_id: String,
     pub input: Vec<UserInput>,
+    /// Optional client-generated identity for editable same-turn steering.
+    /// When another pending steer with this id exists, core replaces it before
+    /// delivery instead of appending duplicate input.
+    #[ts(optional = nullable)]
+    pub steer_id: Option<String>,
     /// Optional turn-scoped Responses API client metadata.
     #[experimental("turn/steer.responsesapiClientMetadata")]
     #[ts(optional = nullable)]

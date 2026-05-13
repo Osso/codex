@@ -143,6 +143,7 @@ async fn submit_turn(
         turn_permission_fields(permission_profile, test.config.cwd.as_path());
     test.codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: prompt.into(),

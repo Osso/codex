@@ -2611,6 +2611,7 @@ text(
 
     test.codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "use exec to inspect and call hidden tools".into(),

@@ -66,6 +66,7 @@ async fn turn_steer_requires_active_turn() -> Result<()> {
                 text: "steer".to_string(),
                 text_elements: Vec::new(),
             }],
+            steer_id: None,
             responsesapi_client_metadata: None,
             expected_turn_id: "turn-does-not-exist".to_string(),
         })
@@ -175,6 +176,7 @@ async fn turn_steer_rejects_oversized_text_input() -> Result<()> {
                 text: oversized_input.clone(),
                 text_elements: Vec::new(),
             }],
+            steer_id: None,
             responsesapi_client_metadata: None,
             expected_turn_id: turn.id.clone(),
         })
@@ -283,6 +285,7 @@ async fn turn_steer_returns_active_turn_id() -> Result<()> {
                 text: "steer".to_string(),
                 text_elements: Vec::new(),
             }],
+            steer_id: None,
             responsesapi_client_metadata: None,
             expected_turn_id: turn.id.clone(),
         })

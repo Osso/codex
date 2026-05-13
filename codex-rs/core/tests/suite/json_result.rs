@@ -76,6 +76,7 @@ async fn codex_returns_json_result(model: String) -> anyhow::Result<()> {
     // 1) Normal user input – should hit server once.
     codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "hello world".into(),

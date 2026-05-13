@@ -47,6 +47,7 @@ async fn submit_user_turn(
         turn_permission_fields(permission_profile, test.config.cwd.as_path());
     test.codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: prompt.into(),
@@ -127,6 +128,7 @@ async fn execpolicy_blocks_shell_invocation() -> Result<()> {
         turn_permission_fields(PermissionProfile::Disabled, test.config.cwd.as_path());
     test.codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "run shell command".into(),

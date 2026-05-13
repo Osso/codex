@@ -645,6 +645,7 @@ async fn submit_turn(
 
     test.codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: prompt.into(),
@@ -2579,6 +2580,7 @@ async fn matched_prefix_rule_runs_unsandboxed_under_zsh_fork() -> Result<()> {
         turn_permission_fields(permission_profile, test.cwd.path());
     test.codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "run allowed touch under zsh fork".into(),

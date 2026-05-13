@@ -114,6 +114,7 @@ async fn copy_paste_local_image_persists_rollout_request_shape() -> anyhow::Resu
 
     codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![
                 UserInput::LocalImage {
@@ -204,6 +205,7 @@ async fn drag_drop_image_persists_rollout_request_shape() -> anyhow::Result<()> 
 
     codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![
                 UserInput::Image {

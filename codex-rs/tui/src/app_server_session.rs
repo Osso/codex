@@ -590,6 +590,7 @@ impl AppServerSession {
         thread_id: ThreadId,
         turn_id: String,
         items: Vec<UserInput>,
+        steer_id: Option<String>,
     ) -> std::result::Result<TurnSteerResponse, TypedRequestError> {
         let request_id = self.next_request_id();
         self.client
@@ -598,6 +599,7 @@ impl AppServerSession {
                 params: TurnSteerParams {
                     thread_id: thread_id.to_string(),
                     input: items,
+                    steer_id,
                     responsesapi_client_metadata: None,
                     expected_turn_id: turn_id,
                 },

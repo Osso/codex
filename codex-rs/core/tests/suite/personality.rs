@@ -61,6 +61,7 @@ fn read_only_text_turn_with_personality(
     let (sandbox_policy, permission_profile) =
         turn_permission_fields(PermissionProfile::read_only(), test.cwd_path());
     Op::UserTurn {
+        steer_id: None,
         environments: None,
         items: vec![UserInput::Text {
             text: text.into(),

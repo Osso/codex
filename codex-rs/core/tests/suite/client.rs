@@ -1775,6 +1775,7 @@ async fn user_turn_collaboration_mode_overrides_model_and_effort() -> anyhow::Re
 
     codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "hello".into(),
@@ -1897,6 +1898,7 @@ async fn user_turn_explicit_reasoning_summary_overrides_model_catalog_default() 
 
     codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "hello".into(),

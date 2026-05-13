@@ -721,6 +721,7 @@ async fn per_turn_overrides_keep_cached_prefix_and_key_constant() -> anyhow::Res
         turn_permission_fields(permission_profile, new_cwd.path());
     codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "hello 2".into(),
@@ -835,6 +836,7 @@ async fn send_user_turn_with_no_changes_does_not_send_environment_context() -> a
 
     codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "hello 1".into(),
@@ -858,6 +860,7 @@ async fn send_user_turn_with_no_changes_does_not_send_environment_context() -> a
 
     codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "hello 2".into(),
@@ -964,6 +967,7 @@ async fn send_user_turn_with_changes_sends_environment_context() -> anyhow::Resu
 
     codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "hello 1".into(),
@@ -989,6 +993,7 @@ async fn send_user_turn_with_changes_sends_environment_context() -> anyhow::Resu
         turn_permission_fields(PermissionProfile::Disabled, default_cwd.as_path());
     codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "hello 2".into(),

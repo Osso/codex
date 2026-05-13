@@ -106,6 +106,7 @@ fn read_only_user_turn_with_model(
     let (sandbox_policy, permission_profile) =
         turn_permission_fields(PermissionProfile::read_only(), cwd.as_path());
     Op::UserTurn {
+        steer_id: None,
         items: vec![UserInput::Text {
             text: text.into(),
             text_elements: Vec::new(),

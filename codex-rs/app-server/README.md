@@ -815,12 +815,15 @@ Use `thread/backgroundTerminals/clean` to terminate all running background termi
 ### Example: Steer an active turn
 
 Use `turn/steer` to append additional user input to the currently active regular turn. This does
-not emit `turn/started` and does not accept turn context overrides.
+not emit `turn/started` and does not accept turn context overrides. Clients that allow editing a
+steer before Codex consumes it can send a stable `steerId`; a later `turn/steer` with the same
+`steerId` replaces the still-pending input instead of appending a duplicate.
 
 ```json
 { "method": "turn/steer", "id": 32, "params": {
     "threadId": "thr_123",
     "input": [ { "type": "text", "text": "Actually focus on failing tests first." } ],
+    "steerId": "composer-draft-1",
     "expectedTurnId": "turn_456"
 } }
 { "id": 32, "result": { "turnId": "turn_456" } }

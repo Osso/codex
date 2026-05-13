@@ -217,8 +217,29 @@ impl CodexThread {
         expected_turn_id: Option<&str>,
         responsesapi_client_metadata: Option<HashMap<String, String>>,
     ) -> Result<String, SteerInputError> {
+        self.steer_input_with_id(
+            input,
+            expected_turn_id,
+            responsesapi_client_metadata,
+            /*steer_id*/ None,
+        )
+        .await
+    }
+
+    pub async fn steer_input_with_id(
+        &self,
+        input: Vec<UserInput>,
+        expected_turn_id: Option<&str>,
+        responsesapi_client_metadata: Option<HashMap<String, String>>,
+        steer_id: Option<String>,
+    ) -> Result<String, SteerInputError> {
         self.codex
-            .steer_input(input, expected_turn_id, responsesapi_client_metadata)
+            .steer_input_with_id(
+                input,
+                expected_turn_id,
+                responsesapi_client_metadata,
+                steer_id,
+            )
             .await
     }
 

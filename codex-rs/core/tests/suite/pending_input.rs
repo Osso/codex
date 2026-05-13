@@ -113,6 +113,7 @@ async fn submit_danger_full_access_user_turn(test: &TestCodex, text: &str) {
         turn_permission_fields(PermissionProfile::Disabled, test.config.cwd.as_path());
     test.codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: text.to_string(),

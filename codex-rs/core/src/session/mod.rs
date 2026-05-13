@@ -762,8 +762,29 @@ impl Codex {
         expected_turn_id: Option<&str>,
         responsesapi_client_metadata: Option<HashMap<String, String>>,
     ) -> Result<String, SteerInputError> {
+        self.steer_input_with_id(
+            input,
+            expected_turn_id,
+            responsesapi_client_metadata,
+            /*steer_id*/ None,
+        )
+        .await
+    }
+
+    pub async fn steer_input_with_id(
+        &self,
+        input: Vec<UserInput>,
+        expected_turn_id: Option<&str>,
+        responsesapi_client_metadata: Option<HashMap<String, String>>,
+        steer_id: Option<String>,
+    ) -> Result<String, SteerInputError> {
         self.session
-            .steer_input(input, expected_turn_id, responsesapi_client_metadata)
+            .steer_input_with_id(
+                input,
+                expected_turn_id,
+                responsesapi_client_metadata,
+                steer_id,
+            )
             .await
     }
 
@@ -3028,6 +3049,22 @@ impl Session {
         expected_turn_id: Option<&str>,
         responsesapi_client_metadata: Option<HashMap<String, String>>,
     ) -> Result<String, SteerInputError> {
+        self.steer_input_with_id(
+            input,
+            expected_turn_id,
+            responsesapi_client_metadata,
+            /*steer_id*/ None,
+        )
+        .await
+    }
+
+    pub async fn steer_input_with_id(
+        &self,
+        input: Vec<UserInput>,
+        expected_turn_id: Option<&str>,
+        responsesapi_client_metadata: Option<HashMap<String, String>>,
+        steer_id: Option<String>,
+    ) -> Result<String, SteerInputError> {
         if input.is_empty() {
             return Err(SteerInputError::EmptyInput);
         }
@@ -3075,7 +3112,7 @@ impl Session {
         }
 
         let mut turn_state = active_turn.turn_state.lock().await;
-        turn_state.push_pending_input(input.into());
+        turn_state.upsert_pending_steer_input(steer_id, input.into());
         turn_state.accept_mailbox_delivery_for_current_turn();
         Ok(active_turn_id.clone())
     }

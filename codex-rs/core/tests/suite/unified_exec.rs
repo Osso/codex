@@ -190,6 +190,7 @@ async fn submit_unified_exec_turn(
 
     test.codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: prompt.into(),
@@ -275,6 +276,7 @@ async fn unified_exec_intercepts_apply_patch_exec_command() -> Result<()> {
 
     codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "apply patch via unified exec".into(),
@@ -2111,6 +2113,7 @@ async fn unified_exec_keeps_long_running_session_after_turn_end() -> Result<()> 
 
     codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "keep unified exec process after turn end".into(),
@@ -2206,6 +2209,7 @@ async fn unified_exec_interrupt_preserves_long_running_session() -> Result<()> {
 
     codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "interrupt long-running unified exec".into(),
@@ -2680,6 +2684,7 @@ async fn unified_exec_runs_under_sandbox() -> Result<()> {
 
     codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "summarize large output".into(),
@@ -2799,6 +2804,7 @@ async fn unified_exec_enforces_glob_deny_read_policy() -> Result<()> {
     let session_model = session_configured.model.clone();
     codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "read the fixture files".into(),
@@ -2929,6 +2935,7 @@ async fn unified_exec_python_prompt_under_seatbelt() -> Result<()> {
 
     codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "start python under seatbelt".into(),

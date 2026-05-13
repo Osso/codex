@@ -38,6 +38,7 @@ async fn run_turn(test: &TestCodex, prompt: &str) -> anyhow::Result<()> {
 
     test.codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: prompt.into(),
@@ -359,6 +360,7 @@ async fn shell_tools_start_before_response_completed_when_stream_delayed() -> an
         turn_permission_fields(PermissionProfile::Disabled, test.cwd.path());
     test.codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "stream delayed completion".into(),

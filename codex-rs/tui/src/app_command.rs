@@ -30,6 +30,7 @@ pub(crate) enum AppCommand {
     },
     UserTurn {
         items: Vec<UserInput>,
+        steer_id: Option<String>,
         cwd: PathBuf,
         approval_policy: AskForApproval,
         approvals_reviewer: Option<ApprovalsReviewer>,
@@ -126,9 +127,11 @@ impl AppCommand {
         final_output_json_schema: Option<Value>,
         collaboration_mode: Option<CollaborationMode>,
         personality: Option<Personality>,
+        steer_id: Option<String>,
     ) -> Self {
         Self::UserTurn {
             items,
+            steer_id,
             cwd,
             approval_policy,
             approvals_reviewer: None,

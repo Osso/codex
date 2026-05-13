@@ -113,7 +113,7 @@ pub(crate) struct TurnState {
     pending_user_input: HashMap<String, oneshot::Sender<RequestUserInputResponse>>,
     pending_elicitations: HashMap<(String, RequestId), oneshot::Sender<ElicitationResponse>>,
     pending_dynamic_tools: HashMap<String, oneshot::Sender<DynamicToolResponse>>,
-    pending_input: Vec<ResponseInputItem>,
+    pending_input: Vec<PendingInputItem>,
     mailbox_delivery_phase: MailboxDeliveryPhase,
     granted_permissions: Option<AdditionalPermissionProfile>,
     strict_auto_review_enabled: bool,
@@ -219,7 +219,35 @@ impl TurnState {
     }
 
     pub(crate) fn push_pending_input(&mut self, input: ResponseInputItem) {
-        self.pending_input.push(input);
+        self.pending_input.push(PendingInputItem {
+            steer_id: None,
+            input,
+        });
+    }
+
+    pub(crate) fn upsert_pending_steer_input(
+        &mut self,
+        steer_id: Option<String>,
+        input: ResponseInputItem,
+    ) {
+        if let Some(steer_id) = steer_id {
+            if let Some(pending_input) = self
+                .pending_input
+                .iter_mut()
+                .find(|pending_input| pending_input.steer_id.as_deref() == Some(steer_id.as_str()))
+            {
+                pending_input.input = input;
+                return;
+            }
+
+            self.pending_input.push(PendingInputItem {
+                steer_id: Some(steer_id),
+                input,
+            });
+            return;
+        }
+
+        self.push_pending_input(input);
     }
 
     pub(crate) fn prepend_pending_input(&mut self, mut input: Vec<ResponseInputItem>) {
@@ -227,6 +255,13 @@ impl TurnState {
             return;
         }
 
+        let mut input = input
+            .drain(..)
+            .map(|input| PendingInputItem {
+                steer_id: None,
+                input,
+            })
+            .collect::<Vec<_>>();
         input.append(&mut self.pending_input);
         self.pending_input = input;
     }
@@ -237,7 +272,9 @@ impl TurnState {
         } else {
             let mut ret = Vec::new();
             std::mem::swap(&mut ret, &mut self.pending_input);
-            ret
+            ret.into_iter()
+                .map(|pending_input| pending_input.input)
+                .collect()
         }
     }
 
@@ -273,6 +310,11 @@ impl TurnState {
     pub(crate) fn strict_auto_review_enabled(&self) -> bool {
         self.strict_auto_review_enabled
     }
+}
+
+struct PendingInputItem {
+    steer_id: Option<String>,
+    input: ResponseInputItem,
 }
 
 impl ActiveTurn {

@@ -113,7 +113,7 @@ pub(super) async fn user_input_or_turn_inner(
     op: Op,
     mirror_user_text_to_realtime: Option<()>,
 ) {
-    let (items, updates, responsesapi_client_metadata) = match op {
+    let (items, updates, responsesapi_client_metadata, steer_id) = match op {
         Op::UserTurn {
             cwd,
             approval_policy,
@@ -126,6 +126,7 @@ pub(super) async fn user_input_or_turn_inner(
             service_tier,
             final_output_json_schema,
             items,
+            steer_id,
             collaboration_mode,
             personality,
             environments,
@@ -160,6 +161,7 @@ pub(super) async fn user_input_or_turn_inner(
                     app_server_client_version: None,
                 },
                 None,
+                steer_id,
             )
         }
         Op::UserInputWithTurnContext {
@@ -212,6 +214,7 @@ pub(super) async fn user_input_or_turn_inner(
                     app_server_client_version: None,
                 },
                 responsesapi_client_metadata,
+                None,
             )
         }
         Op::UserInput {
@@ -227,6 +230,7 @@ pub(super) async fn user_input_or_turn_inner(
                 ..Default::default()
             },
             responsesapi_client_metadata,
+            None,
         ),
         _ => unreachable!(),
     };
@@ -238,10 +242,11 @@ pub(super) async fn user_input_or_turn_inner(
     sess.maybe_emit_unknown_model_warning_for_turn(current_context.as_ref())
         .await;
     let accepted_items = match sess
-        .steer_input(
+        .steer_input_with_id(
             items.clone(),
             /*expected_turn_id*/ None,
             responsesapi_client_metadata.clone(),
+            steer_id,
         )
         .await
     {

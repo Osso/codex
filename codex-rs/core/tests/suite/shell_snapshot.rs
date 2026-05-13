@@ -160,6 +160,7 @@ async fn run_snapshot_command_with_options(
 
     codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "run unified exec with shell snapshot".into(),
@@ -255,6 +256,7 @@ async fn run_shell_command_snapshot_with_options(
 
     codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "run shell_command with shell snapshot".into(),
@@ -330,6 +332,7 @@ async fn run_tool_turn_on_harness(
         turn_permission_fields(PermissionProfile::Disabled, cwd.as_path());
     codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: prompt.into(),
@@ -569,6 +572,7 @@ async fn shell_command_snapshot_still_intercepts_apply_patch() -> Result<()> {
         turn_permission_fields(PermissionProfile::Disabled, cwd.as_path());
     codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "apply patch via shell_command with snapshot".into(),

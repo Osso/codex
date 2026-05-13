@@ -18002,6 +18002,13 @@
             },
             "type": "array"
           },
+          "steerId": {
+            "description": "Optional client-generated identity for editable same-turn steering. When another pending steer with this id exists, core replaces it before delivery instead of appending duplicate input.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "threadId": {
             "type": "string"
           }

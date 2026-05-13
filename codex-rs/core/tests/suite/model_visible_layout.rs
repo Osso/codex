@@ -118,6 +118,7 @@ async fn snapshot_model_visible_layout_turn_overrides() -> Result<()> {
 
     test.codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "first turn".into(),
@@ -148,6 +149,7 @@ async fn snapshot_model_visible_layout_turn_overrides() -> Result<()> {
     );
     test.codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "second turn with context updates".into(),
@@ -231,6 +233,7 @@ async fn snapshot_model_visible_layout_cwd_change_does_not_refresh_agents() -> R
 
     test.codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "first turn in agents_one".into(),
@@ -259,6 +262,7 @@ async fn snapshot_model_visible_layout_cwd_change_does_not_refresh_agents() -> R
         turn_permission_fields(PermissionProfile::read_only(), cwd_two.as_path());
     test.codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "second turn in agents_two".into(),
@@ -377,6 +381,7 @@ async fn snapshot_model_visible_layout_resume_with_personality_change() -> Resul
     resumed
         .codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "resume and change personality".into(),

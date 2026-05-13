@@ -4699,6 +4699,7 @@ async fn user_turn_updates_approvals_reviewer() {
                 text: "hello".to_string(),
                 text_elements: Vec::new(),
             }],
+            steer_id: None,
             cwd: config.cwd.to_path_buf(),
             approval_policy: config.permissions.approval_policy.value(),
             approvals_reviewer: Some(codex_config::types::ApprovalsReviewer::AutoReview),
@@ -7136,6 +7137,119 @@ async fn steer_input_returns_active_turn_id() {
     assert_eq!(turn_id, tc.sub_id);
     assert!(sess.has_pending_input().await);
 }
+
+#[tokio::test]
+async fn steer_input_replaces_pending_input_with_matching_id() {
+    let (sess, tc, _rx) = make_session_and_context_with_rx().await;
+    let input = vec![UserInput::Text {
+        text: "hello".to_string(),
+        text_elements: Vec::new(),
+    }];
+    sess.spawn_task(
+        Arc::clone(&tc),
+        input,
+        NeverEndingTask {
+            kind: TaskKind::Regular,
+            listen_to_cancellation_token: false,
+        },
+    )
+    .await;
+
+    let original = vec![UserInput::Text {
+        text: "original steer".to_string(),
+        text_elements: Vec::new(),
+    }];
+    sess.steer_input_with_id(
+        original,
+        Some(&tc.sub_id),
+        /*responsesapi_client_metadata*/ None,
+        /*steer_id*/ Some("steer-1".to_string()),
+    )
+    .await
+    .expect("initial steer should be accepted");
+
+    let edited = vec![UserInput::Text {
+        text: "edited steer".to_string(),
+        text_elements: Vec::new(),
+    }];
+    sess.steer_input_with_id(
+        edited,
+        Some(&tc.sub_id),
+        /*responsesapi_client_metadata*/ None,
+        /*steer_id*/ Some("steer-1".to_string()),
+    )
+    .await
+    .expect("matching steer id should replace pending input");
+
+    let pending_input = sess.get_pending_input().await;
+    assert_eq!(
+        pending_input,
+        vec![ResponseInputItem::from(vec![UserInput::Text {
+            text: "edited steer".to_string(),
+            text_elements: Vec::new(),
+        }])]
+    );
+}
+
+#[tokio::test]
+async fn steer_input_appends_pending_input_without_matching_id() {
+    let (sess, tc, _rx) = make_session_and_context_with_rx().await;
+    let input = vec![UserInput::Text {
+        text: "hello".to_string(),
+        text_elements: Vec::new(),
+    }];
+    sess.spawn_task(
+        Arc::clone(&tc),
+        input,
+        NeverEndingTask {
+            kind: TaskKind::Regular,
+            listen_to_cancellation_token: false,
+        },
+    )
+    .await;
+
+    let original = vec![UserInput::Text {
+        text: "first steer".to_string(),
+        text_elements: Vec::new(),
+    }];
+    sess.steer_input_with_id(
+        original,
+        Some(&tc.sub_id),
+        /*responsesapi_client_metadata*/ None,
+        /*steer_id*/ Some("steer-1".to_string()),
+    )
+    .await
+    .expect("initial steer should be accepted");
+
+    let second = vec![UserInput::Text {
+        text: "second steer".to_string(),
+        text_elements: Vec::new(),
+    }];
+    sess.steer_input_with_id(
+        second,
+        Some(&tc.sub_id),
+        /*responsesapi_client_metadata*/ None,
+        /*steer_id*/ Some("steer-2".to_string()),
+    )
+    .await
+    .expect("different steer id should append pending input");
+
+    let pending_input = sess.get_pending_input().await;
+    assert_eq!(
+        pending_input,
+        vec![
+            ResponseInputItem::from(vec![UserInput::Text {
+                text: "first steer".to_string(),
+                text_elements: Vec::new(),
+            }]),
+            ResponseInputItem::from(vec![UserInput::Text {
+                text: "second steer".to_string(),
+                text_elements: Vec::new(),
+            }]),
+        ]
+    );
+}
+
 #[tokio::test]
 async fn prepend_pending_input_keeps_older_tail_ahead_of_newer_input() {
     let (sess, tc, _rx) = make_session_and_context_with_rx().await;

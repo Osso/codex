@@ -177,6 +177,7 @@ async fn collaboration_instructions_added_on_user_turn() -> Result<()> {
 
     test.codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "hello".into(),
@@ -299,6 +300,7 @@ async fn user_turn_overrides_collaboration_instructions_after_override() -> Resu
 
     test.codex
         .submit(Op::UserTurn {
+            steer_id: None,
             environments: None,
             items: vec![UserInput::Text {
                 text: "hello".into(),

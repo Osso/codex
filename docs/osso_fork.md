@@ -282,8 +282,11 @@ upstream multi-agent work.
   the queued-message edit binding instead of the older Shift-Left wording
   (`codex-rs/tui/src/bottom_pane/pending_input_preview.rs`,
   `codex-rs/tui/src/chatwidget.rs`, snapshot updates).
-- **Pending steer pop on Up.** Pending steering messages can be popped back into
-  the composer with Up, with focused coverage in composer submission tests.
+- **Editable pending steers.** Pending steering messages can be recalled with
+  Up, edited, and re-submitted with the same `steerId`. Core replaces the
+  still-pending input instead of appending both original and edited text
+  (`codex-rs/core/src/state/turn.rs`, `codex-rs/core/src/session/mod.rs`,
+  `codex-rs/tui/src/chatwidget.rs`, `codex-rs/app-server-protocol/src/protocol/v2/turn.rs`).
 - **Suppress queued-turn completion notifications.** Queued edits and steering
   messages do not emit a redundant completion notification when the queued turn
   finishes.
