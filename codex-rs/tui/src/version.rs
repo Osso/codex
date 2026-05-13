@@ -1,8 +1,8 @@
 /// The machine-readable Codex version used for update checks and version gates.
-pub const CODEX_CLI_VERSION: &str = "0.120.0";
+pub const CODEX_CLI_VERSION: &str = "0.131.0-alpha.8";
 
 /// The displayed Codex CLI version for this local build line.
-pub const CODEX_CLI_DISPLAY_VERSION: &str = "0.120.0-osso";
+pub const CODEX_CLI_DISPLAY_VERSION: &str = "0.131.0-alpha.8-osso";
 
 #[cfg(test)]
 mod tests {

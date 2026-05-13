@@ -398,7 +398,7 @@ independent of upstream release machinery.
   `cargo build -p codex-cli --bin codex --release --locked`, then installs the
   resulting binary into `$CODEX_INSTALL_ROOT/bin`.
 - **Branding split.** `CODEX_CLI_VERSION` (machine-readable, tracks upstream
-  semver) vs `CODEX_CLI_DISPLAY_VERSION` (e.g. `0.120.0-osso`). Update checks
+  semver) vs `CODEX_CLI_DISPLAY_VERSION` (e.g. `0.131.0-alpha.8-osso`). Update checks
   use the former, UI uses the latter.
   - `codex-rs/tui/src/version.rs`
   - `codex-rs/cli/src/main.rs`
