@@ -50,6 +50,7 @@ use crossterm::event::KeyEvent;
 use crossterm::event::KeyEventKind;
 
 const NO_PREVIOUS_MESSAGE_TO_EDIT: &str = "No previous message to edit.";
+const BACKTRACK_PICKER_MAX_ROWS: usize = 14;
 
 /// Aggregates all backtrack-related state used by the App.
 #[derive(Default)]
@@ -322,15 +323,18 @@ impl App {
         }
 
         self.chat_widget.clear_esc_backtrack_hint();
+        let items = backtrack_picker_items(&self.transcript_cells);
+        let initial_selected_idx = items.len().checked_sub(1);
         self.chat_widget.show_selection_view(SelectionViewParams {
             view_id: Some("backtrack-picker"),
             title: Some("Edit Previous Prompt".to_string()),
             subtitle: Some("Select a prompt to restore into the composer.".to_string()),
-            items: backtrack_picker_items(&self.transcript_cells),
+            items,
             row_display: SelectionRowDisplay::SingleLine,
+            max_rows: BACKTRACK_PICKER_MAX_ROWS,
             is_searchable: true,
             search_placeholder: Some("Search prompts".to_string()),
-            initial_selected_idx: Some(0),
+            initial_selected_idx,
             on_cancel: Some(Box::new(|tx: &AppEventSender| {
                 tx.send(AppEvent::CancelBacktrackSelection);
             })),

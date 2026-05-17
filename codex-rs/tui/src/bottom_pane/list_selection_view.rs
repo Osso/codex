@@ -170,6 +170,7 @@ pub(crate) struct SelectionViewParams {
     pub search_placeholder: Option<String>,
     pub col_width_mode: ColumnWidthMode,
     pub row_display: SelectionRowDisplay,
+    pub max_rows: usize,
     /// Rendered left-column width to use for auto-sized rows.
     pub name_column_width: Option<usize>,
     pub header: Box<dyn Renderable>,
@@ -218,6 +219,7 @@ impl Default for SelectionViewParams {
             search_placeholder: None,
             col_width_mode: ColumnWidthMode::AutoVisible,
             row_display: SelectionRowDisplay::Wrapped,
+            max_rows: MAX_POPUP_ROWS,
             name_column_width: None,
             header: Box::new(()),
             initial_selected_idx: None,
@@ -254,6 +256,7 @@ pub(crate) struct ListSelectionView {
     search_placeholder: Option<String>,
     col_width_mode: ColumnWidthMode,
     row_display: SelectionRowDisplay,
+    max_rows: usize,
     name_column_width: Option<usize>,
     filtered_indices: Vec<usize>,
     last_selected_actual_idx: Option<usize>,
@@ -329,6 +332,7 @@ impl ListSelectionView {
             },
             col_width_mode: params.col_width_mode,
             row_display: params.row_display,
+            max_rows: params.max_rows.max(1),
             name_column_width: params.name_column_width,
             filtered_indices: Vec::new(),
             last_selected_actual_idx: None,
@@ -397,8 +401,8 @@ impl ListSelectionView {
             .map(|tab| tab.id.as_str())
     }
 
-    fn max_visible_rows(len: usize) -> usize {
-        MAX_POPUP_ROWS.min(len.max(1))
+    fn max_visible_rows(&self, len: usize) -> usize {
+        self.max_rows.min(len.max(1))
     }
 
     fn selected_actual_idx(&self) -> Option<usize> {
@@ -467,7 +471,7 @@ impl ListSelectionView {
             .or_else(|| self.first_enabled_visible_idx())
             .or_else(|| (len > 0).then_some(0));
 
-        let visible = Self::max_visible_rows(len);
+        let visible = self.max_visible_rows(len);
         self.state.clamp_selection(len);
         self.state.ensure_visible(len, visible);
 
@@ -654,7 +658,7 @@ impl ListSelectionView {
         let before = self.selected_actual_idx();
         let len = self.visible_len();
         self.state.move_up_wrap(len);
-        let visible = Self::max_visible_rows(len);
+        let visible = self.max_visible_rows(len);
         self.state.ensure_visible(len, visible);
         self.skip_disabled_up();
         if self.selected_actual_idx() != before {
@@ -666,7 +670,7 @@ impl ListSelectionView {
         let before = self.selected_actual_idx();
         let len = self.visible_len();
         self.state.move_down_wrap(len);
-        let visible = Self::max_visible_rows(len);
+        let visible = self.max_visible_rows(len);
         self.state.ensure_visible(len, visible);
         self.skip_disabled_down();
         if self.selected_actual_idx() != before {
@@ -975,18 +979,18 @@ impl Renderable for ListSelectionView {
             Self::rows_width(width)
         };
 
-        // Measure wrapped height for up to MAX_POPUP_ROWS items.
+        // Measure wrapped height for up to the configured row cap.
         let rows = self.build_rows();
         let column_width = ColumnWidthConfig::new(self.col_width_mode, self.name_column_width);
         let rows_height = match self.row_display {
             SelectionRowDisplay::Wrapped => measure_rows_height_with_col_width_mode(
                 &rows,
                 &self.state,
-                MAX_POPUP_ROWS,
+                self.max_rows,
                 effective_rows_width.saturating_add(1),
                 column_width,
             ),
-            SelectionRowDisplay::SingleLine => rows.len().clamp(1, MAX_POPUP_ROWS) as u16,
+            SelectionRowDisplay::SingleLine => rows.len().clamp(1, self.max_rows) as u16,
         };
 
         let header = self.active_header();
@@ -1060,11 +1064,11 @@ impl Renderable for ListSelectionView {
             SelectionRowDisplay::Wrapped => measure_rows_height_with_col_width_mode(
                 &rows,
                 &self.state,
-                MAX_POPUP_ROWS,
+                self.max_rows,
                 effective_rows_width.saturating_add(1),
                 column_width,
             ),
-            SelectionRowDisplay::SingleLine => rows.len().clamp(1, MAX_POPUP_ROWS) as u16,
+            SelectionRowDisplay::SingleLine => rows.len().clamp(1, self.max_rows) as u16,
         };
 
         // Stacked (fallback) side content height — only used when not side-by-side.

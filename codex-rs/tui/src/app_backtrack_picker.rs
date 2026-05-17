@@ -13,7 +13,7 @@ pub(crate) fn backtrack_picker_items(cells: &[Arc<dyn HistoryCell>]) -> Vec<Sele
     let mut items = Vec::new();
     let user_positions: Vec<usize> = user_positions_iter(cells).collect();
 
-    for (nth_user_message, cell_idx) in user_positions.into_iter().enumerate().rev() {
+    for (nth_user_message, cell_idx) in user_positions.into_iter().enumerate() {
         let Some(user_cell) = cells
             .get(cell_idx)
             .and_then(|cell| cell.as_any().downcast_ref::<UserHistoryCell>())
@@ -83,7 +83,7 @@ mod tests {
     }
 
     #[test]
-    fn backtrack_picker_items_show_one_prompt_per_line_newest_first() {
+    fn backtrack_picker_items_show_one_prompt_per_line_oldest_first() {
         let cells: Vec<Arc<dyn HistoryCell>> = vec![
             user_cell("first prompt"),
             Arc::new(AgentMessageCell::new(
@@ -100,7 +100,7 @@ mod tests {
                 .iter()
                 .map(|item| item.name.as_str())
                 .collect::<Vec<_>>(),
-            vec!["second prompt with details", "first prompt"]
+            vec!["first prompt", "second prompt with details"]
         );
     }
 }
