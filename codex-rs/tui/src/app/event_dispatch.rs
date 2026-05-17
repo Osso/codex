@@ -273,6 +273,13 @@ impl App {
                     tui.frame_requester().schedule_frame();
                 }
             }
+            AppEvent::ApplyBacktrackSelection(selection) => {
+                self.apply_backtrack_selection(tui, selection);
+            }
+            AppEvent::CancelBacktrackSelection => {
+                self.reset_backtrack_state();
+                tui.frame_requester().schedule_frame();
+            }
             AppEvent::StartCommitAnimation => {
                 if self
                     .commit_anim_running

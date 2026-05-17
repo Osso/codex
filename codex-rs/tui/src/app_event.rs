@@ -32,6 +32,7 @@ use codex_protocol::openai_models::ModelPreset;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use codex_utils_approval_presets::ApprovalPreset;
 
+use crate::app_backtrack::BacktrackSelection;
 use crate::app_command::AppCommand;
 use crate::bottom_pane::ApprovalRequest;
 use crate::bottom_pane::StatusLineItem;
@@ -520,6 +521,9 @@ pub(crate) enum AppEvent {
     ApplyThreadRollback {
         num_turns: u32,
     },
+
+    ApplyBacktrackSelection(BacktrackSelection),
+    CancelBacktrackSelection,
 
     StartCommitAnimation,
     StopCommitAnimation,

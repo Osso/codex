@@ -77,6 +77,7 @@ pub(crate) use codex_app_server_client::legacy_core;
 mod additional_dirs;
 mod app;
 mod app_backtrack;
+mod app_backtrack_picker;
 mod app_command;
 mod app_event;
 mod app_event_sender;

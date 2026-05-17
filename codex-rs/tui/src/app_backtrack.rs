@@ -29,8 +29,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::app::App;
+use crate::app_backtrack_picker::backtrack_picker_items;
 use crate::app_command::AppCommand;
 use crate::app_event::AppEvent;
+use crate::app_event_sender::AppEventSender;
+use crate::bottom_pane::SelectionRowDisplay;
+use crate::bottom_pane::SelectionViewParams;
 #[cfg(test)]
 use crate::history_cell::AgentMessageCell;
 use crate::history_cell::SessionInfoCell;
@@ -267,16 +271,6 @@ impl App {
         }
     }
 
-    /// Open transcript overlay (enters alternate screen and shows full transcript).
-    pub(crate) fn open_transcript_overlay(&mut self, tui: &mut tui::Tui) {
-        let _ = tui.enter_alt_screen();
-        self.overlay = Some(Overlay::new_transcript(
-            self.transcript_cells.clone(),
-            self.keymap.pager.clone(),
-        ));
-        tui.frame_requester().schedule_frame();
-    }
-
     /// Close transcript overlay and restore normal UI.
     pub(crate) fn close_transcript_overlay(&mut self, tui: &mut tui::Tui) {
         let _ = tui.leave_alt_screen();
@@ -317,7 +311,7 @@ impl App {
         }
     }
 
-    /// Open overlay and begin backtrack preview flow (first step + highlight).
+    /// Open a compact prompt picker for choosing which user turn to edit.
     fn open_backtrack_preview(&mut self, tui: &mut tui::Tui) {
         if !has_backtrack_target(&self.transcript_cells) {
             self.reset_backtrack_state();
@@ -327,11 +321,22 @@ impl App {
             return;
         }
 
-        self.open_transcript_overlay(tui);
-        self.backtrack.overlay_preview_active = true;
-        // Composer is hidden by overlay; clear its hint.
         self.chat_widget.clear_esc_backtrack_hint();
-        self.step_backtrack_and_highlight(tui);
+        self.chat_widget.show_selection_view(SelectionViewParams {
+            view_id: Some("backtrack-picker"),
+            title: Some("Edit Previous Prompt".to_string()),
+            subtitle: Some("Select a prompt to restore into the composer.".to_string()),
+            items: backtrack_picker_items(&self.transcript_cells),
+            row_display: SelectionRowDisplay::SingleLine,
+            is_searchable: true,
+            search_placeholder: Some("Search prompts".to_string()),
+            initial_selected_idx: Some(0),
+            on_cancel: Some(Box::new(|tx: &AppEventSender| {
+                tx.send(AppEvent::CancelBacktrackSelection);
+            })),
+            ..Default::default()
+        });
+        tui.frame_requester().schedule_frame();
     }
 
     /// When overlay is already open, begin preview mode and select latest user message.
@@ -521,6 +526,7 @@ impl App {
         tui: &mut tui::Tui,
         selection: BacktrackSelection,
     ) {
+        self.reset_backtrack_state();
         self.apply_backtrack_rollback(selection);
         tui.frame_requester().schedule_frame();
     }
