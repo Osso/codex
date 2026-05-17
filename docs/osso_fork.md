@@ -34,7 +34,7 @@ is prepended to the next user message as text content.
 - `codex-rs/hooks/src/events/common.rs` (shared parsing, apply_patch translation)
 - `codex-rs/hooks/src/engine/output_parser.rs`
 - `codex-rs/hooks/src/schema.rs`
-- `codex-rs/hooks/generated/stop.command.output.schema.json`
+- `codex-rs/hooks/schema/generated/stop.command.output.schema.json`
 - `codex-rs/core/src/session/turn.rs` (prepend helper, CRLF spacer)
 - `codex-rs/core/src/state/session.rs`
 - `codex-rs/tui/src/history_cell/hook_cell.rs` (handler-name rendering)
@@ -170,7 +170,7 @@ today's tests assert.
 **Key files.**
 - `codex-rs/core/src/tools/handlers/multi_agents_v2/*`
 - `codex-rs/core/src/tools/handlers/multi_agents_common.rs` (shared helpers)
-- `codex-rs/tools/src/tool_registry_plan.rs` (registry defaulting)
+- `codex-rs/core/src/tools/spec_plan.rs` (registry defaulting)
 - `codex-rs/tools/src/tool_config.rs`
 - `codex-rs/features/src/lib.rs` (`Feature::MultiAgentV2`,
   `Feature::LegacyMultiAgentV1` — gone)
@@ -179,7 +179,7 @@ today's tests assert.
 
 **Tests to re-run.**
 - `cargo test -p codex-core tools::handlers::multi_agents_tests`
-- `cargo test -p codex-tools tool_registry_plan_tests`
+- `cargo test -p codex-core spec_plan_tests`
 - `cargo test -p codex-app-server suite::v2::turn_start`
 
 **Rebase risk. HIGH.** Upstream still ships v1 alongside v2. After a rebase:
@@ -195,30 +195,28 @@ today's tests assert.
 
 ## 8. Unified exec is the only public shell tool
 
-**Purpose.** The fork registers only `exec_command` / `write_stdin` (backed
-by `UnifiedExecHandler`). The four legacy aliases (`shell`,
-`container.exec`, `local_shell`, `shell_command`) and their
-`ShellHandler` / `ShellCommandHandler` implementations were removed in
-commit `b1c1c6e350`. The deprecated `Feature::LegacyShellCompat` flag is
-gone.
+**Purpose.** The fork publicly registers only `exec_command` / `write_stdin`
+(backed by `UnifiedExecHandler`). The deprecated `Feature::LegacyShellCompat`
+flag is gone, and the old aliases (`shell`, `container.exec`, `local_shell`,
+`shell_command`) are not exposed by the registry. Some legacy handler source
+still exists as internal compatibility plumbing and must not be reintroduced
+as public tools.
 
 **Key files.**
-- `codex-rs/core/src/tools/handlers/shell.rs` — **deleted**
-- `codex-rs/core/src/tools/handlers/shell_tests.rs` — **deleted**
-- `codex-rs/core/src/tools/spec.rs` (only registers UnifiedExec)
+- `codex-rs/core/src/tools/spec_plan.rs` (only registers UnifiedExec as public shell)
+- `codex-rs/core/src/tools/handlers/shell_spec.rs`
 - `codex-rs/core/src/tools/runtimes/shell.rs`
 - `codex-rs/core/src/tools/runtimes/shell/unix_escalation.rs`
 - `codex-rs/core/src/tools/runtimes/shell/zsh_fork_backend.rs`
-- `codex-rs/tools/src/tool_registry_plan.rs` (no `legacy_shell_compat` block)
+- `codex-rs/core/src/tools/spec_plan_tests.rs`
 - `codex-rs/core/src/tools/parallel.rs` (parallel-eligibility list narrowed
   to `unified_exec | exec_command | write_stdin`)
 
 **Rebase risk. HIGH.** Upstream still ships the legacy shell aliases.
-After a rebase: re-delete `shell.rs` + `shell_tests.rs`, drop
-`ToolHandlerKind::{Shell,ShellCommand}` variants, drop
-`Feature::LegacyShellCompat`, drop the
-`if config.legacy_shell_compat { ... }` block in `tool_registry_plan.rs`,
-and trim the parallel-eligibility list back to the three current names.
+After a rebase: keep `Feature::LegacyShellCompat` gone, keep
+`ToolHandlerKind::{Shell,ShellCommand}` variants gone, keep `spec_plan.rs`
+from publicly registering the old aliases, and trim the parallel-eligibility
+list back to the three current names.
 
 ---
 
@@ -243,7 +241,7 @@ and trim the parallel-eligibility list back to the three current names.
 
 **Key files.**
 - `codex-rs/tui/src/inter_agent_message.rs` (new module, self-contained)
-- `codex-rs/tui/src/chatwidget/realtime.rs`
+- `codex-rs/tui/src/chatwidget.rs`
 - `codex-rs/core/src/tools/handlers/multi_agents_v2/wait.rs`
 - `codex-rs/core/src/tools/handlers/multi_agents_v2/spawn.rs`
 - `codex-rs/core/src/tools/handlers/multi_agents_v2/message_tool.rs`
@@ -258,8 +256,8 @@ and trim the parallel-eligibility list back to the three current names.
   branch — review and accept before rebase).
 
 **Rebase risk.** Medium. The inter-agent module is isolated and should survive,
-but `chatwidget/realtime.rs` and the wait/message handlers collide with
-upstream multi-agent work.
+but `chatwidget.rs` and the wait/message handlers collide with upstream
+multi-agent work.
 
 ---
 
@@ -362,7 +360,7 @@ surgical hunks.
 into spawned shells and confuses path-sensitive tools.
 
 **Key files.**
-- `codex-rs/config/src/shell_environment.rs`
+- `codex-rs/protocol/src/shell_environment.rs`
 - `codex-rs/core/src/exec_env_tests.rs` (regression tests)
 
 **Rebase risk.** Low — 16-line change plus tests.
@@ -462,14 +460,6 @@ not done.
 
 ---
 
-## 17. OAuth image scope (net-zero)
-
-Added (`47dcbd4af6`) then removed (`22b6bafafa`) — the current branch does
-**not** request `api.model.images.request`. Listed here only so a rebase
-doesn't accidentally resurrect one half of the pair.
-
----
-
 ## 18. PreToolUse command rewrites
 
 **Purpose.** Honor Claude's `hookSpecificOutput.updatedInput` field on
@@ -508,11 +498,11 @@ substitute `git status` for `rtk git status`.
 - `codex-rs/core/src/hook_runtime.rs` (`PreToolUseHookResult` carries
   either a block message or `updated_input` plus approval; rewrite/approval is
   dropped on block)
-- `codex-rs/core/src/tools/registry.rs` (`apply_pre_tool_use_rewrite`
+- `codex-rs/core/src/tools/registry.rs` (`with_updated_hook_input`
   trait method on `ToolHandler` / `AnyToolHandler`; default no-op; dispatch
-  carries the approval bit into the invocation)
-- `codex-rs/core/src/tools/handlers/unified_exec.rs` (the rewrite impl
-  lives here now; `shell.rs` was deleted in `b1c1c6e350`)
+  carries the approval and approval-required bits into the invocation)
+- `codex-rs/core/src/tools/handlers/unified_exec/exec_command.rs` (the
+  `exec_command` rewrite impl lives here now)
 - `codex-rs/core/src/unified_exec/process_manager.rs` (`allow` skips the
   command approval prompt for the current invocation without creating a
   persistent exec-policy rule)
@@ -561,8 +551,9 @@ keeps shipping them.
 - `lmstudio` (`46627d46a0`)
 - `chatgpt` (`b0959759a0`) + TUI connector listing UI (`3f2215deff`)
 - `mcp-server` (Codex-as-MCP-server, the inverse of `codex-mcp`) (`c17284cbdc`)
-- `feedback` + TUI feedback view + `feedback/upload` v2 RPC
-  (`4d5cce1b35`, `59084856f0`)
+- `feedback` upload integration + TUI feedback view + `feedback/upload` v2
+  RPC (`4d5cce1b35`, `59084856f0`). A no-op `codex-feedback` compatibility
+  crate remains in the workspace.
 - `otel` (kept stub types in `core/src/telemetry.rs`) (`5d0c63fd45`)
 - `cloud-requirements` (`f17766b20e`)
 - `aws-auth` + Amazon Bedrock provider (`e866b86470`)
