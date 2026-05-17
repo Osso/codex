@@ -160,6 +160,21 @@ fn release_is_idempotent_for_registered_threads() {
 }
 
 #[test]
+fn release_threads_missing_from_drops_stale_counted_agents() {
+    let registry = Arc::new(AgentRegistry::default());
+    let stale_thread_id = ThreadId::new();
+    let reservation = registry.reserve_spawn_slot(Some(1)).expect("reserve slot");
+    reservation.commit(agent_metadata(stale_thread_id));
+
+    registry.release_threads_missing_from(&HashSet::new());
+
+    let reservation = registry
+        .reserve_spawn_slot(Some(1))
+        .expect("stale counted agent should be released");
+    drop(reservation);
+}
+
+#[test]
 fn failed_spawn_keeps_nickname_marked_used() {
     let registry = Arc::new(AgentRegistry::default());
     let mut reservation = registry

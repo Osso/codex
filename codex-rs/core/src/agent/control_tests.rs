@@ -1937,6 +1937,53 @@ async fn shutdown_agent_tree_closes_live_descendants() {
 }
 
 #[tokio::test]
+async fn spawn_agent_releases_stale_counted_agent_before_enforcing_thread_limit() {
+    let harness = AgentControlHarness::new().await;
+    let (parent_thread_id, _parent_thread) = harness.start_thread().await;
+    let mut config = harness.config.clone();
+    config.agent_max_threads = Some(1);
+
+    let stale_thread_id = harness
+        .control
+        .spawn_agent(
+            config.clone(),
+            text_input("hello stale child"),
+            Some(SessionSource::SubAgent(SubAgentSource::ThreadSpawn {
+                parent_thread_id,
+                depth: 1,
+                agent_path: Some(agent_path("/root/stale_child")),
+                agent_nickname: None,
+                agent_role: Some("explorer".to_string()),
+            })),
+        )
+        .await
+        .expect("initial child spawn should succeed");
+    let _ = harness
+        .manager
+        .remove_thread(&stale_thread_id)
+        .await
+        .expect("stale child should be removed from thread manager");
+
+    let replacement_thread_id = harness
+        .control
+        .spawn_agent(
+            config,
+            text_input("hello replacement child"),
+            Some(SessionSource::SubAgent(SubAgentSource::ThreadSpawn {
+                parent_thread_id,
+                depth: 1,
+                agent_path: Some(agent_path("/root/replacement_child")),
+                agent_nickname: None,
+                agent_role: Some("explorer".to_string()),
+            })),
+        )
+        .await
+        .expect("stale counted child should not block replacement spawn");
+
+    assert_ne!(replacement_thread_id, stale_thread_id);
+}
+
+#[tokio::test]
 async fn shutdown_agent_tree_closes_descendants_when_started_at_child() {
     let harness = AgentControlHarness::new().await;
     let (parent_thread_id, _parent_thread) = harness.start_thread().await;

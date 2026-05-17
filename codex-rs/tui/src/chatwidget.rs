@@ -217,6 +217,32 @@ fn queued_message_edit_hint_binding(
         .or_else(|| bindings.first().copied())
 }
 
+fn running_collab_agents_label(agents: &HashMap<ThreadId, AgentMetadata>) -> String {
+    const MAX_VISIBLE_AGENTS: usize = 3;
+
+    let mut labels = agents
+        .iter()
+        .map(|(thread_id, metadata)| (thread_id.to_string(), metadata))
+        .collect::<Vec<_>>();
+    labels.sort_by(|(left_thread_id, _), (right_thread_id, _)| left_thread_id.cmp(right_thread_id));
+    let mut labels = labels
+        .into_iter()
+        .take(MAX_VISIBLE_AGENTS)
+        .map(|(_, metadata)| {
+            multi_agents::format_agent_picker_item_name(
+                metadata.agent_nickname.as_deref(),
+                metadata.agent_role.as_deref(),
+                /*is_primary*/ false,
+            )
+        })
+        .collect::<Vec<_>>();
+    let hidden_count = agents.len().saturating_sub(MAX_VISIBLE_AGENTS);
+    if hidden_count > 0 {
+        labels.push(format!("+{hidden_count}"));
+    }
+    labels.join(", ")
+}
+
 use crate::app_event::AppEvent;
 use crate::app_event::ExitMode;
 use crate::app_event::RateLimitRefreshOrigin;
@@ -339,6 +365,7 @@ use crate::workspace_command::WorkspaceCommandRunner;
 
 use chrono::Local;
 use codex_app_server_protocol::AskForApproval;
+use codex_app_server_protocol::CollabAgentStatus;
 use codex_file_search::FileMatch;
 use codex_protocol::models::PermissionProfile;
 use codex_protocol::openai_models::InputModality;
@@ -656,6 +683,8 @@ pub(crate) struct ChatWidget {
     copy_last_response_binding: Vec<KeyBinding>,
     running_commands: HashMap<String, RunningCommand>,
     collab_agent_metadata: HashMap<ThreadId, AgentMetadata>,
+    active_agent_label: Option<String>,
+    running_collab_agents: HashMap<ThreadId, AgentMetadata>,
     pending_collab_spawn_requests: HashMap<String, multi_agents::SpawnRequestSummary>,
     suppressed_exec_calls: HashSet<String>,
     skills_all: Vec<ProtocolSkillMetadata>,
@@ -1442,13 +1471,55 @@ impl ChatWidget {
         agent_nickname: Option<String>,
         agent_role: Option<String>,
     ) {
-        self.collab_agent_metadata.insert(
-            thread_id,
-            AgentMetadata {
-                agent_nickname,
-                agent_role,
-            },
-        );
+        let metadata = AgentMetadata {
+            agent_nickname,
+            agent_role,
+        };
+        self.collab_agent_metadata
+            .insert(thread_id, metadata.clone());
+        if let Some(running_metadata) = self.running_collab_agents.get_mut(&thread_id) {
+            *running_metadata = metadata;
+            self.sync_footer_agent_label();
+        }
+    }
+
+    pub(crate) fn set_running_collab_agent(
+        &mut self,
+        thread_id: ThreadId,
+        agent_nickname: Option<String>,
+        agent_role: Option<String>,
+        is_running: bool,
+    ) {
+        if is_running {
+            self.running_collab_agents.insert(
+                thread_id,
+                AgentMetadata {
+                    agent_nickname,
+                    agent_role,
+                },
+            );
+        } else {
+            self.running_collab_agents.remove(&thread_id);
+        }
+        self.sync_footer_agent_label();
+    }
+
+    fn sync_footer_agent_label(&mut self) {
+        let mut labels = Vec::new();
+        if let Some(active_agent_label) = self.active_agent_label.as_ref() {
+            labels.push(active_agent_label.clone());
+        }
+        if !self.running_collab_agents.is_empty() {
+            labels.push(format!(
+                "Agents: {}",
+                running_collab_agents_label(&self.running_collab_agents)
+            ));
+        }
+        self.bottom_pane
+            .set_active_agent_label(match labels.is_empty() {
+                true => None,
+                false => Some(labels.join(" · ")),
+            });
     }
 
     /// Returns the cached metadata for a thread, defaulting to empty if none has been registered.
@@ -1637,7 +1708,8 @@ impl ChatWidget {
     /// `ChatWidget` stays a pass-through here so `App` remains the owner of "which thread is the
     /// user actually looking at?" and the footer stack remains a pure renderer of that decision.
     pub(crate) fn set_active_agent_label(&mut self, active_agent_label: Option<String>) {
-        self.bottom_pane.set_active_agent_label(active_agent_label);
+        self.active_agent_label = active_agent_label;
+        self.sync_footer_agent_label();
     }
 
     /// Recomputes footer status-line content from config and current runtime state.
@@ -3820,7 +3892,32 @@ impl ChatWidget {
             cached_spawn_request.as_ref(),
             |thread_id| self.collab_agent_metadata(thread_id),
         ) {
+            self.sync_running_collab_agents_from_tool_call(&item);
             self.on_collab_event(cell);
+        }
+    }
+
+    fn sync_running_collab_agents_from_tool_call(&mut self, item: &ThreadItem) {
+        let ThreadItem::CollabAgentToolCall { agents_states, .. } = item else {
+            return;
+        };
+
+        for (thread_id, state) in agents_states {
+            let Ok(thread_id) = ThreadId::from_string(thread_id) else {
+                continue;
+            };
+            let metadata = self.collab_agent_metadata(thread_id);
+            self.set_running_collab_agent(
+                thread_id,
+                metadata.agent_nickname,
+                metadata.agent_role,
+                matches!(
+                    state.status,
+                    CollabAgentStatus::PendingInit
+                        | CollabAgentStatus::Running
+                        | CollabAgentStatus::Interrupted
+                ),
+            );
         }
     }
 
@@ -4753,6 +4850,8 @@ impl ChatWidget {
             copy_last_response_binding,
             running_commands: HashMap::new(),
             collab_agent_metadata: HashMap::new(),
+            active_agent_label: None,
+            running_collab_agents: HashMap::new(),
             pending_collab_spawn_requests: HashMap::new(),
             suppressed_exec_calls: HashSet::new(),
             last_unified_wait: None,
@@ -6368,18 +6467,81 @@ impl ChatWidget {
             }
             EventMsg::CollabAgentSpawnEnd(ev) => {
                 let spawn_request = self.pending_collab_spawn_requests.remove(&ev.call_id);
+                if let Some(new_thread_id) = ev.new_thread_id {
+                    self.set_running_collab_agent(
+                        new_thread_id,
+                        ev.new_agent_nickname.clone(),
+                        ev.new_agent_role.clone(),
+                        matches!(
+                            ev.status,
+                            codex_protocol::protocol::AgentStatus::PendingInit
+                                | codex_protocol::protocol::AgentStatus::Running
+                                | codex_protocol::protocol::AgentStatus::Interrupted
+                        ),
+                    );
+                }
                 self.on_collab_event(multi_agents::spawn_end(ev, spawn_request.as_ref()));
             }
             EventMsg::CollabAgentInteractionBegin(_) => {}
             EventMsg::CollabAgentInteractionEnd(ev) => {
+                self.set_running_collab_agent(
+                    ev.receiver_thread_id,
+                    ev.receiver_agent_nickname.clone(),
+                    ev.receiver_agent_role.clone(),
+                    matches!(
+                        ev.status,
+                        codex_protocol::protocol::AgentStatus::PendingInit
+                            | codex_protocol::protocol::AgentStatus::Running
+                            | codex_protocol::protocol::AgentStatus::Interrupted
+                    ),
+                );
                 self.on_collab_event(multi_agents::interaction_end(ev))
             }
             EventMsg::CollabWaitingBegin(ev) => {
                 self.on_collab_event(multi_agents::waiting_begin(ev))
             }
-            EventMsg::CollabWaitingEnd(ev) => self.on_collab_event(multi_agents::waiting_end(ev)),
+            EventMsg::CollabWaitingEnd(ev) => {
+                for status_entry in &ev.agent_statuses {
+                    self.set_running_collab_agent(
+                        status_entry.thread_id,
+                        status_entry.agent_nickname.clone(),
+                        status_entry.agent_role.clone(),
+                        matches!(
+                            status_entry.status,
+                            codex_protocol::protocol::AgentStatus::PendingInit
+                                | codex_protocol::protocol::AgentStatus::Running
+                                | codex_protocol::protocol::AgentStatus::Interrupted
+                        ),
+                    );
+                }
+                for (thread_id, status) in &ev.statuses {
+                    if !ev
+                        .agent_statuses
+                        .iter()
+                        .any(|entry| entry.thread_id == *thread_id)
+                    {
+                        let metadata = self.collab_agent_metadata(*thread_id);
+                        self.set_running_collab_agent(
+                            *thread_id,
+                            metadata.agent_nickname,
+                            metadata.agent_role,
+                            matches!(
+                                status,
+                                codex_protocol::protocol::AgentStatus::PendingInit
+                                    | codex_protocol::protocol::AgentStatus::Running
+                                    | codex_protocol::protocol::AgentStatus::Interrupted
+                            ),
+                        );
+                    }
+                }
+                self.on_collab_event(multi_agents::waiting_end(ev))
+            }
             EventMsg::CollabCloseBegin(_) => {}
-            EventMsg::CollabCloseEnd(ev) => self.on_collab_event(multi_agents::close_end(ev)),
+            EventMsg::CollabCloseEnd(ev) => {
+                self.running_collab_agents.remove(&ev.receiver_thread_id);
+                self.sync_footer_agent_label();
+                self.on_collab_event(multi_agents::close_end(ev))
+            }
             EventMsg::CollabResumeBegin(ev) => self.on_collab_event(multi_agents::resume_begin(ev)),
             EventMsg::CollabResumeEnd(ev) => self.on_collab_event(multi_agents::resume_end(ev)),
             EventMsg::ThreadRolledBack(rollback) => {

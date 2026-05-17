@@ -64,8 +64,9 @@ impl ToolHandler for Handler {
             .await
         {
             Ok(mut status_rx) => status_rx.borrow_and_update().clone(),
-            Err(err) => {
+            Err(_) => {
                 let status = session.services.agent_control.get_status(agent_id).await;
+                let close_result = session.services.agent_control.close_agent(agent_id).await;
                 session
                     .send_event(
                         &turn,
@@ -76,12 +77,21 @@ impl ToolHandler for Handler {
                             receiver_thread_id: agent_id,
                             receiver_agent_nickname: receiver_agent.agent_nickname.clone(),
                             receiver_agent_role: receiver_agent.agent_role.clone(),
-                            status,
+                            status: status.clone(),
                         }
                         .into(),
                     )
                     .await;
-                return Err(collab_agent_error(agent_id, err));
+                match close_result {
+                    Ok(_)
+                    | Err(codex_protocol::error::CodexErr::ThreadNotFound(_))
+                    | Err(codex_protocol::error::CodexErr::InternalAgentDied) => {
+                        return Ok(CloseAgentResult {
+                            previous_status: status,
+                        });
+                    }
+                    Err(close_err) => return Err(collab_agent_error(agent_id, close_err)),
+                }
             }
         };
         let result = session

@@ -166,6 +166,23 @@ impl AgentRegistry {
             .collect()
     }
 
+    pub(crate) fn release_threads_missing_from(&self, live_thread_ids: &HashSet<ThreadId>) {
+        let mut active_agents = self
+            .active_agents
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let before_count = active_agents.agent_tree.len();
+        active_agents.agent_tree.retain(|_, metadata| {
+            let Some(thread_id) = metadata.agent_id else {
+                return true;
+            };
+            let is_counted_agent = !metadata.agent_path.as_ref().is_some_and(AgentPath::is_root);
+            !is_counted_agent || live_thread_ids.contains(&thread_id)
+        });
+        let removed_count = before_count.saturating_sub(active_agents.agent_tree.len());
+        self.total_count.fetch_sub(removed_count, Ordering::AcqRel);
+    }
+
     pub(crate) fn update_last_task_message(&self, thread_id: ThreadId, last_task_message: String) {
         let mut active_agents = self
             .active_agents

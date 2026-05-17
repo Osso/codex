@@ -37,6 +37,7 @@ use codex_state::DirectionalThreadSpawnEdgeStatus;
 use codex_thread_store::ReadThreadParams;
 use serde::Serialize;
 use std::collections::HashMap;
+use std::collections::HashSet;
 #[cfg(test)]
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -203,6 +204,7 @@ impl AgentControl {
         options: SpawnAgentOptions,
     ) -> CodexResult<LiveAgent> {
         let state = self.upgrade()?;
+        self.release_missing_registered_agents(&state).await;
         let mut reservation = self.state.reserve_spawn_slot(config.agent_max_threads)?;
         let inherited_shell_snapshot = self
             .inherited_shell_snapshot_for_source(&state, session_source.as_ref())
@@ -873,6 +875,7 @@ impl AgentControl {
         path_prefix: Option<&str>,
     ) -> CodexResult<Vec<ListedAgent>> {
         let state = self.upgrade()?;
+        self.release_missing_registered_agents(&state).await;
         let resolved_prefix = path_prefix
             .map(|prefix| {
                 current_session_source
@@ -1158,6 +1161,15 @@ impl AgentControl {
         }
 
         Ok(children_by_parent)
+    }
+
+    async fn release_missing_registered_agents(&self, state: &Arc<ThreadManagerState>) {
+        let live_thread_ids = state
+            .list_thread_ids()
+            .await
+            .into_iter()
+            .collect::<HashSet<_>>();
+        self.state.release_threads_missing_from(&live_thread_ids);
     }
 
     async fn persist_thread_spawn_edge_for_source(
