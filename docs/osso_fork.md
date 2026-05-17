@@ -276,6 +276,18 @@ multi-agent work.
 - **Transcript overlay height cache.** During esc-esc backtrack, transcript
   row renderables stay alive so wrapped-height calculations remain cached
   (`codex-rs/tui/src/pager_overlay.rs`). Has a regression test.
+- **Double-Esc backtrack picker.** Double Esc no longer opens the full
+  transcript overlay for prompt editing. It opens a compact bottom-pane
+  `ListSelectionView` where each prior user prompt is one single-line row,
+  searchable, chronological, and initially anchored on the latest prompt at the
+  bottom. The picker uses a taller per-view row cap (14 rows) without changing
+  the global popup default. Selecting a row reuses the existing rollback +
+  composer-prefill path; Esc/Ctrl+C cancels and clears backtrack state.
+  Key files: `codex-rs/tui/src/app_backtrack.rs`,
+  `codex-rs/tui/src/app_backtrack_picker.rs`,
+  `codex-rs/tui/src/bottom_pane/list_selection_view.rs`,
+  `codex-rs/tui/src/app_event.rs`, and
+  `codex-rs/tui/src/app/event_dispatch.rs`.
 - **Queued-message edit on Up.** The bottom pane advertises and handles Up as
   the queued-message edit binding instead of the older Shift-Left wording
   (`codex-rs/tui/src/bottom_pane/pending_input_preview.rs`,
@@ -293,11 +305,16 @@ multi-agent work.
 - **`codex_core::Config` import cleanup** (`codex-rs/tui/src/lib.rs`).
 
 **Tests.** TUI snapshot suite under `codex-rs/tui/src/**/snapshots/`. Several
-snapshots touched — re-review after rebase.
+snapshots touched — re-review after rebase. Also re-run:
+- `cargo check -p codex-tui --lib`
+- `cargo test -p codex-tui app_backtrack_picker`
 
 **Rebase risk.** Medium. Upstream restyles the TUI frequently; the two color
 config entries are additive and usually survive, but the overlay changes
-touch a file upstream also edits.
+touch files upstream also edits. After a rebase, manually smoke-test double
+Esc from an empty composer: first press shows the hint, second press opens the
+single-line prompt picker rather than the transcript overlay; the newest prompt
+should be selected at the bottom.
 
 ---
 
