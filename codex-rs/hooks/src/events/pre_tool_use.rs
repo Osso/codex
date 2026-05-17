@@ -39,6 +39,7 @@ pub struct PreToolUseOutcome {
     pub block_reason: Option<String>,
     pub additional_contexts: Vec<String>,
     pub approval_granted: bool,
+    pub approval_required: bool,
     pub updated_input: Option<Value>,
 }
 
@@ -48,6 +49,7 @@ struct PreToolUseHandlerData {
     block_reason: Option<String>,
     additional_contexts_for_model: Vec<String>,
     approval_granted: bool,
+    approval_required: bool,
     updated_input: Option<Value>,
 }
 
@@ -86,6 +88,7 @@ pub(crate) async fn run(
             block_reason: None,
             additional_contexts: Vec::new(),
             approval_granted: false,
+            approval_required: false,
             updated_input: None,
         };
     }
@@ -129,6 +132,8 @@ pub(crate) async fn run(
     };
     let approval_granted =
         !should_block && results.iter().any(|result| result.data.approval_granted);
+    let approval_required =
+        !should_block && results.iter().any(|result| result.data.approval_required);
 
     PreToolUseOutcome {
         hook_events: results
@@ -141,6 +146,7 @@ pub(crate) async fn run(
         block_reason,
         additional_contexts,
         approval_granted,
+        approval_required,
         updated_input,
     }
 }
@@ -187,6 +193,7 @@ async fn command_input_json(request: &PreToolUseRequest) -> Result<String, serde
         tool_name,
         tool_input,
         tool_use_id: request.tool_use_id.clone(),
+        supports_updated_input: true,
     })
 }
 
@@ -201,6 +208,7 @@ fn parse_completed(
     let mut block_reason = None;
     let mut additional_contexts_for_model = Vec::new();
     let mut approval_granted = false;
+    let mut approval_required = false;
     let mut updated_input = None;
 
     match run_result.error.as_deref() {
@@ -247,6 +255,7 @@ fn parse_completed(
                         }
                         if !should_block {
                             approval_granted = parsed.approval_granted;
+                            approval_required = parsed.approval_required;
                             updated_input = parsed.updated_input;
                         }
                     }
@@ -304,6 +313,7 @@ fn parse_completed(
             block_reason,
             additional_contexts_for_model,
             approval_granted,
+            approval_required,
             updated_input,
         },
         completion_order: 0,
@@ -317,6 +327,7 @@ fn serialization_failure_outcome(hook_events: Vec<HookCompletedEvent>) -> PreToo
         block_reason: None,
         additional_contexts: Vec::new(),
         approval_granted: false,
+        approval_required: false,
         updated_input: None,
     }
 }
@@ -355,6 +366,19 @@ mod tests {
             serde_json::from_str(&input_json).expect("parse command input");
 
         assert_eq!(input["tool_name"], "apply_patch");
+    }
+
+    #[tokio::test]
+    async fn command_input_advertises_updated_input_support() {
+        let request = request_for_tool_use("call-exec");
+
+        let input_json = command_input_json(&request)
+            .await
+            .expect("serialize command input");
+        let input: serde_json::Value =
+            serde_json::from_str(&input_json).expect("parse command input");
+
+        assert_eq!(input["supports_updated_input"], true);
     }
 
     #[tokio::test]
@@ -407,6 +431,7 @@ mod tests {
                 block_reason: Some("do not run that".to_string()),
                 additional_contexts_for_model: Vec::new(),
                 approval_granted: false,
+                approval_required: false,
                 updated_input: None,
             }
         );
@@ -439,6 +464,7 @@ mod tests {
                 block_reason: None,
                 additional_contexts_for_model: Vec::new(),
                 approval_granted: true,
+                approval_required: false,
                 updated_input: Some(serde_json::json!({ "command": "echo rewritten" })),
             }
         );
@@ -494,6 +520,7 @@ mod tests {
                 block_reason: None,
                 additional_contexts_for_model: Vec::new(),
                 approval_granted: true,
+                approval_required: false,
                 updated_input: None,
             }
         );
@@ -520,6 +547,7 @@ mod tests {
                 block_reason: Some("do not run that".to_string()),
                 additional_contexts_for_model: Vec::new(),
                 approval_granted: false,
+                approval_required: false,
                 updated_input: None,
             }
         );
@@ -552,6 +580,7 @@ mod tests {
                 block_reason: Some("do not run that".to_string()),
                 additional_contexts_for_model: vec!["remember this".to_string()],
                 approval_granted: false,
+                approval_required: false,
                 updated_input: None,
             }
         );
@@ -572,7 +601,7 @@ mod tests {
     }
 
     #[test]
-    fn permission_decision_ask_continues_without_approval() {
+    fn permission_decision_ask_continues_with_approval_required() {
         let parsed = parse_completed(
             &handler(),
             run_result(
@@ -590,6 +619,7 @@ mod tests {
                 block_reason: None,
                 additional_contexts_for_model: Vec::new(),
                 approval_granted: false,
+                approval_required: true,
                 updated_input: None,
             }
         );
@@ -598,7 +628,7 @@ mod tests {
     }
 
     #[test]
-    fn permission_decision_ask_can_update_input_without_approval() {
+    fn permission_decision_ask_can_update_input_with_approval_required() {
         let parsed = parse_completed(
             &handler(),
             run_result(
@@ -616,6 +646,7 @@ mod tests {
                 block_reason: None,
                 additional_contexts_for_model: Vec::new(),
                 approval_granted: false,
+                approval_required: true,
                 updated_input: Some(serde_json::json!({ "command": "echo rewritten" })),
             }
         );
@@ -624,7 +655,7 @@ mod tests {
     }
 
     #[test]
-    fn deprecated_approve_decision_fails_open() {
+    fn deprecated_approve_decision_grants_approval() {
         let parsed = parse_completed(
             &handler(),
             run_result(Some(0), r#"{"decision":"approve"}"#, ""),
@@ -637,18 +668,13 @@ mod tests {
                 should_block: false,
                 block_reason: None,
                 additional_contexts_for_model: Vec::new(),
-                approval_granted: false,
+                approval_granted: true,
+                approval_required: false,
                 updated_input: None,
             }
         );
-        assert_eq!(parsed.completed.run.status, HookRunStatus::Failed);
-        assert_eq!(
-            parsed.completed.run.entries,
-            vec![HookOutputEntry {
-                kind: HookOutputEntryKind::Error,
-                text: "PreToolUse hook returned unsupported decision:approve".to_string(),
-            }]
-        );
+        assert_eq!(parsed.completed.run.status, HookRunStatus::Completed);
+        assert_eq!(parsed.completed.run.entries, vec![]);
     }
 
     #[test]
@@ -670,6 +696,7 @@ mod tests {
                 block_reason: Some("do not run that".to_string()),
                 additional_contexts_for_model: vec!["nope".to_string()],
                 approval_granted: false,
+                approval_required: false,
                 updated_input: None,
             }
         );
@@ -704,6 +731,7 @@ mod tests {
                 block_reason: None,
                 additional_contexts_for_model: Vec::new(),
                 approval_granted: false,
+                approval_required: false,
                 updated_input: None,
             }
         );
@@ -726,6 +754,7 @@ mod tests {
                 block_reason: None,
                 additional_contexts_for_model: Vec::new(),
                 approval_granted: false,
+                approval_required: false,
                 updated_input: None,
             }
         );
@@ -754,6 +783,7 @@ mod tests {
                 block_reason: Some("blocked by policy".to_string()),
                 additional_contexts_for_model: Vec::new(),
                 approval_granted: false,
+                approval_required: false,
                 updated_input: None,
             }
         );

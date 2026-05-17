@@ -81,6 +81,7 @@ fn invocation(
         tool_name: codex_tools::ToolName::plain(tool_name),
         source: crate::tools::context::ToolCallSource::Direct,
         pre_tool_use_approved: false,
+        pre_tool_use_approval_required: false,
         payload,
     }
 }

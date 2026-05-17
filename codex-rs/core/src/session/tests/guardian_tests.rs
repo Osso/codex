@@ -301,6 +301,7 @@ async fn guardian_allows_shell_additional_permissions_requests_past_policy_valid
             tool_name: codex_tools::ToolName::plain("exec_command"),
             source: crate::tools::context::ToolCallSource::Direct,
             pre_tool_use_approved: false,
+            pre_tool_use_approval_required: false,
             payload: ToolPayload::Function {
                 arguments: serde_json::json!({
                     "cmd": "echo hi",
@@ -402,6 +403,7 @@ async fn strict_auto_review_turn_grant_forces_guardian_for_shell_policy_skip() {
             tool_name: codex_tools::ToolName::plain("exec_command"),
             source: ToolCallSource::Direct,
             pre_tool_use_approved: false,
+            pre_tool_use_approval_required: false,
             payload: ToolPayload::Function {
                 arguments: serde_json::json!({
                     "cmd": "echo hi",
@@ -449,6 +451,7 @@ async fn guardian_allows_unified_exec_additional_permissions_requests_past_polic
             tool_name: codex_tools::ToolName::plain("exec_command"),
             source: crate::tools::context::ToolCallSource::Direct,
             pre_tool_use_approved: false,
+            pre_tool_use_approval_required: false,
             payload: ToolPayload::Function {
                 arguments: serde_json::json!({
                     "cmd": "echo hi",
@@ -568,6 +571,7 @@ async fn exec_command_allows_sticky_turn_permissions_without_inline_request_perm
             tool_name: codex_tools::ToolName::plain("exec_command"),
             source: crate::tools::context::ToolCallSource::Direct,
             pre_tool_use_approved: false,
+            pre_tool_use_approval_required: false,
             payload: ToolPayload::Function {
                 arguments: serde_json::json!({
                     "cmd": "echo hi",

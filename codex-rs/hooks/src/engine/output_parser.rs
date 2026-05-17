@@ -18,6 +18,7 @@ pub(crate) struct PreToolUseOutput {
     pub block_reason: Option<String>,
     pub additional_context: Option<String>,
     pub approval_granted: bool,
+    pub approval_required: bool,
     pub updated_input: Option<serde_json::Value>,
     pub invalid_reason: Option<String>,
 }
@@ -106,8 +107,23 @@ pub(crate) fn parse_pre_tool_use(stdout: &str) -> Option<PreToolUseOutput> {
         universal: universal_wire,
         decision,
         reason,
-        hook_specific_output,
+        permission_decision,
+        permission_decision_reason,
+        updated_input: top_level_updated_input,
+        mut hook_specific_output,
     } = parse_json(stdout)?;
+    if permission_decision.is_some()
+        || permission_decision_reason.is_some()
+        || top_level_updated_input.is_some()
+    {
+        hook_specific_output = Some(crate::schema::PreToolUseHookSpecificOutputWire {
+            hook_event_name: crate::schema::HookEventNameWire::PreToolUse,
+            permission_decision,
+            permission_decision_reason,
+            updated_input: top_level_updated_input,
+            additional_context: hook_specific_output.and_then(|output| output.additional_context),
+        });
+    }
     let universal = UniversalOutput::from(universal_wire);
     let hook_specific_output = hook_specific_output.as_ref();
     let additional_context =
@@ -157,10 +173,18 @@ pub(crate) fn parse_pre_tool_use(stdout: &str) -> Option<PreToolUseOutput> {
         None
     };
     let approval_granted = invalid_reason.is_none()
+        && (matches!(decision, Some(PreToolUseDecisionWire::Approve))
+            || hook_specific_output.is_some_and(|output| {
+                matches!(
+                    output.permission_decision,
+                    Some(PreToolUsePermissionDecisionWire::Allow)
+                )
+            }));
+    let approval_required = invalid_reason.is_none()
         && hook_specific_output.is_some_and(|output| {
             matches!(
                 output.permission_decision,
-                Some(PreToolUsePermissionDecisionWire::Allow)
+                Some(PreToolUsePermissionDecisionWire::Ask)
             )
         });
 
@@ -169,6 +193,7 @@ pub(crate) fn parse_pre_tool_use(stdout: &str) -> Option<PreToolUseOutput> {
         block_reason,
         additional_context,
         approval_granted,
+        approval_required,
         updated_input,
         invalid_reason,
     })
@@ -448,9 +473,7 @@ fn unsupported_pre_tool_use_legacy_decision(
     reason: Option<&str>,
 ) -> Option<String> {
     match decision {
-        Some(PreToolUseDecisionWire::Approve) => {
-            Some("PreToolUse hook returned unsupported decision:approve".to_string())
-        }
+        Some(PreToolUseDecisionWire::Approve) => None,
         Some(PreToolUseDecisionWire::Block) => {
             if reason.and_then(trimmed_reason).is_none() {
                 Some(invalid_block_message("PreToolUse"))
@@ -488,6 +511,30 @@ mod tests {
     use serde_json::json;
 
     use super::parse_permission_request;
+    use super::parse_pre_tool_use;
+
+    #[test]
+    fn pre_tool_use_accepts_claude_allow_with_updated_input() {
+        let parsed = parse_pre_tool_use(
+            &json!({
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "allow",
+                    "permissionDecisionReason": "ls: main thread allowed",
+                    "updatedInput": {
+                        "command": "rtk ls"
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect("pre-tool-use hook output should parse");
+
+        assert_eq!(parsed.invalid_reason, None);
+        assert_eq!(parsed.approval_granted, true);
+        assert_eq!(parsed.approval_required, false);
+        assert_eq!(parsed.updated_input, Some(json!({ "command": "rtk ls" })));
+    }
 
     #[test]
     fn permission_request_rejects_reserved_updated_input_field() {

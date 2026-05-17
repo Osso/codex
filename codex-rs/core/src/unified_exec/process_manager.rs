@@ -1040,6 +1040,7 @@ impl UnifiedExecProcessManager {
         exec_approval_requirement = crate::tools::sandboxing::apply_pre_tool_use_approval(
             exec_approval_requirement,
             request.pre_tool_use_approved,
+            request.pre_tool_use_approval_required,
         );
         let req = UnifiedExecToolRequest {
             command: request.command.clone(),

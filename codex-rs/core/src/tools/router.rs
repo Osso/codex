@@ -241,6 +241,7 @@ impl ToolRouter {
             tool_name,
             source,
             pre_tool_use_approved: false,
+            pre_tool_use_approval_required: false,
             payload,
         };
 

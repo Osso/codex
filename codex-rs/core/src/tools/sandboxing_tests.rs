@@ -122,7 +122,11 @@ fn pre_tool_use_approval_skips_exec_approval_prompt() {
     };
 
     assert_eq!(
-        apply_pre_tool_use_approval(requirement, /*approved*/ true),
+        apply_pre_tool_use_approval(
+            requirement,
+            /*approved*/ true,
+            /*approval_required*/ false
+        ),
         ExecApprovalRequirement::Skip {
             bypass_sandbox: false,
             proposed_execpolicy_amendment: None,
@@ -138,8 +142,32 @@ fn missing_pre_tool_use_approval_preserves_exec_approval_prompt() {
     };
 
     assert_eq!(
-        apply_pre_tool_use_approval(requirement.clone(), /*approved*/ false),
+        apply_pre_tool_use_approval(
+            requirement.clone(),
+            /*approved*/ false,
+            /*approval_required*/ false
+        ),
         requirement
+    );
+}
+
+#[test]
+fn pre_tool_use_ask_forces_exec_approval_prompt() {
+    let requirement = ExecApprovalRequirement::Skip {
+        bypass_sandbox: false,
+        proposed_execpolicy_amendment: None,
+    };
+
+    assert_eq!(
+        apply_pre_tool_use_approval(
+            requirement,
+            /*approved*/ false,
+            /*approval_required*/ true
+        ),
+        ExecApprovalRequirement::NeedsApproval {
+            reason: Some("PreToolUse hook requested approval".to_string()),
+            proposed_execpolicy_amendment: None,
+        }
     );
 }
 

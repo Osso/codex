@@ -166,6 +166,7 @@ impl ToolHandler for ExecCommandHandler {
             tracker,
             call_id,
             pre_tool_use_approved,
+            pre_tool_use_approval_required,
             payload,
             ..
         } = invocation;
@@ -333,6 +334,7 @@ impl ToolHandler for ExecCommandHandler {
                     additional_permissions_preapproved: effective_additional_permissions
                         .permissions_preapproved,
                     pre_tool_use_approved,
+                    pre_tool_use_approval_required,
                     justification,
                     prefix_rule,
                 },

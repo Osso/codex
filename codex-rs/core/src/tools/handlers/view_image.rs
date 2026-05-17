@@ -290,6 +290,7 @@ mod tests {
                 tool_name: codex_tools::ToolName::plain("view_image"),
                 source: ToolCallSource::Direct,
                 pre_tool_use_approved: false,
+                pre_tool_use_approval_required: false,
                 payload: ToolPayload::Function {
                     arguments: json!({ "path": "image.png" }).to_string(),
                 },

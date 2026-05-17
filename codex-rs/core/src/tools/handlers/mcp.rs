@@ -181,6 +181,7 @@ mod tests {
                 tool_name: codex_tools::ToolName::namespaced("mcp__memory__", "create_entities"),
                 source: ToolCallSource::Direct,
                 pre_tool_use_approved: false,
+                pre_tool_use_approval_required: false,
                 payload,
             }),
             Some(PreToolUsePayload {
@@ -213,6 +214,7 @@ mod tests {
                 tool_name: codex_tools::ToolName::namespaced("mcp__foo__", "exec_command"),
                 source: ToolCallSource::Direct,
                 pre_tool_use_approved: false,
+                pre_tool_use_approval_required: false,
                 payload,
             }),
             Some(PreToolUsePayload {
@@ -241,6 +243,7 @@ mod tests {
                     tool_name: codex_tools::ToolName::namespaced("mcp__foo__", "exec_command"),
                     source: ToolCallSource::Direct,
                     pre_tool_use_approved: false,
+                    pre_tool_use_approval_required: false,
                     payload,
                 },
                 json!({ "message": "rewritten" }),
@@ -288,6 +291,7 @@ mod tests {
             tool_name: codex_tools::ToolName::namespaced("mcp__filesystem__", "read_file"),
             source: ToolCallSource::Direct,
             pre_tool_use_approved: false,
+            pre_tool_use_approval_required: false,
             payload,
         };
         assert_eq!(

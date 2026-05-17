@@ -8671,6 +8671,7 @@ async fn create_goal_tool_rejects_existing_goal() {
             tool_name: codex_tools::ToolName::plain("create_goal"),
             source: ToolCallSource::Direct,
             pre_tool_use_approved: false,
+            pre_tool_use_approval_required: false,
             payload: ToolPayload::Function {
                 arguments: serde_json::json!({
                     "objective": "Keep the watcher alive",
@@ -8692,6 +8693,7 @@ async fn create_goal_tool_rejects_existing_goal() {
             tool_name: codex_tools::ToolName::plain("create_goal"),
             source: ToolCallSource::Direct,
             pre_tool_use_approved: false,
+            pre_tool_use_approval_required: false,
             payload: ToolPayload::Function {
                 arguments: serde_json::json!({
                     "objective": "Replace the watcher",
@@ -8736,6 +8738,7 @@ async fn update_goal_tool_rejects_pausing_goal() {
             tool_name: codex_tools::ToolName::plain("create_goal"),
             source: ToolCallSource::Direct,
             pre_tool_use_approved: false,
+            pre_tool_use_approval_required: false,
             payload: ToolPayload::Function {
                 arguments: serde_json::json!({
                     "objective": "Keep the watcher alive",
@@ -8757,6 +8760,7 @@ async fn update_goal_tool_rejects_pausing_goal() {
             tool_name: codex_tools::ToolName::plain("update_goal"),
             source: ToolCallSource::Direct,
             pre_tool_use_approved: false,
+            pre_tool_use_approval_required: false,
             payload: ToolPayload::Function {
                 arguments: serde_json::json!({
                     "status": "paused",
@@ -8799,6 +8803,7 @@ async fn update_goal_tool_marks_goal_complete() {
             tool_name: codex_tools::ToolName::plain("create_goal"),
             source: ToolCallSource::Direct,
             pre_tool_use_approved: false,
+            pre_tool_use_approval_required: false,
             payload: ToolPayload::Function {
                 arguments: serde_json::json!({
                     "objective": "Keep the watcher alive",
@@ -8820,6 +8825,7 @@ async fn update_goal_tool_marks_goal_complete() {
             tool_name: codex_tools::ToolName::plain("update_goal"),
             source: ToolCallSource::Direct,
             pre_tool_use_approved: false,
+            pre_tool_use_approval_required: false,
             payload: ToolPayload::Function {
                 arguments: serde_json::json!({
                     "status": "complete",
@@ -8869,6 +8875,7 @@ async fn rejects_escalated_permissions_when_policy_not_on_request() {
             tool_name: codex_tools::ToolName::plain("exec_command"),
             source: crate::tools::context::ToolCallSource::Direct,
             pre_tool_use_approved: false,
+            pre_tool_use_approval_required: false,
             payload: ToolPayload::Function {
                 arguments: serde_json::json!({
                     "cmd": "echo hi",
@@ -8956,6 +8963,7 @@ async fn unified_exec_rejects_escalated_permissions_when_policy_not_on_request()
             tool_name: codex_tools::ToolName::plain("exec_command"),
             source: crate::tools::context::ToolCallSource::Direct,
             pre_tool_use_approved: false,
+            pre_tool_use_approval_required: false,
             payload: ToolPayload::Function {
                 arguments: serde_json::json!({
                     "cmd": "echo hi",

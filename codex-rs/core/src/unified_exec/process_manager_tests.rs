@@ -186,6 +186,7 @@ async fn failed_initial_end_for_unstored_process_uses_fallback_output() {
         additional_permissions: None,
         additional_permissions_preapproved: false,
         pre_tool_use_approved: false,
+        pre_tool_use_approval_required: false,
         justification: None,
         prefix_rule: None,
     };

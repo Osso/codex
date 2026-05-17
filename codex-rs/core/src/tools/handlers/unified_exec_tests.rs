@@ -31,6 +31,7 @@ async fn invocation_for_payload(
         tool_name: codex_tools::ToolName::plain(tool_name),
         source: ToolCallSource::Direct,
         pre_tool_use_approved: false,
+        pre_tool_use_approval_required: false,
         payload,
     }
 }
@@ -197,6 +198,7 @@ async fn exec_command_pre_tool_use_payload_uses_raw_command() {
             tool_name: codex_tools::ToolName::plain("exec_command"),
             source: crate::tools::context::ToolCallSource::Direct,
             pre_tool_use_approved: false,
+            pre_tool_use_approval_required: false,
             payload,
         }),
         Some(crate::tools::registry::PreToolUsePayload {
@@ -224,10 +226,31 @@ async fn exec_command_pre_tool_use_payload_skips_write_stdin() {
             tool_name: codex_tools::ToolName::plain("write_stdin"),
             source: crate::tools::context::ToolCallSource::Direct,
             pre_tool_use_approved: false,
+            pre_tool_use_approval_required: false,
             payload,
         }),
         None
     );
+}
+
+#[tokio::test]
+async fn exec_command_updated_hook_input_rewrites_command() {
+    let payload = ToolPayload::Function {
+        arguments: serde_json::json!({ "cmd": "ls", "yield_time_ms": 1000 }).to_string(),
+    };
+    let invocation = invocation_for_payload("exec_command", "call-45", payload).await;
+    let handler = ExecCommandHandler::default();
+
+    let updated = handler
+        .with_updated_hook_input(invocation, serde_json::json!({ "command": "rtk ls" }))
+        .expect("updated input should rewrite exec command");
+
+    let ToolPayload::Function { arguments } = updated.payload else {
+        panic!("exec_command should keep a function payload");
+    };
+    let args: ExecCommandArgs = parse_arguments(&arguments).expect("rewritten args should parse");
+    assert_eq!(args.cmd, "rtk ls");
+    assert_eq!(args.yield_time_ms, 1000);
 }
 
 #[tokio::test]

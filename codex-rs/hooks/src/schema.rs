@@ -103,6 +103,12 @@ pub(crate) struct PreToolUseCommandOutputWire {
     #[serde(default)]
     pub reason: Option<String>,
     #[serde(default)]
+    pub permission_decision: Option<PreToolUsePermissionDecisionWire>,
+    #[serde(default)]
+    pub permission_decision_reason: Option<String>,
+    #[serde(default)]
+    pub updated_input: Option<Value>,
+    #[serde(default)]
     pub hook_specific_output: Option<PreToolUseHookSpecificOutputWire>,
 }
 
@@ -253,6 +259,8 @@ pub(crate) struct PreToolUseCommandInput {
     pub tool_name: String,
     pub tool_input: Value,
     pub tool_use_id: String,
+    /// Codex extension: this runtime accepts `hookSpecificOutput.updatedInput`.
+    pub supports_updated_input: bool,
 }
 
 #[derive(Debug, Clone, Serialize, JsonSchema)]
@@ -585,7 +593,7 @@ fn canonicalize_json(value: &Value) -> Value {
         Value::Array(items) => Value::Array(items.iter().map(canonicalize_json).collect()),
         Value::Object(map) => {
             let mut entries: Vec<_> = map.iter().collect();
-            entries.sort_by(|(left, _), (right, _)| left.cmp(right));
+            entries.sort_by_key(|(left, _)| *left);
             let mut sorted = Map::with_capacity(map.len());
             for (key, child) in entries {
                 sorted.insert(key.clone(), canonicalize_json(child));

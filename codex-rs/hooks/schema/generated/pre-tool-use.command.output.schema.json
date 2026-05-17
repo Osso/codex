@@ -83,6 +83,18 @@
       ],
       "default": null
     },
+    "permissionDecision": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/PreToolUsePermissionDecisionWire"
+        }
+      ],
+      "default": null
+    },
+    "permissionDecisionReason": {
+      "default": null,
+      "type": "string"
+    },
     "reason": {
       "default": null,
       "type": "string"
@@ -98,6 +110,9 @@
     "systemMessage": {
       "default": null,
       "type": "string"
+    },
+    "updatedInput": {
+      "default": null
     }
   },
   "title": "pre-tool-use.command.output",

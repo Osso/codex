@@ -218,6 +218,7 @@ mod tests {
             tool_name: codex_tools::ToolName::plain("extension_echo"),
             source: ToolCallSource::Direct,
             pre_tool_use_approved: false,
+            pre_tool_use_approval_required: false,
             payload: ToolPayload::Function {
                 arguments: json!({ "message": "hello" }).to_string(),
             },

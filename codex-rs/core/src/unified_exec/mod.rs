@@ -99,6 +99,7 @@ pub(crate) struct ExecCommandRequest {
     pub additional_permissions: Option<AdditionalPermissionProfile>,
     pub additional_permissions_preapproved: bool,
     pub pre_tool_use_approved: bool,
+    pub pre_tool_use_approval_required: bool,
     pub justification: Option<String>,
     pub prefix_rule: Option<Vec<String>>,
 }

@@ -270,7 +270,7 @@ mod tests {
             AbsolutePathBuf::from_absolute_path(&config_file).expect("absolute config path");
         let config_layer_stack = ConfigLayerStack::new(
             vec![ConfigLayerEntry::new(
-                ConfigLayerSource::User { file: config_file },
+                ConfigLayerSource::System { file: config_file },
                 config,
             )],
             ConfigRequirements::default(),

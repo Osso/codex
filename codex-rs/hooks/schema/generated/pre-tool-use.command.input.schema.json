@@ -33,6 +33,10 @@
     "session_id": {
       "type": "string"
     },
+    "supports_updated_input": {
+      "description": "Codex extension: this runtime accepts `hookSpecificOutput.updatedInput`.",
+      "type": "boolean"
+    },
     "tool_input": true,
     "tool_name": {
       "type": "string"
@@ -54,6 +58,7 @@
     "model",
     "permission_mode",
     "session_id",
+    "supports_updated_input",
     "tool_input",
     "tool_name",
     "tool_use_id",

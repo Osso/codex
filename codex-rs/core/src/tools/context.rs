@@ -53,6 +53,7 @@ pub struct ToolInvocation {
     pub tool_name: ToolName,
     pub source: ToolCallSource,
     pub pre_tool_use_approved: bool,
+    pub pre_tool_use_approval_required: bool,
     pub payload: ToolPayload,
 }
 

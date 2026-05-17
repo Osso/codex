@@ -242,10 +242,16 @@ pub(crate) fn default_exec_approval_requirement(
 pub(crate) fn apply_pre_tool_use_approval(
     requirement: ExecApprovalRequirement,
     approved: bool,
+    approval_required: bool,
 ) -> ExecApprovalRequirement {
     if approved {
         ExecApprovalRequirement::Skip {
             bypass_sandbox: false,
+            proposed_execpolicy_amendment: None,
+        }
+    } else if approval_required {
+        ExecApprovalRequirement::NeedsApproval {
+            reason: Some("PreToolUse hook requested approval".to_string()),
             proposed_execpolicy_amendment: None,
         }
     } else {
