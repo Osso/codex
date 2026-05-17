@@ -10,6 +10,13 @@ use super::X_OPENAI_SUBAGENT_HEADER;
 use crate::AttestationContext;
 use crate::AttestationProvider;
 use crate::GenerateAttestationFuture;
+use crate::rollout_trace::ExecutionStatus;
+use crate::rollout_trace::InferenceTraceAttempt;
+use crate::rollout_trace::InferenceTraceContext;
+use crate::rollout_trace::RawTraceEventPayload;
+use crate::rollout_trace::RolloutTrace;
+use crate::rollout_trace::TraceWriter;
+use crate::rollout_trace::replay_bundle;
 use codex_api::ApiError;
 use codex_api::ResponseEvent;
 use codex_app_server_protocol::AuthMode;
@@ -27,13 +34,6 @@ use codex_protocol::openai_models::ModelInfo;
 use codex_protocol::protocol::InternalSessionSource;
 use codex_protocol::protocol::SessionSource;
 use codex_protocol::protocol::SubAgentSource;
-use crate::rollout_trace::ExecutionStatus;
-use crate::rollout_trace::InferenceTraceAttempt;
-use crate::rollout_trace::InferenceTraceContext;
-use crate::rollout_trace::RawTraceEventPayload;
-use crate::rollout_trace::RolloutTrace;
-use crate::rollout_trace::TraceWriter;
-use crate::rollout_trace::replay_bundle;
 use futures::StreamExt;
 use pretty_assertions::assert_eq;
 use serde_json::json;
@@ -242,7 +242,6 @@ impl futures::Stream for NotifyAfterEventStream {
         Poll::Ready(Some(Ok(event)))
     }
 }
-
 
 #[test]
 fn build_subagent_headers_sets_other_subagent_label() {
