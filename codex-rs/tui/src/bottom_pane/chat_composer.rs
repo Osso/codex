@@ -1843,18 +1843,38 @@ impl ChatComposer {
                 ..
             } => {
                 if let Some(sel) = popup.selected_item() {
+                    let result = match &sel {
+                        CommandItem::Builtin(cmd) => {
+                            let text = self.textarea.text().to_string();
+                            if cmd.supports_inline_args()
+                                && let Some((_name, rest, rest_offset)) = parse_slash_name(&text)
+                                && !rest.is_empty()
+                            {
+                                let mut args_elements = Self::slash_command_args_elements(
+                                    rest,
+                                    rest_offset,
+                                    &self.textarea.text_elements(),
+                                );
+                                let trimmed_rest = rest.trim();
+                                args_elements =
+                                    Self::trim_text_elements(rest, trimmed_rest, args_elements);
+                                InputResult::CommandWithArgs(
+                                    *cmd,
+                                    trimmed_rest.to_string(),
+                                    args_elements,
+                                )
+                            } else {
+                                InputResult::Command(*cmd)
+                            }
+                        }
+                        CommandItem::ServiceTier(command) => {
+                            InputResult::ServiceTierCommand(command.clone())
+                        }
+                    };
                     self.stage_selected_slash_command_history(&sel);
                     self.textarea.set_text_clearing_elements("");
                     self.is_bash_mode = false;
-                    return (
-                        match sel {
-                            CommandItem::Builtin(cmd) => InputResult::Command(cmd),
-                            CommandItem::ServiceTier(command) => {
-                                InputResult::ServiceTierCommand(command)
-                            }
-                        },
-                        true,
-                    );
+                    return (result, true);
                 }
                 // Fallback to default newline handling if no command selected.
                 self.handle_key_event_without_popup(key_event)
@@ -10321,6 +10341,34 @@ mod tests {
             composer.handle_key_event(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
         assert_eq!(result, InputResult::None);
         assert_eq!(composer.current_text(), "/diff");
+    }
+
+    #[test]
+    fn popup_selected_inline_slash_command_dispatches_with_args() {
+        let (tx, _rx) = unbounded_channel::<AppEvent>();
+        let sender = AppEventSender::new(tx);
+        let mut composer = ChatComposer::new(
+            /*has_input_focus*/ true,
+            sender,
+            /*enhanced_keys_supported*/ false,
+            "Ask Codex to do anything".to_string(),
+            /*disable_paste_burst*/ false,
+        );
+        composer.set_goal_command_enabled(/*enabled*/ true);
+
+        composer.set_text_content("/goal edit".to_string(), Vec::new(), Vec::new());
+        assert!(matches!(composer.active_popup, ActivePopup::Command(_)));
+        let (result, _needs_redraw) =
+            composer.handle_key_event(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+
+        match result {
+            InputResult::CommandWithArgs(cmd, args, text_elements) => {
+                assert_eq!(cmd, SlashCommand::Goal);
+                assert_eq!(args, "edit");
+                assert!(text_elements.is_empty());
+            }
+            other => panic!("expected /goal args from popup selection, got {other:?}"),
+        }
     }
 
     #[test]
