@@ -20,3 +20,9 @@ install -Dm755 target/release/codex "$codex_bin_path"
 
 echo "Deployed codex to $codex_bin_path"
 "$codex_bin_path" --version
+
+active_codex_path="$(command -v codex || true)"
+if [[ -n "$active_codex_path" && "$active_codex_path" != "$codex_bin_path" ]]; then
+  echo "WARNING: 'codex' resolves to $active_codex_path, not $codex_bin_path" >&2
+  echo "Update PATH or run $codex_bin_path directly to use this deploy." >&2
+fi

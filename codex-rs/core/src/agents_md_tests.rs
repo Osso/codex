@@ -9,6 +9,7 @@ use pretty_assertions::assert_eq;
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
+use toml::Value as TomlValue;
 
 async fn get_user_instructions(config: &Config) -> Option<String> {
     AgentsMdManager::new(config)
@@ -260,17 +261,60 @@ async fn concatenates_root_and_cwd_docs() {
 }
 
 #[tokio::test]
-async fn project_root_markers_are_honored_for_agents_discovery() {
-    let root = tempfile::tempdir().expect("tempdir");
-    fs::write(root.path().join(".codex-root"), "").unwrap();
-    fs::write(root.path().join("AGENTS.md"), "parent doc").unwrap();
+async fn discovers_agents_md_above_repo_root() {
+    let parent = tempfile::tempdir().expect("tempdir");
+    fs::write(parent.path().join("AGENTS.md"), "parent doc").unwrap();
 
-    let nested = root.path().join("dir1");
+    let repo = parent.path().join("repo");
+    fs::create_dir_all(&repo).unwrap();
+    fs::write(repo.join(".git"), "gitdir: /path/to/actual/git/dir\n").unwrap();
+    fs::write(repo.join("AGENTS.md"), "repo doc").unwrap();
+
+    let nested = repo.join("workspace/crate_a");
+    fs::create_dir_all(&nested).unwrap();
+    fs::write(nested.join("AGENTS.md"), "crate doc").unwrap();
+
+    let mut cfg = make_config(&parent, /*limit*/ 4096, /*instructions*/ None).await;
+    cfg.cwd = nested.abs();
+
+    let discovery = agents_md_paths(&cfg).await.expect("discover paths");
+    let expected_parent = AbsolutePathBuf::try_from(
+        dunce::canonicalize(parent.path().join("AGENTS.md")).expect("canonical parent doc path"),
+    )
+    .expect("absolute parent doc path");
+    let expected_repo = AbsolutePathBuf::try_from(
+        dunce::canonicalize(repo.join("AGENTS.md")).expect("canonical repo doc path"),
+    )
+    .expect("absolute repo doc path");
+    let expected_nested = AbsolutePathBuf::try_from(
+        dunce::canonicalize(nested.join("AGENTS.md")).expect("canonical nested doc path"),
+    )
+    .expect("absolute nested doc path");
+    assert_eq!(
+        discovery,
+        vec![expected_parent, expected_repo, expected_nested]
+    );
+
+    let res = get_user_instructions(&cfg).await.expect("doc expected");
+    assert_eq!(res, "parent doc\n\nrepo doc\n\ncrate doc");
+}
+
+#[tokio::test]
+async fn project_root_markers_do_not_limit_agents_discovery() {
+    let parent = tempfile::tempdir().expect("tempdir");
+    fs::write(parent.path().join("AGENTS.md"), "parent doc").unwrap();
+
+    let root = parent.path().join("root");
+    fs::create_dir_all(&root).unwrap();
+    fs::write(root.join(".codex-root"), "").unwrap();
+    fs::write(root.join("AGENTS.md"), "root doc").unwrap();
+
+    let nested = root.join("dir1");
     fs::create_dir_all(nested.join(".git")).unwrap();
     fs::write(nested.join("AGENTS.md"), "child doc").unwrap();
 
     let mut cfg = make_config_with_project_root_markers(
-        &root,
+        &parent,
         /*limit*/ 4096,
         /*instructions*/ None,
         &[".codex-root"],
@@ -280,19 +324,24 @@ async fn project_root_markers_are_honored_for_agents_discovery() {
 
     let discovery = agents_md_paths(&cfg).await.expect("discover paths");
     let expected_parent = AbsolutePathBuf::try_from(
-        dunce::canonicalize(root.path().join("AGENTS.md")).expect("canonical parent doc path"),
+        dunce::canonicalize(parent.path().join("AGENTS.md")).expect("canonical parent doc path"),
     )
     .expect("absolute parent doc path");
+    let expected_root = AbsolutePathBuf::try_from(
+        dunce::canonicalize(root.join("AGENTS.md")).expect("canonical root doc path"),
+    )
+    .expect("absolute root doc path");
     let expected_child = AbsolutePathBuf::try_from(
         dunce::canonicalize(cfg.cwd.join("AGENTS.md")).expect("canonical child doc path"),
     )
     .expect("absolute child doc path");
-    assert_eq!(discovery.len(), 2);
-    assert_eq!(discovery[0], expected_parent);
-    assert_eq!(discovery[1], expected_child);
+    assert_eq!(
+        discovery,
+        vec![expected_parent, expected_root, expected_child]
+    );
 
     let res = get_user_instructions(&cfg).await.expect("doc expected");
-    assert_eq!(res, "parent doc\n\nchild doc");
+    assert_eq!(res, "parent doc\n\nroot doc\n\nchild doc");
 }
 
 #[tokio::test]
@@ -316,9 +365,9 @@ async fn instruction_sources_include_global_before_agents_md_docs() {
     assert_eq!(sources, vec![global_agents, project_agents]);
 }
 
-/// AGENTS.override.md is preferred over AGENTS.md when both are present.
+/// AGENTS.override.md and AGENTS.md are both included when both are present.
 #[tokio::test]
-async fn agents_local_md_preferred() {
+async fn agents_local_md_and_agents_md_are_both_included() {
     let tmp = tempfile::tempdir().expect("tempdir");
     fs::write(tmp.path().join(DEFAULT_AGENTS_MD_FILENAME), "versioned").unwrap();
     fs::write(tmp.path().join(LOCAL_AGENTS_MD_FILENAME), "local").unwrap();
@@ -329,13 +378,17 @@ async fn agents_local_md_preferred() {
         .await
         .expect("local doc expected");
 
-    assert_eq!(res, "local");
+    assert_eq!(res, "local\n\nversioned");
 
     let discovery = agents_md_paths(&cfg).await.expect("discover paths");
-    assert_eq!(discovery.len(), 1);
+    assert_eq!(discovery.len(), 2);
     assert_eq!(
         discovery[0].file_name().unwrap().to_string_lossy(),
         LOCAL_AGENTS_MD_FILENAME
+    );
+    assert_eq!(
+        discovery[1].file_name().unwrap().to_string_lossy(),
+        DEFAULT_AGENTS_MD_FILENAME
     );
 }
 
@@ -360,9 +413,9 @@ async fn uses_configured_fallback_when_agents_missing() {
     assert_eq!(res, "example instructions");
 }
 
-/// AGENTS.md remains preferred when both AGENTS.md and fallbacks are present.
+/// AGENTS.md and configured fallbacks are all included when present.
 #[tokio::test]
-async fn agents_md_preferred_over_fallbacks() {
+async fn agents_md_and_fallbacks_are_all_included() {
     let tmp = tempfile::tempdir().expect("tempdir");
     fs::write(tmp.path().join("AGENTS.md"), "primary").unwrap();
     fs::write(tmp.path().join("EXAMPLE.md"), "secondary").unwrap();
@@ -377,18 +430,25 @@ async fn agents_md_preferred_over_fallbacks() {
 
     let res = get_user_instructions(&cfg)
         .await
-        .expect("AGENTS.md should win");
+        .expect("project docs expected");
 
-    assert_eq!(res, "primary");
+    assert_eq!(res, "primary\n\nsecondary");
 
     let discovery = agents_md_paths(&cfg).await.expect("discover paths");
-    assert_eq!(discovery.len(), 1);
+    assert_eq!(discovery.len(), 2);
     assert!(
         discovery[0]
             .file_name()
             .unwrap()
             .to_string_lossy()
             .eq(DEFAULT_AGENTS_MD_FILENAME)
+    );
+    assert!(
+        discovery[1]
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .eq("EXAMPLE.md")
     );
 }
 
