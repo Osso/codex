@@ -80,6 +80,13 @@ globalThis.fs = {
 globalThis.rclone = {
   deletefile: function (target) {
     return globalThis.__hostrun_invokeCapability("rclone.deletefile", { target });
+  },
+  lsf: function (target, options = {}) {
+    const args = ["lsf", target];
+    if (options.recursive) {
+      args.push("--recursive");
+    }
+    return globalThis.__hostrun_commandBuilder("rclone", args);
   }
 };
 
@@ -104,6 +111,14 @@ globalThis.__hostrun_commandBuilder = function (program, args) {
       command: state,
       capture: function () {
         state[name] = { type: "capture" };
+        return builder;
+      },
+      text: function () {
+        state[name] = { type: "text" };
+        return builder;
+      },
+      lines: function () {
+        state[name] = { type: "lines" };
         return builder;
       },
       toFile: function (path) {
@@ -167,6 +182,75 @@ globalThis.__hostrun_cliProxy = function (path) {
 };
 
 globalThis.cli = globalThis.__hostrun_cliProxy("");
+
+globalThis.__hostrun_addOption = function (args, flag, value) {
+  if (value === undefined || value === null || value === false) {
+    return;
+  }
+  args.push(flag);
+  if (value !== true) {
+    args.push(String(value));
+  }
+};
+
+globalThis.fd = {
+  find: function (pattern, options = {}) {
+    const args = [pattern];
+    globalThis.__hostrun_addOption(args, "--type", options.type);
+    globalThis.__hostrun_addOption(args, "--extension", options.extension);
+    globalThis.__hostrun_addOption(args, "--max-depth", options.maxDepth);
+    globalThis.__hostrun_addOption(args, "--absolute-path", options.absolutePath);
+    globalThis.__hostrun_addOption(args, "--glob", options.glob);
+    globalThis.__hostrun_addOption(args, "--hidden", options.hidden);
+    globalThis.__hostrun_addOption(args, "--no-ignore", options.ignored === false);
+    if (options.exclude) {
+      for (const exclude of [].concat(options.exclude)) {
+        args.push("--exclude", String(exclude));
+      }
+    }
+    if (options.root) {
+      args.push(String(options.root));
+    }
+    return globalThis.__hostrun_commandBuilder("fdfind", args);
+  },
+  files: function (root = ".", options = {}) {
+    return globalThis.fd.find(".", { ...options, root, type: "file" });
+  },
+  dirs: function (root = ".", options = {}) {
+    return globalThis.fd.find(".", { ...options, root, type: "directory" });
+  }
+};
+
+globalThis.rg = {
+  search: function (pattern, paths = [], options = {}) {
+    const args = [];
+    globalThis.__hostrun_addOption(args, "--fixed-strings", options.fixed);
+    globalThis.__hostrun_addOption(args, "--ignore-case", options.ignoreCase);
+    globalThis.__hostrun_addOption(args, "--json", options.json);
+    globalThis.__hostrun_addOption(args, "--hidden", options.hidden);
+    globalThis.__hostrun_addOption(args, "--no-ignore", options.ignored === false);
+    globalThis.__hostrun_addOption(args, "--files-with-matches", options.filesWithMatches);
+    globalThis.__hostrun_addOption(args, "--max-count", options.maxCount);
+    globalThis.__hostrun_addOption(args, "--type", options.type);
+    if (options.glob) {
+      for (const glob of [].concat(options.glob)) {
+        args.push("--glob", String(glob));
+      }
+    }
+    if (options.context !== undefined) {
+      args.push("--context", String(options.context));
+    }
+    args.push(String(pattern));
+    args.push(...[].concat(paths).filter((path) => path !== undefined && path !== null).map(String));
+    return globalThis.__hostrun_commandBuilder("rg", args);
+  },
+  files: function (pattern, paths = [], options = {}) {
+    return globalThis.rg.search(pattern, paths, { ...options, filesWithMatches: true });
+  },
+  matches: function (pattern, paths = [], options = {}) {
+    return globalThis.rg.search(pattern, paths, { ...options, json: true });
+  }
+};
 
 globalThis.__hostrun_run = function (code) {
   globalThis.__hostrun_console = [];

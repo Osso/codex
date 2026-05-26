@@ -42,8 +42,11 @@ thread start. How the runtime is wired internally belongs in
 - [ ] Expose `tmp.file(prefix)` and `tmp.dir(prefix)` with automatic cleanup and explicit `.cleanup()` support.
 - [ ] Expose `rclone.deletefile(target)` and `rclone.lsf(target, options)` as readable wrappers for common rclone workflows.
 - [x] Expose `rclone.deletefile(target)` as an approval-gated rclone delete helper.
+- [x] Expose `rclone.lsf(target, options)` as a lazy command-builder wrapper.
 - [ ] Expose `fd.find`, `fd.files`, and `fd.dirs` as readable wrappers around `fdfind`/`fd`.
+- [x] Expose `fd.find`, `fd.files`, and `fd.dirs` as lazy command-builder wrappers.
 - [ ] Expose `rg.search`, `rg.files`, and `rg.matches` as readable wrappers around ripgrep, including structured match parsing where possible.
+- [x] Expose `rg.search`, `rg.files`, and `rg.matches` as lazy command-builder wrappers.
 - [ ] Execute approved `cli.<program>` requests on the host and return exit status plus stdout/stderr handles or captured text.
 
 ### HTTP client

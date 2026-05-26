@@ -531,6 +531,91 @@ mod tests {
     }
 
     #[test]
+    fn rclone_lsf_wrapper_builds_rclone_command() {
+        let session = HostrunSession::new().expect("session");
+
+        let result = session
+            .eval("rclone.lsf('spaces:bucket', { recursive: true }).stdout.lines().run();")
+            .expect("approval");
+
+        let approval = result.approval.expect("approval");
+        assert_eq!(approval.tool, "cli.rclone");
+        assert_eq!(
+            approval.args,
+            json!({
+                "program": "rclone",
+                "args": ["lsf", "spaces:bucket", "--recursive"],
+                "stdout": { "type": "lines" }
+            })
+        );
+    }
+
+    #[test]
+    fn fd_files_wrapper_builds_fdfind_command() {
+        let session = HostrunSession::new().expect("session");
+
+        let result = session
+            .eval(
+                "fd.files('/repo', { extension: 'rs', hidden: true, exclude: ['target'] }).run();",
+            )
+            .expect("approval");
+
+        let approval = result.approval.expect("approval");
+        assert_eq!(approval.tool, "cli.fdfind");
+        assert_eq!(
+            approval.args,
+            json!({
+                "program": "fdfind",
+                "args": [
+                    ".",
+                    "--type",
+                    "file",
+                    "--extension",
+                    "rs",
+                    "--hidden",
+                    "--exclude",
+                    "target",
+                    "/repo"
+                ]
+            })
+        );
+    }
+
+    #[test]
+    fn rg_search_wrapper_builds_rg_command() {
+        let session = HostrunSession::new().expect("session");
+
+        let result = session
+            .eval(
+                "rg.search('needle', 'src', {
+                    fixed: true,
+                    ignoreCase: true,
+                    json: true,
+                    glob: '*.rs'
+                }).run();",
+            )
+            .expect("approval");
+
+        let approval = result.approval.expect("approval");
+        assert_eq!(approval.tool, "cli.rg");
+        assert_eq!(
+            approval.args,
+            json!({
+                "program": "rg",
+                "args": [
+                    "--fixed-strings",
+                    "--ignore-case",
+                    "--json",
+                    "--glob",
+                    "*.rs",
+                    "needle",
+                    "src"
+                ]
+            })
+        );
+    }
+
+    #[test]
     fn captures_console_messages_and_echoes_executed_code() {
         let session = HostrunSession::new().expect("session");
 

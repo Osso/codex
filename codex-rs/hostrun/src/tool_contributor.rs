@@ -25,7 +25,9 @@ Hostrun evaluates JavaScript in a persistent QuickJS session:
 - Arrays have `.containing(needle)` for substring filtering.
 - `cli.<program>(...args)` creates a lazy host command builder. Call `.run()` to request approval and execute it, e.g. `cli.dmidecode().run()` or `cli.rg('needle', 'path').run()`.
 - `fs.write(path, content)`, `fs.read(path)`, `fs.exists(path)`, and `fs.remove(path)` request approval-gated host file operations.
-- `rclone.deletefile(target)` requests an approval-gated `rclone deletefile`.
+- `rclone.deletefile(target)` requests an approval-gated `rclone deletefile`; `rclone.lsf(target, { recursive: true })` builds a lazy `rclone lsf` command.
+- `fd.find(pattern, options)`, `fd.files(root, options)`, and `fd.dirs(root, options)` build lazy `fdfind` commands.
+- `rg.search(pattern, paths, options)`, `rg.files(pattern, paths, options)`, and `rg.matches(pattern, paths, options)` build lazy ripgrep commands.
 
 Return a final expression value when useful.";
 
@@ -329,7 +331,9 @@ mod tests {
         assert!(fragments[0].text().contains("ctx"));
         assert!(fragments[0].text().contains("cli.dmidecode().run()"));
         assert!(fragments[0].text().contains("fs.read(path)"));
-        assert!(fragments[0].text().contains("rclone.deletefile(target)"));
+        assert!(fragments[0].text().contains("rclone.lsf(target"));
+        assert!(fragments[0].text().contains("fd.find(pattern"));
+        assert!(fragments[0].text().contains("rg.search(pattern"));
         assert!(!fragments[0].text().contains("tools.fs.write"));
     }
 }
