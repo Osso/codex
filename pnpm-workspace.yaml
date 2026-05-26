@@ -1,5 +1,6 @@
 packages:
   - codex-cli
+  - codex-rs/hostrun/js
 
 ignoredBuiltDependencies:
   - esbuild
