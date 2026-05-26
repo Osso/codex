@@ -35,7 +35,31 @@ thread start. How the runtime is wired internally belongs in
 - [x] Expose `cli.<program>(...args)` as an approval-gated host command request.
 - [x] Preserve `cli.<program>` arguments as argv-style data rather than shell text.
 - [x] Include the command program and arguments in the approval request for `cli.<program>`.
+- [ ] Prefer public `fs.*`, `rclone.*`, `fd.*`, `rg.*`, `http.*`, and `cli.*` APIs in contributed instructions; keep `tools.*` internal or explicitly documented as a low-level bridge.
+- [ ] Expose `fs.write(path, content)`, `fs.read(path)`, `fs.exists(path)`, and `fs.remove(path)` as approval-gated file helpers.
+- [ ] Expose `fs.writeJson(path, value)`, `fs.writeYaml(path, value)`, and `fs.writeCsv(path, rows)` for structured file writes.
+- [ ] Expose `tmp.file(prefix)` and `tmp.dir(prefix)` with automatic cleanup and explicit `.cleanup()` support.
+- [ ] Expose `rclone.deletefile(target)` and `rclone.lsf(target, options)` as readable wrappers for common rclone workflows.
+- [ ] Expose `fd.find`, `fd.files`, and `fd.dirs` as readable wrappers around `fdfind`/`fd`.
+- [ ] Expose `rg.search`, `rg.files`, and `rg.matches` as readable wrappers around ripgrep, including structured match parsing where possible.
 - [ ] Execute approved `cli.<program>` requests on the host and return exit status plus stdout/stderr handles or captured text.
+
+### HTTP client
+
+- [ ] Expose `http.request(method, url, options)` as an approval-gated HTTP client for common API workflows without curl flags.
+- [ ] Expose method wrappers: `http.get`, `http.post`, `http.put`, `http.patch`, `http.delete`, and `http.head`.
+- [ ] Support request headers as an object, e.g. `{ headers: { Accept: "application/json" } }`.
+- [ ] Support query params as an object, e.g. `{ query: { q: "hostrun", limit: 20 } }`.
+- [ ] Support exactly one body source per request: `json`, `form`, `body`, `file`, or `multipart`.
+- [ ] `json: value` sends `JSON.stringify(value)` and sets JSON content/accept headers unless overridden.
+- [ ] `form: object` sends `application/x-www-form-urlencoded`.
+- [ ] `body: string|bytes` sends the raw request body and leaves content type to the caller.
+- [ ] `file: path` sends file bytes as the whole request body.
+- [ ] `multipart: object` sends form fields and one or more file parts with optional filename/content-type metadata.
+- [ ] Support bearer token, bearer token from environment, basic auth, and header-token auth without exposing secrets in transcript output.
+- [ ] Support timeout, retry policy, redirect policy, and TLS options with readable defaults.
+- [ ] Response objects expose `.status`, `.ok`, `.headers`, `.text()`, `.json()`, `.bytes()`, and `.save(path)`.
+- [ ] `.save(path)` streams the response body to disk and returns metadata including path, status, headers, and byte count.
 
 ### Command builder library contract
 
@@ -44,13 +68,31 @@ thread start. How the runtime is wired internally belongs in
 - [ ] `.spawn()` starts a command and returns process/stream handles.
 - [ ] `stdout.capture()` and `stderr.capture()` capture bounded text for model-visible results.
 - [ ] `stdout.toFile(path)` and `stderr.toFile(path)` redirect output to host files.
+- [ ] `stderr.toStdout()`, `combined.capture()`, and `combined.toFile(path)` support common stderr/stdout composition.
 - [ ] `stdout.text()` returns captured stdout text.
 - [ ] `stdout.lines()` returns captured stdout split into lines.
-- [ ] `stdin.text(str)`, `stdin.file(path)`, `stdin.json(value)`, and `stdin.lines(values)` provide explicit stdin sources.
+- [ ] `stdin.text(str)`, `stdin.file(path)`, `stdin.json(value)`, `stdin.yaml(value)`, `stdin.csv(rows)`, and `stdin.lines(values)` provide explicit stdin sources.
 - [ ] A downstream command can pipe from an upstream stream handle, e.g. `cli.cat().stdin(cli.rclone(...).stdout).run()`.
+- [ ] Named upstream command handles can be reused for piping, e.g. `const result = cli.rclone(...); cli.cat().stdin(result.stdout).run()`.
+- [ ] A downstream command can pipe either upstream stdout or upstream stderr into stdin.
 - [ ] Piped command graphs start producer and consumer commands concurrently.
 - [ ] Approval text for command graphs includes argv and redirect/pipe shape in a readable form without using a shell internally.
 - [ ] Command graph results include every command's exit code and fail the graph if any command fails unless explicitly configured otherwise.
+- [ ] Captured stdout/stderr have bounded size and explicit truncation metadata.
+
+### Structured data and collections
+
+- [ ] Keep JSON manipulation deliberately small: native `JSON.parse` / `JSON.stringify`, `.stdout.json()`, `str.json()`, HTTP response `.json()`, and JSON stdin/file serialization.
+- [ ] Support JSONL, YAML, and CSV parsing from command output and strings.
+- [ ] Support JSONL, YAML, and CSV serialization to stdin and files.
+- [ ] Support conversion helpers between JSON-compatible values, YAML, CSV, JSONL, arrays, and table objects.
+- [ ] Provide non-mutating string-array helpers: `containing`, `notContaining`, `startsWith`, `endsWith`, `matching`, `notMatching`, `glob`, `notGlob`, `first`, `last`, `take`, `unique`, `sort`, `reverse`, `lengths`, `bytes`, `lower`, and `upper`.
+- [ ] Provide scalar helpers where they improve agent readability: `lines`, `bytes`, `lower`, `upper`, `length`, and `chars`.
+- [ ] Provide whitespace field parsing with 1-based fields: `lines.fields(separator = /\s+/)`.
+- [ ] Provide template formatting for field rows: `lines.fields().format("user:{1} prefix:{3|substr:0,7}")`.
+- [ ] Provide object template formatting for field rows: `lines.fields().format({ user: "{1}", prefix: "{3|substr:0,7}" })`.
+- [ ] Template transforms include `trim`, `lower`, `upper`, `substr`, `replace`, `basename`, and `dirname`.
+- [ ] Table helpers include `groupBy`, `sortBy`, `uniqueBy`, and `countBy`.
 
 ### Transcript and UX
 
@@ -105,8 +147,14 @@ thread start. How the runtime is wired internally belongs in
 
 ## Known gaps (current cycle)
 
+- [ ] Update contributed Hostrun instructions to use public `fs.*`, `rclone.*`, `fd.*`, `rg.*`, `http.*`, and `cli.*` APIs.
+- [ ] Implement public file, temp, rclone, fd, rg, and HTTP helpers with approval-aware host execution.
 - [ ] Implement the command builder API for `cli.<program>` so stdout/stderr redirects and stdin piping are real runtime behavior.
-- [ ] Add tests for `stdout.capture`, `stdout.toFile`, `stderr.toFile`, `stdin.text`, `stdin.file`, `stdin.json`, `stdin.lines`, and stream-handle piping.
+- [ ] Add tests for stdout/stderr capture, redirects, stderr/stdout composition, stdin sources, stream-handle piping, and command graph approval text.
+- [ ] Add tests for HTTP query params, headers, auth redaction, JSON/form/raw/file/multipart bodies, response save-to-file, timeouts, retries, and non-2xx handling.
+- [ ] Add tests for JSON/YAML/CSV/JSONL parse/serialize helpers.
+- [ ] Add tests for collection and table helpers, including templates, transforms, grouping, sorting, unique values, reverse order, lengths, bytes, lower, and upper.
+- [ ] Add tests for temp resource cleanup on success and failure.
 - [ ] Update contributed Hostrun instructions after the command builder API is implemented, keeping instructions aligned with tested behavior.
 - [ ] Add `docs/wiki/systems/hostrun.md` with architecture details once the command builder design stabilizes.
 
