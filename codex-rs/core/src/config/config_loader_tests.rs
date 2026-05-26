@@ -2,8 +2,6 @@ use crate::config::ConfigBuilder;
 use crate::config::ConfigOverrides;
 use crate::config::ConstraintError;
 use codex_config::CONFIG_TOML_FILE;
-use codex_config::CloudRequirementsLoadError;
-use codex_config::CloudRequirementsLoader;
 use codex_config::ConfigError;
 use codex_config::ConfigLayerEntry;
 use codex_config::ConfigLayerSource;
@@ -1460,7 +1458,6 @@ wire_api = "responses"
         Some(cwd),
         &[] as &[(String, TomlValue)],
         LoaderOverrides::default(),
-        CloudRequirementsLoader::default(),
         &codex_config::NoopThreadConfigLoader,
     )
     .await?;
@@ -1714,7 +1711,6 @@ async fn invalid_project_config_ignored_when_untrusted_or_unknown() -> std::io::
             &[] as &[(String, TomlValue)],
             LoaderOverrides::default(),
             &codex_config::NoopThreadConfigLoader,
-            /*host_name*/ None,
         )
         .await?;
         let project_layers: Vec<_> = layers
@@ -1783,7 +1779,6 @@ async fn project_layer_without_config_toml_is_disabled_when_untrusted_or_unknown
             &[] as &[(String, TomlValue)],
             LoaderOverrides::default(),
             &codex_config::NoopThreadConfigLoader,
-            /*host_name*/ None,
         )
         .await?;
         let project_layers: Vec<_> = layers

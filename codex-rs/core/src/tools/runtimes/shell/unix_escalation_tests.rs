@@ -5,7 +5,6 @@ use super::commands_for_intercepted_exec_policy;
 use super::evaluate_intercepted_exec_policy;
 use super::extract_shell_script;
 use super::join_program_and_argv;
-use super::map_exec_result;
 use crate::config::Constrained;
 use crate::sandboxing::SandboxPermissions;
 use crate::session::tests::make_session_and_context;
@@ -29,10 +28,8 @@ use codex_protocol::protocol::AskForApproval;
 use codex_protocol::protocol::GranularApprovalConfig;
 use codex_protocol::protocol::GuardianCommandSource;
 use codex_protocol::protocol::SandboxPolicy;
-use codex_sandboxing::SandboxType;
 use codex_shell_escalation::EscalationExecution;
 use codex_shell_escalation::EscalationPermissions;
-use codex_shell_escalation::ExecResult;
 use codex_shell_escalation::ResolvedPermissionProfile;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use pretty_assertions::assert_eq;
@@ -242,26 +239,6 @@ fn commands_for_intercepted_exec_policy_parses_plain_shell_wrappers() {
         ]
     );
     assert!(!candidate_commands.used_complex_parsing);
-}
-
-#[test]
-fn map_exec_result_preserves_stdout_and_stderr() {
-    let out = map_exec_result(
-        SandboxType::None,
-        ExecResult {
-            exit_code: 0,
-            stdout: "out".to_string(),
-            stderr: "err".to_string(),
-            output: "outerr".to_string(),
-            duration: Duration::from_millis(1),
-            timed_out: false,
-        },
-    )
-    .unwrap();
-
-    assert_eq!(out.stdout.text, "out");
-    assert_eq!(out.stderr.text, "err");
-    assert_eq!(out.aggregated_output.text, "outerr");
 }
 
 #[test]

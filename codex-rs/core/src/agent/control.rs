@@ -1005,6 +1005,50 @@ impl AgentControl {
         Ok(agents)
     }
 
+    pub(crate) async fn listed_agent_status_snapshot(
+        &self,
+        current_session_source: &SessionSource,
+        path_prefix: Option<&str>,
+    ) -> CodexResult<Vec<LiveAgent>> {
+        let state = self.upgrade()?;
+        self.release_missing_registered_agents(&state).await;
+        let resolved_prefix = path_prefix
+            .map(|prefix| {
+                current_session_source
+                    .get_agent_path()
+                    .unwrap_or_else(AgentPath::root)
+                    .resolve(prefix)
+                    .map_err(CodexErr::UnsupportedOperation)
+            })
+            .transpose()?;
+        let registered_agents = self.state.registered_non_root_agents();
+        let mut agents = Vec::with_capacity(registered_agents.len());
+
+        for metadata in registered_agents {
+            let Some(thread_id) = metadata.agent_id else {
+                continue;
+            };
+            if resolved_prefix
+                .as_ref()
+                .is_some_and(|prefix| !agent_matches_prefix(metadata.agent_path.as_ref(), prefix))
+            {
+                continue;
+            }
+
+            let Some(thread) = state.get_thread(thread_id).await.ok() else {
+                self.state.release_spawned_thread(thread_id);
+                continue;
+            };
+            agents.push(LiveAgent {
+                thread_id,
+                metadata,
+                status: thread.agent_status().await,
+            });
+        }
+
+        Ok(agents)
+    }
+
     /// Starts a detached watcher for sub-agents spawned from another thread.
     ///
     /// This is only enabled for `SubAgentSource::ThreadSpawn`, where a parent thread exists and

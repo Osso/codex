@@ -6,8 +6,6 @@ use crate::context::ContextualUserFragment;
 use crate::context::TurnAborted;
 use crate::function_tool::FunctionCallError;
 use crate::shell::default_user_shell;
-use crate::skills::SkillRenderSideEffects;
-use crate::skills::render::SkillMetadataBudget;
 use crate::test_support::models_manager_with_provider;
 use crate::tools::format_exec_output_str;
 use codex_config::ConfigLayerStack;
@@ -2993,6 +2991,16 @@ async fn build_test_config(codex_home: &Path) -> Config {
         .expect("load default test config")
 }
 
+async fn load_latest_config_for_session(session: &Session) -> Config {
+    let config = session.get_config().await;
+    ConfigBuilder::without_managed_config_for_tests()
+        .codex_home(config.codex_home.to_path_buf())
+        .fallback_cwd(Some(config.cwd.to_path_buf()))
+        .build()
+        .await
+        .expect("reload latest test config")
+}
+
 fn session_telemetry(
     conversation_id: ThreadId,
     config: &Config,
@@ -3445,7 +3453,12 @@ async fn request_command_approval_permission_prompt_tool_decisions_and_side_effe
         },
     );
     session
-        .refresh_mcp_servers_now(&turn_context, mcp_servers, OAuthCredentialsStoreMode::Auto)
+        .refresh_mcp_servers_now(
+            &turn_context,
+            mcp_servers,
+            OAuthCredentialsStoreMode::Auto,
+            /*elicitation_reviewer*/ None,
+        )
         .await;
 
     let mut config = turn_context.config.as_ref().clone();
@@ -4133,6 +4146,7 @@ async fn make_session_with_history_source_and_agent_control_and_rx(
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
+        permission_prompt_tool: config.permission_prompt_tool.clone(),
         approvals_reviewer: config.approvals_reviewer,
         permission_profile: config.permissions.permission_profile.clone(),
         active_permission_profile: config.permissions.active_permission_profile(),
@@ -5189,6 +5203,34 @@ where
         configure_config,
     )
     .await
+}
+
+async fn make_session_with_config<F>(configure_config: F) -> anyhow::Result<Arc<Session>>
+where
+    F: FnOnce(&mut Config),
+{
+    let (session, _turn_context, _rx) = make_session_and_context_with_auth_and_config_and_rx(
+        CodexAuth::from_api_key("Test API Key"),
+        Vec::new(),
+        configure_config,
+    )
+    .await;
+    Ok(session)
+}
+
+async fn make_session_with_config_and_rx<F>(
+    configure_config: F,
+) -> anyhow::Result<(Arc<Session>, async_channel::Receiver<Event>)>
+where
+    F: FnOnce(&mut Config),
+{
+    let (session, _turn_context, rx) = make_session_and_context_with_auth_and_config_and_rx(
+        CodexAuth::from_api_key("Test API Key"),
+        Vec::new(),
+        configure_config,
+    )
+    .await;
+    Ok((session, rx))
 }
 
 async fn make_session_and_context_with_auth_config_home_and_rx<F>(
@@ -8853,7 +8895,6 @@ async fn rejects_escalated_permissions_when_policy_not_on_request() {
     use crate::tools::sandboxing::ExecApprovalRequirement;
     use crate::turn_diff_tracker::TurnDiffTracker;
     use codex_protocol::protocol::AskForApproval;
-    use codex_protocol::protocol::SandboxPolicy;
 
     let (session, mut turn_context_raw) = make_session_and_context().await;
     // Ensure policy is NOT OnRequest so the early rejection path triggers

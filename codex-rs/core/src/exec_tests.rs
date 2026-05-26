@@ -8,7 +8,6 @@ use pretty_assertions::assert_eq;
 use std::collections::HashMap;
 use std::time::Duration;
 use tokio::io::AsyncWriteExt;
-use tokio::time::timeout;
 
 fn make_exec_output(
     exit_code: i32,
@@ -1091,6 +1090,8 @@ async fn process_exec_tool_call_respects_cancellation_token() -> Result<()> {
     let env: HashMap<String, String> = std::env::vars().collect();
     let cancel_token = CancellationToken::new();
     let cancel_tx = cancel_token.clone();
+    let sandbox_policy = SandboxPolicy::DangerFullAccess;
+    let permission_profile = PermissionProfile::from_legacy_sandbox_policy(&sandbox_policy);
     let params = ExecParams {
         command,
         cwd: cwd.clone(),
@@ -1110,16 +1111,14 @@ async fn process_exec_tool_call_respects_cancellation_token() -> Result<()> {
     });
     let result = process_exec_tool_call(
         params,
-        &SandboxPolicy::DangerFullAccess,
-        &FileSystemSandboxPolicy::from(&SandboxPolicy::DangerFullAccess),
-        NetworkSandboxPolicy::Enabled,
+        &permission_profile,
         &cwd,
         &None,
         /*stdout_stream*/ None,
     )
     .await
     .expect("cancellation should stop the process promptly");
-    let output = result.expect("cancellation should return a non-timeout exec result");
+    let output = result;
     assert!(!output.timed_out);
     assert_ne!(output.exit_code, 0);
     assert_ne!(output.exit_code, EXEC_TIMEOUT_EXIT_CODE);

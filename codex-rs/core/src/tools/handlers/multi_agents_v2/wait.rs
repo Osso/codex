@@ -176,25 +176,18 @@ async fn list_descendant_agent_statuses(
     let agents = session
         .services
         .agent_control
-        .list_agents(&turn.session_source, None)
+        .listed_agent_status_snapshot(&turn.session_source, None)
         .await
         .map_err(collab_spawn_error)?;
     let mut statuses = HashMap::new();
     for agent in agents {
-        if !agent.agent_name.starts_with(descendant_prefix) {
+        let Some(agent_path) = &agent.metadata.agent_path else {
+            continue;
+        };
+        if !agent_path.as_str().starts_with(descendant_prefix) {
             continue;
         }
-        let thread_id = session
-            .services
-            .agent_control
-            .resolve_agent_reference(
-                session.conversation_id,
-                &turn.session_source,
-                &agent.agent_name,
-            )
-            .await
-            .map_err(collab_spawn_error)?;
-        statuses.insert(thread_id, agent.agent_status);
+        statuses.insert(agent.thread_id, agent.status);
     }
     Ok(statuses)
 }
