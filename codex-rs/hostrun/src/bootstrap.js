@@ -77,6 +77,35 @@ globalThis.__hostrun_utf8ByteLength = function (value) {
   return bytes;
 };
 
+globalThis.__hostrun_utf8Bytes = function (value) {
+  const output = [];
+  for (const char of String(value)) {
+    let codePoint = char.codePointAt(0);
+    if (codePoint <= 0x7f) {
+      output.push(codePoint);
+    } else if (codePoint <= 0x7ff) {
+      output.push(0xc0 | (codePoint >> 6));
+      output.push(0x80 | (codePoint & 0x3f));
+    } else if (codePoint <= 0xffff) {
+      output.push(0xe0 | (codePoint >> 12));
+      output.push(0x80 | ((codePoint >> 6) & 0x3f));
+      output.push(0x80 | (codePoint & 0x3f));
+    } else {
+      output.push(0xf0 | (codePoint >> 18));
+      output.push(0x80 | ((codePoint >> 12) & 0x3f));
+      output.push(0x80 | ((codePoint >> 6) & 0x3f));
+      output.push(0x80 | (codePoint & 0x3f));
+    }
+  }
+  return output;
+};
+
+globalThis.__hostrun_byteRange = function (values, start, end = start) {
+  const first = Math.max(Number(start), 0);
+  const last = Math.max(Number(end), first);
+  return Array.from(values).slice(first, last + 1);
+};
+
 globalThis.__hostrun_lineRange = function (values, start, end = start) {
   if (start === undefined || start === null) {
     return values;
@@ -160,6 +189,14 @@ globalThis.__hostrun_defineStringHelper("upper", function () {
 
 globalThis.__hostrun_defineStringHelper("bytes", function () {
   return globalThis.__hostrun_utf8ByteLength(this);
+});
+
+globalThis.__hostrun_defineStringHelper("byteArray", function () {
+  return globalThis.__hostrun_utf8Bytes(this);
+});
+
+globalThis.__hostrun_defineStringHelper("byteRange", function (start, end = start) {
+  return globalThis.__hostrun_byteRange(globalThis.__hostrun_utf8Bytes(this), start, end);
 });
 
 globalThis.__hostrun_defineStringHelper("chars", function () {
@@ -651,6 +688,10 @@ globalThis.__hostrun_defineArrayHelper("lengths", function () {
 
 globalThis.__hostrun_defineArrayHelper("bytes", function () {
   return this.map((value) => String(value).bytes());
+});
+
+globalThis.__hostrun_defineArrayHelper("byteRange", function (start, end = start) {
+  return globalThis.__hostrun_byteRange(this, start, end);
 });
 
 globalThis.__hostrun_defineArrayHelper("lower", function () {

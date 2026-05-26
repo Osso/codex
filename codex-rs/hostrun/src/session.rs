@@ -366,3 +366,7 @@ mod text_tests;
 #[cfg(test)]
 #[path = "path_tests.rs"]
 mod path_tests;
+
+#[cfg(test)]
+#[path = "byte_tests.rs"]
+mod byte_tests;

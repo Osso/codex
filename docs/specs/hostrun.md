@@ -103,7 +103,7 @@ thread start. How the runtime is wired internally belongs in
 - [x] Provide text helpers for common shell replacements: `splitRow`, `splitColumn`, `splitWords`, `joinText`, `trimmed`, `replaceText`, `lineCount`, `head`, and `tail`.
 - [x] Arrays provide `head`, `tail`, and `joinText` helpers for line-list workflows.
 - [x] Provide path helpers for common filesystem text transforms: `path.join`, `path.basename`, `path.dirname`, and `path.parse`.
-- [ ] Provide byte helpers for binary inspection: byte length and byte ranges over raw command/file output.
+- [x] Provide byte helpers for binary inspection: UTF-8 byte arrays, byte length, and byte ranges over strings and byte arrays.
 - [ ] Provide non-mutating string-array helpers: `containing`, `notContaining`, `startsWith`, `endsWith`, `matching`, `notMatching`, `glob`, `notGlob`, `first`, `last`, `take`, `unique`, `sort`, `reverse`, `lengths`, `bytes`, `lower`, and `upper`.
 - [x] Provide string-array helpers for `containing`, `notContaining`, `startsWith`, `endsWith`, `matching`, `notMatching`, `glob`, `notGlob`, `first`, `last`, `take`, `unique`, `lengths`, `bytes`, `lower`, `upper`, `sorted`, and `reversed`.
 - [x] `glob` and `notGlob` use case-sensitive path-glob matching with `*`, `?`, and `**`, without shell expansion.
