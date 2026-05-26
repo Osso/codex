@@ -52,6 +52,7 @@ thread start. How the runtime is wired internally belongs in
 - [x] Expose `fd.find`, `fd.files`, and `fd.dirs` as lazy command-builder wrappers.
 - [ ] Expose `rg.search`, `rg.files`, and `rg.matches` as readable wrappers around ripgrep, including structured match parsing where possible.
 - [x] Expose `rg.search`, `rg.files`, and `rg.matches` as lazy command-builder wrappers.
+- [x] `rg.files(...).run()` returns matching path strings after approved execution, and `rg.matches(...).run()` parses `rg --json` output into structured match objects.
 - [ ] Execute approved `cli.<program>` requests on the host and return exit status plus stdout/stderr handles or captured text.
 
 ### HTTP client

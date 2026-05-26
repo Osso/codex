@@ -741,5 +741,9 @@ mod fs_execution_tests;
 mod http_execution_tests;
 
 #[cfg(test)]
+#[path = "rg_execution_tests.rs"]
+mod rg_execution_tests;
+
+#[cfg(test)]
 #[path = "tmp_tests.rs"]
 mod tmp_tests;

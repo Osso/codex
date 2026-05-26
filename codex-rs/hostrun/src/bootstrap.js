@@ -1120,6 +1120,48 @@ globalThis.fd = {
   }
 };
 
+globalThis.__hostrun_commandStdout = function (result) {
+  if (result === null || result === undefined) {
+    return "";
+  }
+  const stdout = result.stdout ?? "";
+  return Array.isArray(stdout) ? stdout.join("\n") : String(stdout);
+};
+
+globalThis.__hostrun_parseRgFiles = function (result) {
+  return globalThis.__hostrun_commandStdout(result)
+    .lines()
+    .filter((line) => line.length > 0)
+    .unique();
+};
+
+globalThis.__hostrun_parseRgMatches = function (result) {
+  return globalThis.__hostrun_commandStdout(result)
+    .jsonLines()
+    .filter((event) => event.type === "match")
+    .map((event) => {
+      const data = event.data ?? {};
+      return {
+        path: data.path?.text ?? "",
+        lineNumber: data.line_number ?? null,
+        line: data.lines?.text ?? "",
+        submatches: (data.submatches ?? []).map((submatch) => ({
+          text: submatch.match?.text ?? "",
+          start: submatch.start ?? null,
+          end: submatch.end ?? null
+        }))
+      };
+    });
+};
+
+globalThis.__hostrun_withParsedRun = function (builder, parser) {
+  const run = builder.run;
+  builder.run = function () {
+    return parser(run.call(builder));
+  };
+  return builder;
+};
+
 globalThis.rg = {
   search: function (pattern, paths = [], options = {}) {
     const args = [];
@@ -1144,10 +1186,16 @@ globalThis.rg = {
     return globalThis.__hostrun_commandBuilder("rg", args);
   },
   files: function (pattern, paths = [], options = {}) {
-    return globalThis.rg.search(pattern, paths, { ...options, filesWithMatches: true });
+    return globalThis.__hostrun_withParsedRun(
+      globalThis.rg.search(pattern, paths, { ...options, filesWithMatches: true }).stdout.lines(),
+      globalThis.__hostrun_parseRgFiles
+    );
   },
   matches: function (pattern, paths = [], options = {}) {
-    return globalThis.rg.search(pattern, paths, { ...options, json: true });
+    return globalThis.__hostrun_withParsedRun(
+      globalThis.rg.search(pattern, paths, { ...options, json: true }).stdout.text(),
+      globalThis.__hostrun_parseRgMatches
+    );
   }
 };
 
