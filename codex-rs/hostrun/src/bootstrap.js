@@ -204,6 +204,23 @@ globalThis.__hostrun_recordUpdate = function (record, key, valueOrFn) {
   return { ...Object(record), [key]: next };
 };
 
+globalThis.__hostrun_cleanValues = function (values) {
+  return values.filter((value) => value !== null && value !== undefined && value !== "");
+};
+
+globalThis.__hostrun_numberValues = function (values) {
+  return globalThis.__hostrun_cleanValues(values).map(Number).filter((value) => !Number.isNaN(value));
+};
+
+globalThis.__hostrun_transpose = function (rows) {
+  const width = Math.max(0, ...rows.map((row) => Array.from(row).length));
+  const output = [];
+  for (let column = 0; column < width; column += 1) {
+    output.push(rows.map((row) => row[column] ?? null));
+  }
+  return output;
+};
+
 globalThis.__hostrun_regex = function (pattern) {
   return pattern instanceof RegExp ? pattern : new RegExp(String(pattern));
 };
@@ -446,6 +463,65 @@ globalThis.__hostrun_defineArrayHelper("lineRange", function (start, end = start
 
 globalThis.__hostrun_defineArrayHelper("unique", function () {
   return Array.from(new Set(this));
+});
+
+globalThis.__hostrun_defineArrayHelper("flatten", function (depth = 1) {
+  return Array.from(this).flat(Number(depth));
+});
+
+globalThis.__hostrun_defineArrayHelper("compact", function () {
+  return globalThis.__hostrun_cleanValues(this);
+});
+
+globalThis.__hostrun_defineArrayHelper("default", function (value) {
+  return this.map((item) => item === null || item === undefined || item === "" ? value : item);
+});
+
+globalThis.__hostrun_defineArrayHelper("wrap", function (name) {
+  return this.map((value) => ({ [name]: value }));
+});
+
+globalThis.__hostrun_defineArrayHelper("transpose", function () {
+  return globalThis.__hostrun_transpose(this);
+});
+
+globalThis.__hostrun_defineArrayHelper("enumerate", function () {
+  return this.map((item, index) => ({ index, item }));
+});
+
+globalThis.__hostrun_defineArrayHelper("isEmpty", function () {
+  return this.length === 0;
+});
+
+globalThis.__hostrun_defineArrayHelper("isNotEmpty", function () {
+  return this.length > 0;
+});
+
+globalThis.__hostrun_defineArrayHelper("sum", function () {
+  return globalThis.__hostrun_numberValues(this).reduce((total, value) => total + value, 0);
+});
+
+globalThis.__hostrun_defineArrayHelper("avg", function () {
+  const values = globalThis.__hostrun_numberValues(this);
+  return values.length === 0 ? null : values.sum() / values.length;
+});
+
+globalThis.__hostrun_defineArrayHelper("min", function () {
+  const values = globalThis.__hostrun_numberValues(this);
+  return values.length === 0 ? null : Math.min(...values);
+});
+
+globalThis.__hostrun_defineArrayHelper("max", function () {
+  const values = globalThis.__hostrun_numberValues(this);
+  return values.length === 0 ? null : Math.max(...values);
+});
+
+globalThis.__hostrun_defineArrayHelper("round", function (digits = 0) {
+  const factor = 10 ** Number(digits);
+  return this.map((value) => {
+    const number = globalThis.__hostrun_numberValues([value])[0];
+    return number === undefined ? null : Math.round(number * factor) / factor;
+  });
 });
 
 globalThis.__hostrun_defineArrayHelper("lengths", function () {

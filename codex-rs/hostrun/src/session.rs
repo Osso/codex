@@ -354,3 +354,7 @@ mod session_tests;
 #[cfg(test)]
 #[path = "projection_tests.rs"]
 mod projection_tests;
+
+#[cfg(test)]
+#[path = "collection_tests.rs"]
+mod collection_tests;
