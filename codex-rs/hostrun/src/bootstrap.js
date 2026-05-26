@@ -1076,6 +1076,10 @@ globalThis.__hostrun_cliProxy = function (path) {
 
 globalThis.cli = globalThis.__hostrun_cliProxy("");
 
+globalThis.which = function (program) {
+  return globalThis.cli.which(String(program));
+};
+
 globalThis.__hostrun_addOption = function (args, flag, value) {
   if (value === undefined || value === null || value === false) {
     return;

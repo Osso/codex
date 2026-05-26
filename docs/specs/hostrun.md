@@ -35,6 +35,7 @@ thread start. How the runtime is wired internally belongs in
 - [x] Expose `cli.<program>(...args)` as an approval-gated host command request.
 - [x] Preserve `cli.<program>` arguments as argv-style data rather than shell text.
 - [x] Include the command program and arguments in the approval request for `cli.<program>`.
+- [x] Expose `which(program)` as a lazy command-builder helper for common PATH checks.
 - [x] Prefer public `fs.write` and `rclone.deletefile` in contributed instructions instead of their `tools.*` bridge forms.
 - [x] Expose `fs.write(path, content)`, `fs.read(path)`, `fs.exists(path)`, and `fs.remove(path)` as approval-gated file helpers.
 - [x] Expose `fs.write(path, content)` as an approval-gated file-write helper.

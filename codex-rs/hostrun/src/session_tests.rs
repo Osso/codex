@@ -168,6 +168,24 @@ fn cli_command_builder_run_returns_command_approval() {
 }
 
 #[test]
+fn which_helper_returns_lazy_command_builder() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval("which('rg').stdout.lines();")
+        .expect("builder");
+
+    assert_eq!(
+        result.value,
+        Some(json!({
+            "program": "which",
+            "args": ["rg"],
+            "stdout": { "type": "lines" }
+        }))
+    );
+}
+
+#[test]
 fn cli_program_proxy_preserves_arguments() {
     let session = HostrunSession::new().expect("session");
 
