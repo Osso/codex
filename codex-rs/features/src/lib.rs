@@ -205,6 +205,8 @@ pub enum Feature {
     FastMode,
     /// Enable experimental realtime voice conversation mode in the TUI.
     RealtimeConversation,
+    /// Enable Hostrun, a persistent JavaScript host-automation runtime.
+    Hostrun,
     /// Connect app-server to the ChatGPT remote control service.
     RemoteControl,
     /// Removed compatibility flag retained as a no-op so old wrappers can
@@ -629,6 +631,16 @@ pub const FEATURES: &[FeatureSpec] = &[
         default_enabled: false,
     },
     FeatureSpec {
+        id: Feature::TerminalResizeReflow,
+        key: "terminal_resize_reflow",
+        stage: Stage::Experimental {
+            name: "Terminal resize reflow",
+            menu_description: "Reflow transcript scrollback when the terminal is resized.",
+            announcement: "NEW: Terminal resize reflow can now be enabled from /experimental.",
+        },
+        default_enabled: true,
+    },
+    FeatureSpec {
         id: Feature::ShellSnapshot,
         key: "shell_snapshot",
         stage: Stage::Stable,
@@ -965,6 +977,16 @@ pub const FEATURES: &[FeatureSpec] = &[
         id: Feature::RealtimeConversation,
         key: "realtime_conversation",
         stage: Stage::UnderDevelopment,
+        default_enabled: false,
+    },
+    FeatureSpec {
+        id: Feature::Hostrun,
+        key: "hostrun",
+        stage: Stage::Experimental {
+            name: "Hostrun",
+            menu_description: "Expose the experimental persistent JavaScript host-automation tool.",
+            announcement: "NEW: Hostrun can now be enabled from /experimental. Restart Codex after enabling it.",
+        },
         default_enabled: false,
     },
     FeatureSpec {

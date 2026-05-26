@@ -172,6 +172,16 @@ fn network_proxy_is_experimental_and_disabled_by_default() {
 }
 
 #[test]
+fn hostrun_is_experimental_and_disabled_by_default() {
+    assert_eq!(feature_for_key("hostrun"), Some(Feature::Hostrun));
+    assert!(matches!(
+        Feature::Hostrun.stage(),
+        Stage::Experimental { .. }
+    ));
+    assert_eq!(Feature::Hostrun.default_enabled(), false);
+}
+
+#[test]
 fn tool_search_is_stable_and_enabled_by_default() {
     assert_eq!(Feature::ToolSearch.stage(), Stage::Stable);
     assert_eq!(Feature::ToolSearch.default_enabled(), true);
@@ -478,6 +488,12 @@ hide_spawn_agent_metadata = true
 fn multi_agent_v2_feature_config_usage_hint_enabled_does_not_enable_feature() {
     let features_toml: FeaturesToml = toml::from_str(
         r#"
+multi_agent_v2 = false
+"#,
+    )
+    .expect("features table should deserialize");
+    let usage_hint_toml: FeaturesToml = toml::from_str(
+        r#"
 [multi_agent_v2]
 usage_hint_enabled = false
 "#,
@@ -488,14 +504,21 @@ usage_hint_enabled = false
             features: Some(&features_toml),
             ..Default::default()
         },
-        FeatureConfigSource::default(),
+        FeatureConfigSource {
+            features: Some(&usage_hint_toml),
+            ..Default::default()
+        },
         FeatureOverrides::default(),
     );
 
     assert_eq!(features.enabled(Feature::MultiAgentV2), false);
-    assert_eq!(features_toml.entries(), BTreeMap::new());
     assert_eq!(
-        features_toml.multi_agent_v2,
+        features_toml.entries(),
+        BTreeMap::from([("multi_agent_v2".to_string(), false)])
+    );
+    assert_eq!(usage_hint_toml.entries(), BTreeMap::new());
+    assert_eq!(
+        usage_hint_toml.multi_agent_v2,
         Some(crate::FeatureToml::Config(crate::MultiAgentV2ConfigToml {
             enabled: None,
             max_concurrent_threads_per_session: None,

@@ -112,14 +112,14 @@ struct PersistentRunner {
 
 impl PersistentRunner {
     fn start(runner: &Path) -> Result<Self, ToolError> {
-        let mut child = Command::new(runner)
-            .arg("--serve")
+        let mut command = runner_command(runner);
+        let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
             .map_err(|error| {
-                ToolError::fatal(format!("failed to start Hostrun runner: {error}"))
+                ToolError::respond_to_model(format!("failed to start Hostrun runner: {error}"))
             })?;
         let stdin = child
             .stdin
@@ -163,6 +163,21 @@ impl PersistentRunner {
             ToolError::fatal(format!("Hostrun runner returned invalid JSON: {error}"))
         })
     }
+}
+
+fn runner_command(runner: &Path) -> Command {
+    if runner
+        .extension()
+        .is_some_and(|extension| extension == "js")
+    {
+        let mut command = Command::new("node");
+        command.arg(runner).arg("--serve");
+        return command;
+    }
+
+    let mut command = Command::new(runner);
+    command.arg("--serve");
+    command
 }
 
 #[cfg(test)]
@@ -291,6 +306,53 @@ done
 
         assert_eq!(first, json!({ "type": "completed", "value": 1 }));
         assert_eq!(second, json!({ "type": "completed", "value": 2 }));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn executor_starts_non_executable_js_runner_with_node() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        let runner = temp_dir.path().join("hostrun-runner.js");
+        fs::write(
+            &runner,
+            r#"import process from "node:process";
+
+for await (const _chunk of process.stdin) {
+  process.stdout.write('{"type":"completed","value":"node"}\n');
+}
+"#,
+        )
+        .expect("write js runner");
+        let bundle = hostrun_tool_bundle(HostrunToolConfig::new(&runner));
+
+        let output = bundle
+            .executor()
+            .execute(call("session-1", "ctx.value = 'node'"))
+            .await
+            .expect("js runner output");
+
+        assert_eq!(output, json!({ "type": "completed", "value": "node" }));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn runner_spawn_errors_are_model_visible() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        let runner = temp_dir.path().join("missing-runner");
+        let bundle = hostrun_tool_bundle(HostrunToolConfig::new(&runner));
+
+        let error = bundle
+            .executor()
+            .execute(call("session-1", "ctx.value = 'node'"))
+            .await
+            .expect_err("missing runner should fail");
+
+        match error {
+            ToolError::RespondToModel(message) => {
+                assert!(message.contains("failed to start Hostrun runner"));
+            }
+            ToolError::Fatal(message) => {
+                panic!("expected model-visible error, got fatal error: {message}");
+            }
+        }
     }
 
     fn call(session_id: &str, code: &str) -> ToolCall {

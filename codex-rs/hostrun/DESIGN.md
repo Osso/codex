@@ -88,13 +88,13 @@ That keeps Codex-side approval rendering able to see a real shape such as:
 
 This is intentionally a thin path. It proves Codex can host Hostrun as an ordinary function tool before we commit to deeper `codex-core` registration or TUI rendering.
 
-Codex app-server owns the runner lifecycle. On startup it asks `codex-hostrun` for a managed runner path; if `codex-rs/hostrun/js/dist/cli.js` is missing, `codex-hostrun` runs:
+Codex app-server owns the runner lifecycle, but Hostrun is hidden unless the `hostrun` experimental feature is enabled. When enabled, session startup asks `codex-hostrun` for a managed runner path; if `codex-rs/hostrun/js/dist/cli.js` is missing, `codex-hostrun` runs:
 
 ```sh
 npx pnpm --filter @openai/codex-hostrun-js build
 ```
 
-Then app-server registers the resulting runner as the `hostrun_eval` extension tool. `CODEX_HOSTRUN_RUNNER` remains only as a developer override for testing a different runner path.
+Then app-server registers the resulting runner as the `hostrun_eval` extension tool. The Rust executor starts managed `.js` runners with `node <runner> --serve` instead of executing the file directly, so generated JavaScript does not depend on executable permission bits. `CODEX_HOSTRUN_RUNNER` remains only as a developer override for testing a different runner path.
 
 ## Sandbox and Capabilities
 

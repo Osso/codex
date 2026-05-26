@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use codex_extension_api::ExtensionData;
 use codex_extension_api::ExtensionRegistryBuilder;
+use codex_extension_api::ThreadStartContributor;
 use codex_extension_api::ToolBundle;
 use codex_extension_api::ToolContributor;
 
@@ -60,6 +61,74 @@ pub fn install_managed<C>(
     };
     install(registry, &runner);
     Ok(runner)
+}
+
+pub fn install_feature_gated<C>(registry: &mut ExtensionRegistryBuilder<C>, enabled: fn(&C) -> bool)
+where
+    C: Send + Sync + 'static,
+{
+    let contributor = Arc::new(HostrunFeatureGatedContributor { enabled });
+    registry.thread_start_contributor(contributor.clone());
+    registry.tool_contributor(contributor);
+}
+
+struct HostrunFeatureGatedContributor<C> {
+    enabled: fn(&C) -> bool,
+}
+
+impl<C> ThreadStartContributor<C> for HostrunFeatureGatedContributor<C>
+where
+    C: 'static,
+{
+    fn contribute(&self, config: &C, _session_store: &ExtensionData, thread_store: &ExtensionData) {
+        if !(self.enabled)(config) {
+            thread_store.insert(HostrunFeatureState::disabled());
+            return;
+        }
+
+        let state = match HostrunRunnerLifecycle::managed_package().ensure_runner() {
+            Ok(runner) => HostrunFeatureState::enabled(runner),
+            Err(_error) => HostrunFeatureState::disabled(),
+        };
+        thread_store.insert(state);
+    }
+}
+
+impl<C> ToolContributor for HostrunFeatureGatedContributor<C>
+where
+    C: Send + Sync + 'static,
+{
+    fn tools(
+        &self,
+        _session_store: &ExtensionData,
+        thread_store: &ExtensionData,
+    ) -> Vec<ToolBundle> {
+        let Some(state) = thread_store.get::<HostrunFeatureState>() else {
+            return Vec::new();
+        };
+        let Some(runner) = state.runner.as_ref() else {
+            return Vec::new();
+        };
+
+        vec![hostrun_tool_bundle(HostrunToolConfig::new(runner))]
+    }
+}
+
+#[derive(Clone, Debug)]
+struct HostrunFeatureState {
+    runner: Option<PathBuf>,
+}
+
+impl HostrunFeatureState {
+    fn disabled() -> Self {
+        Self { runner: None }
+    }
+
+    fn enabled(runner: PathBuf) -> Self {
+        Self {
+            runner: Some(runner),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -161,6 +230,7 @@ mod tests {
     use super::HostrunRunnerLifecycle;
     use super::HostrunToolContributor;
     use super::install;
+    use super::install_feature_gated;
 
     #[test]
     fn contributor_returns_hostrun_eval_bundle() {
@@ -195,5 +265,19 @@ mod tests {
         let lifecycle = HostrunRunnerLifecycle::new(&workspace_root, &package_dir);
 
         assert_eq!(lifecycle.ensure_runner().expect("runner exists"), runner);
+    }
+
+    #[test]
+    fn feature_gated_install_hides_hostrun_when_disabled() {
+        let mut builder = ExtensionRegistryBuilder::<bool>::new();
+        install_feature_gated(&mut builder, |enabled| *enabled);
+        let registry = builder.build();
+        let session_store = ExtensionData::new();
+        let thread_store = ExtensionData::new();
+
+        registry.thread_start_contributors()[0].contribute(&false, &session_store, &thread_store);
+        let tools = registry.tool_contributors()[0].tools(&session_store, &thread_store);
+
+        assert!(tools.is_empty());
     }
 }

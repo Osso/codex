@@ -15,6 +15,7 @@ pub use tool_contributor::HostrunRunnerLifecycle;
 pub use tool_contributor::HostrunRunnerLifecycleError;
 pub use tool_contributor::HostrunToolContributor;
 pub use tool_contributor::install;
+pub use tool_contributor::install_feature_gated;
 pub use tool_contributor::install_from_env;
 pub use tool_contributor::install_managed;
 
