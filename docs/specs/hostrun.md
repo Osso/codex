@@ -98,8 +98,8 @@ thread start. How the runtime is wired internally belongs in
 - [x] Provide object/table projection helpers for common `nu`/`jq` workflows: `get`, `select`, `reject`, `rename`, `insert`, `update`, `merge`, `columns`, `values`, and entry iteration.
 - [x] Object/table projection helpers are non-mutating and support dotted paths for nested field access.
 - [x] Provide collection cleanup/shape helpers: `flatten`, `compact`, `default`, `wrap`, `transpose`, and `enumerate`.
-- [ ] Provide predicates and reducers: `isEmpty`, `isNotEmpty`, `any`, `all`, `sum`, `avg`, `min`, `max`, and `round`.
-- [x] Provide array predicates and numeric reducers: `isEmpty`, `isNotEmpty`, `sum`, `avg`, `min`, `max`, and `round`.
+- [x] Provide predicates and reducers: `isEmpty`, `isNotEmpty`, `any`, `all`, `sum`, `avg`, `min`, `max`, and `round`.
+- [x] Array `any` and `all` support truthiness, exact-value matching, and callback predicates.
 - [ ] Provide text helpers for common shell replacements: `splitRow`, `splitColumn`, `splitWords`, `join`, `trim`, `replace`, and line count/head/tail equivalents.
 - [ ] Provide path helpers for common filesystem text transforms: `path.join`, `path.basename`, `path.dirname`, and `path.parse`.
 - [ ] Provide byte helpers for binary inspection: byte length and byte ranges over raw command/file output.

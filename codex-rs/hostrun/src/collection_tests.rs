@@ -20,6 +20,12 @@ fn collection_shape_helpers_are_non_mutating() {
               enumerate: ["a", "b"].enumerate(),
               empty: [].isEmpty(),
               notEmpty: values.isNotEmpty(),
+              anyTruthy: [0, "", "ready"].any(),
+              allTruthy: [1, "ready", true].all(),
+              anyEqual: ["dev", "prod"].any("prod"),
+              allEqual: ["prod", "prod"].all("prod"),
+              anyPredicate: rows.any((row) => row[0] === "alice"),
+              allPredicate: rows.all((row) => row.length > 0),
               originalValues: values,
               originalRows: rows
             });
@@ -41,6 +47,12 @@ fn collection_shape_helpers_are_non_mutating() {
             ],
             "empty": true,
             "notEmpty": true,
+            "anyTruthy": true,
+            "allTruthy": true,
+            "anyEqual": true,
+            "allEqual": true,
+            "anyPredicate": true,
+            "allPredicate": true,
             "originalValues": [1, null, "", 4],
             "originalRows": [["name", "age"], ["alice", 3], ["bob"]]
         }))

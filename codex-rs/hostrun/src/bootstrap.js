@@ -497,6 +497,26 @@ globalThis.__hostrun_defineArrayHelper("isNotEmpty", function () {
   return this.length > 0;
 });
 
+globalThis.__hostrun_defineArrayHelper("any", function (predicate) {
+  if (typeof predicate === "function") {
+    return this.some((item, index) => predicate(item, index));
+  }
+  if (predicate !== undefined) {
+    return this.some((item) => item === predicate);
+  }
+  return this.some(Boolean);
+});
+
+globalThis.__hostrun_defineArrayHelper("all", function (predicate) {
+  if (typeof predicate === "function") {
+    return this.every((item, index) => predicate(item, index));
+  }
+  if (predicate !== undefined) {
+    return this.every((item) => item === predicate);
+  }
+  return this.every(Boolean);
+});
+
 globalThis.__hostrun_defineArrayHelper("sum", function () {
   return globalThis.__hostrun_numberValues(this).reduce((total, value) => total + value, 0);
 });
