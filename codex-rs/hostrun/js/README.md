@@ -18,9 +18,9 @@ npx pnpm --filter @openai/codex-hostrun-js typecheck
 - Persistent QuickJS runtime/context per session.
 - Live `ctx` object shared across evaluations.
 - Session closes after execution interrupts.
+- Approval-gated host capabilities exposed as `tools.*`.
+- Capability calls can return JSON, throw denial errors into sandboxed code, or pause evaluation with a structured approval request.
 
 ## Next Scope
 
-- Host capability bridge for approval-gated operations.
-- JSON tool calls that can return values or throw denial errors into sandboxed code.
 - Codex tool integration that renders approval prompts from capability requests.

@@ -42,4 +42,103 @@ describe("HostrunSession", () => {
       "Hostrun session is closed",
     );
   });
+
+  it("returns JSON values from approved capability calls", async () => {
+    const session = await HostrunSession.create({
+      approve: () => ({ type: "approve" }),
+      capabilities: {
+        "math.add": {
+          describe: (args) => ({
+            id: "approval-1",
+            tool: "math.add",
+            summary: `Add ${args.a} and ${args.b}`,
+            args,
+          }),
+          invoke: (args) => {
+            const a = Number(args.a);
+            const b = Number(args.b);
+            return { sum: a + b };
+          },
+        },
+      },
+    });
+
+    try {
+      const result = await session.eval("tools.math.add({ a: 2, b: 3 }).sum;");
+
+      expect(result.value).toBe(5);
+    } finally {
+      session.dispose();
+    }
+  });
+
+  it("throws denial errors back into sandboxed code", async () => {
+    const session = await HostrunSession.create({
+      approve: () => ({ type: "deny", reason: "write denied" }),
+      capabilities: {
+        "fs.write": {
+          describe: (args) => ({
+            id: "approval-1",
+            tool: "fs.write",
+            summary: `Write ${args.path}`,
+            args,
+          }),
+          invoke: () => ({ ok: true }),
+        },
+      },
+    });
+
+    try {
+      const result = await session.eval(`
+        try {
+          tools.fs.write({ path: "/tmp/files.txt", content: "data" });
+          "not reached";
+        } catch (error) {
+          error.message;
+        }
+      `);
+
+      expect(result.value).toBe("write denied");
+    } finally {
+      session.dispose();
+    }
+  });
+
+  it("pauses evaluation when approval is pending", async () => {
+    const session = await HostrunSession.create({
+      approve: () => ({ type: "pending" }),
+      capabilities: {
+        "fs.write": {
+          describe: (args) => ({
+            id: "approval-1",
+            tool: "fs.write",
+            summary: `Write ${args.path}`,
+            args,
+          }),
+          invoke: () => ({ ok: true }),
+        },
+      },
+    });
+
+    try {
+      const result = await session.eval(
+        `tools.fs.write({ path: "/tmp/files.txt", content: "data" });`,
+      );
+
+      expect(result).toEqual({
+        type: "needs_approval",
+        approval: {
+          id: "approval-1",
+          tool: "fs.write",
+          summary: "Write /tmp/files.txt",
+          args: {
+            path: "/tmp/files.txt",
+            content: "data",
+          },
+        },
+      });
+    } finally {
+      session.dispose();
+    }
+  });
 });
