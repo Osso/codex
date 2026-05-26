@@ -358,3 +358,7 @@ mod projection_tests;
 #[cfg(test)]
 #[path = "collection_tests.rs"]
 mod collection_tests;
+
+#[cfg(test)]
+#[path = "text_tests.rs"]
+mod text_tests;

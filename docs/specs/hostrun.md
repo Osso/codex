@@ -100,7 +100,8 @@ thread start. How the runtime is wired internally belongs in
 - [x] Provide collection cleanup/shape helpers: `flatten`, `compact`, `default`, `wrap`, `transpose`, and `enumerate`.
 - [x] Provide predicates and reducers: `isEmpty`, `isNotEmpty`, `any`, `all`, `sum`, `avg`, `min`, `max`, and `round`.
 - [x] Array `any` and `all` support truthiness, exact-value matching, and callback predicates.
-- [ ] Provide text helpers for common shell replacements: `splitRow`, `splitColumn`, `splitWords`, `join`, `trim`, `replace`, and line count/head/tail equivalents.
+- [x] Provide text helpers for common shell replacements: `splitRow`, `splitColumn`, `splitWords`, `joinText`, `trimmed`, `replaceText`, `lineCount`, `head`, and `tail`.
+- [x] Arrays provide `head`, `tail`, and `joinText` helpers for line-list workflows.
 - [ ] Provide path helpers for common filesystem text transforms: `path.join`, `path.basename`, `path.dirname`, and `path.parse`.
 - [ ] Provide byte helpers for binary inspection: byte length and byte ranges over raw command/file output.
 - [ ] Provide non-mutating string-array helpers: `containing`, `notContaining`, `startsWith`, `endsWith`, `matching`, `notMatching`, `glob`, `notGlob`, `first`, `last`, `take`, `unique`, `sort`, `reverse`, `lengths`, `bytes`, `lower`, and `upper`.

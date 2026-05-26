@@ -95,6 +95,51 @@ globalThis.__hostrun_defineStringHelper("lines", function (start, end = start) {
   return globalThis.__hostrun_lineRange(lines, start, end);
 });
 
+globalThis.__hostrun_defineStringHelper("lineCount", function () {
+  return String(this).lines().length;
+});
+
+globalThis.__hostrun_defineStringHelper("head", function (count = 10) {
+  return String(this).lines().slice(0, Number(count));
+});
+
+globalThis.__hostrun_defineStringHelper("tail", function (count = 10) {
+  return String(this).lines().slice(-Number(count));
+});
+
+globalThis.__hostrun_defineStringHelper("splitRow", function (separator = "\n") {
+  return String(this).split(separator);
+});
+
+globalThis.__hostrun_defineStringHelper("splitWords", function () {
+  const text = String(this).trim();
+  return text.length === 0 ? [] : text.split(/\s+/);
+});
+
+globalThis.__hostrun_defineStringHelper("splitColumn", function (separator = /\s+/, names = null) {
+  const rows = String(this).lines()
+    .filter((line) => line.trim().length > 0)
+    .map((line) => line.trim().split(separator).filter((field) => field.length > 0));
+  if (names === null || names === undefined) {
+    return rows;
+  }
+  return rows.map((row) => {
+    const output = {};
+    Array.from(names).forEach((name, index) => {
+      output[name] = row[index] ?? null;
+    });
+    return output;
+  });
+});
+
+globalThis.__hostrun_defineStringHelper("trimmed", function () {
+  return String(this).trim();
+});
+
+globalThis.__hostrun_defineStringHelper("replaceText", function (from, to = "") {
+  return String(this).replaceAll(from, to);
+});
+
 globalThis.__hostrun_defineStringHelper("json", function () {
   return JSON.parse(String(this));
 });
@@ -459,6 +504,18 @@ globalThis.__hostrun_defineArrayHelper("take", function (count) {
 
 globalThis.__hostrun_defineArrayHelper("lineRange", function (start, end = start) {
   return globalThis.__hostrun_lineRange(this, start, end);
+});
+
+globalThis.__hostrun_defineArrayHelper("head", function (count = 10) {
+  return this.slice(0, Number(count));
+});
+
+globalThis.__hostrun_defineArrayHelper("tail", function (count = 10) {
+  return this.slice(-Number(count));
+});
+
+globalThis.__hostrun_defineArrayHelper("joinText", function (separator = "") {
+  return this.join(separator);
 });
 
 globalThis.__hostrun_defineArrayHelper("unique", function () {
