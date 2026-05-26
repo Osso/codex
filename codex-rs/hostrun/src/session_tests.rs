@@ -495,6 +495,8 @@ fn string_helpers_parse_lines_json_and_json_lines() {
             r#"
             ({
               lines: "a\r\nb\n".lines(),
+              lineRange: "one\ntwo\nthree\nfour".lines(2, 3),
+              singleLine: "one\ntwo\nthree\nfour".lines(3),
               json: '{"ok":true,"n":2}'.json(),
               jsonLines: '{"a":1}\n{"a":2}\n'.jsonLines(),
               lower: "HeLLo".lower(),
@@ -509,6 +511,8 @@ fn string_helpers_parse_lines_json_and_json_lines() {
         result.value,
         Some(json!({
             "lines": ["a", "b", ""],
+            "lineRange": ["two", "three"],
+            "singleLine": ["three"],
             "json": { "ok": true, "n": 2 },
             "jsonLines": [{ "a": 1 }, { "a": 2 }],
             "lower": "hello",
@@ -539,6 +543,7 @@ fn array_helpers_filter_and_transform_strings_without_mutating() {
               first: items.first(),
               last: items.last(),
               take: items.take(2),
+              lineRange: items.lineRange(2, 3),
               unique: items.unique(),
               lengths: items.lengths(),
               bytes: ["é", "x"].bytes(),
@@ -565,6 +570,7 @@ fn array_helpers_filter_and_transform_strings_without_mutating() {
             "first": "beta.txt",
             "last": "src/main.rs",
             "take": ["beta.txt", "alpha.rs"],
+            "lineRange": ["alpha.rs", "alpha.rs"],
             "unique": ["beta.txt", "alpha.rs", "src/main.rs"],
             "lengths": [8, 8, 8, 11],
             "bytes": [2, 1],

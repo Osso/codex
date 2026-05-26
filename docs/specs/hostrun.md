@@ -95,11 +95,19 @@ thread start. How the runtime is wired internally belongs in
 - [ ] Support JSONL, YAML, and CSV parsing from command output and strings.
 - [ ] Support JSONL, YAML, and CSV serialization to stdin and files.
 - [ ] Support conversion helpers between JSON-compatible values, YAML, CSV, JSONL, arrays, and table objects.
+- [ ] Provide object/table projection helpers for common `nu`/`jq` workflows: `get`, `select`, `reject`, `rename`, `insert`, `update`, `merge`, `columns`, `values`, and entry iteration.
+- [ ] Provide collection cleanup/shape helpers: `flatten`, `compact`, `default`, `wrap`, `transpose`, and `enumerate`.
+- [ ] Provide predicates and reducers: `isEmpty`, `isNotEmpty`, `any`, `all`, `sum`, `avg`, `min`, `max`, and `round`.
+- [ ] Provide text helpers for common shell replacements: `splitRow`, `splitColumn`, `splitWords`, `join`, `trim`, `replace`, and line count/head/tail equivalents.
+- [ ] Provide path helpers for common filesystem text transforms: `path.join`, `path.basename`, `path.dirname`, and `path.parse`.
+- [ ] Provide byte helpers for binary inspection: byte length and byte ranges over raw command/file output.
 - [ ] Provide non-mutating string-array helpers: `containing`, `notContaining`, `startsWith`, `endsWith`, `matching`, `notMatching`, `glob`, `notGlob`, `first`, `last`, `take`, `unique`, `sort`, `reverse`, `lengths`, `bytes`, `lower`, and `upper`.
 - [x] Provide string-array helpers for `containing`, `notContaining`, `startsWith`, `endsWith`, `matching`, `notMatching`, `glob`, `notGlob`, `first`, `last`, `take`, `unique`, `lengths`, `bytes`, `lower`, `upper`, `sorted`, and `reversed`.
 - [x] `glob` and `notGlob` use case-sensitive path-glob matching with `*`, `?`, and `**`, without shell expansion.
 - [ ] Provide scalar helpers where they improve agent readability: `lines`, `bytes`, `lower`, `upper`, `length`, and `chars`.
 - [x] Provide scalar helpers for `lines`, `bytes`, `lower`, `upper`, and `chars`.
+- [x] `str.lines(start, end)` returns 1-based inclusive line ranges for sed-style line selection.
+- [x] Arrays provide `.lineRange(start, end)` for 1-based inclusive ranges over existing line arrays.
 - [ ] Provide whitespace field parsing with 1-based fields: `lines.fields(separator = /\s+/)`.
 - [ ] Provide template formatting for field rows: `lines.fields().format("user:{1} prefix:{3|substr:0,7}")`.
 - [ ] Provide object template formatting for field rows: `lines.fields().format({ user: "{1}", prefix: "{3|substr:0,7}" })`.

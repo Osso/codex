@@ -74,12 +74,22 @@ globalThis.__hostrun_utf8ByteLength = function (value) {
   return bytes;
 };
 
-globalThis.__hostrun_defineStringHelper("lines", function () {
+globalThis.__hostrun_lineRange = function (values, start, end = start) {
+  if (start === undefined || start === null) {
+    return values;
+  }
+  const first = Math.max(Number(start), 1) - 1;
+  const last = Math.max(Number(end), Number(start));
+  return values.slice(first, last);
+};
+
+globalThis.__hostrun_defineStringHelper("lines", function (start, end = start) {
   const text = String(this);
   if (text.length === 0) {
     return [];
   }
-  return text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+  return globalThis.__hostrun_lineRange(lines, start, end);
 });
 
 globalThis.__hostrun_defineStringHelper("json", function () {
@@ -311,6 +321,10 @@ globalThis.__hostrun_defineArrayHelper("last", function () {
 
 globalThis.__hostrun_defineArrayHelper("take", function (count) {
   return this.slice(0, Number(count));
+});
+
+globalThis.__hostrun_defineArrayHelper("lineRange", function (start, end = start) {
+  return globalThis.__hostrun_lineRange(this, start, end);
 });
 
 globalThis.__hostrun_defineArrayHelper("unique", function () {
