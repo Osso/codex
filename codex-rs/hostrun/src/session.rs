@@ -15,6 +15,9 @@ use serde::Serialize;
 use serde_json::Value;
 use serde_json::json;
 
+use crate::fs_capability::execute_fs_operation;
+use crate::fs_capability::fs_approval;
+
 const APPROVAL_REQUIRED_PREFIX: &str = "__HOSTRUN_APPROVAL_REQUIRED__:";
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -134,12 +137,9 @@ impl HostCapabilityInvoker {
     fn invoke_tool(&self, tool_path: &str, args_json: &str) -> String {
         let args = serde_json::from_str(args_json).unwrap_or(Value::Null);
         match tool_path {
-            "fs.write" => pending_approval(fs_write_approval(args)),
-            "fs.read" => pending_approval(fs_path_approval("fs.read", "Read", args)),
-            "fs.exists" => {
-                pending_approval(fs_path_approval("fs.exists", "Check existence of", args))
+            "fs.write" | "fs.read" | "fs.exists" | "fs.remove" => {
+                self.invoke_fs_operation(tool_path, args)
             }
-            "fs.remove" => pending_approval(fs_path_approval("fs.remove", "Remove", args)),
             "rclone.deletefile" => pending_approval(rclone_deletefile_approval(args)),
             "http.request" => pending_approval(http_request_approval(args)),
             tool if tool.starts_with("cli.") => self.invoke_cli_command(tool, args),
@@ -148,6 +148,16 @@ impl HostCapabilityInvoker {
                 "reason": format!("Hostrun capability is unavailable: {tool_path}")
             })
             .to_string(),
+        }
+    }
+
+    fn invoke_fs_operation(&self, tool_path: &str, args: Value) -> String {
+        match self.capability_mode {
+            HostCapabilityMode::PendingApproval => pending_approval(fs_approval(tool_path, args)),
+            HostCapabilityMode::AutoApprove => match execute_fs_operation(tool_path, args) {
+                Ok(value) => completed(value),
+                Err(error) => denied(error.to_string()),
+            },
         }
     }
 
@@ -204,27 +214,6 @@ fn denied(reason: String) -> String {
         "reason": reason
     })
     .to_string()
-}
-
-fn fs_write_approval(args: Value) -> HostrunApprovalRequest {
-    let path = field_as_string(&args, "path");
-    let content = field_as_string(&args, "content");
-    HostrunApprovalRequest {
-        id: format!("fs.write:{path}"),
-        tool: "fs.write".to_string(),
-        summary: format!("Write {} bytes to {path}", content.len()),
-        args,
-    }
-}
-
-fn fs_path_approval(tool: &str, verb: &str, args: Value) -> HostrunApprovalRequest {
-    let path = field_as_string(&args, "path");
-    HostrunApprovalRequest {
-        id: format!("{tool}:{path}"),
-        tool: tool.to_string(),
-        summary: format!("{verb} {path}"),
-        args,
-    }
 }
 
 fn rclone_deletefile_approval(args: Value) -> HostrunApprovalRequest {
@@ -727,6 +716,10 @@ mod structured_data_tests;
 #[cfg(test)]
 #[path = "command_execution_tests.rs"]
 mod command_execution_tests;
+
+#[cfg(test)]
+#[path = "fs_execution_tests.rs"]
+mod fs_execution_tests;
 
 #[cfg(test)]
 #[path = "tmp_tests.rs"]

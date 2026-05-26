@@ -38,6 +38,7 @@ thread start. How the runtime is wired internally belongs in
 - [x] Expose `which(program)` as a lazy command-builder helper for common PATH checks.
 - [x] Prefer public `fs.write` and `rclone.deletefile` in contributed instructions instead of their `tools.*` bridge forms.
 - [x] Expose `fs.write(path, content)`, `fs.read(path)`, `fs.exists(path)`, and `fs.remove(path)` as approval-gated file helpers.
+- [x] `hostrun_eval` executes approved `fs.write`, `fs.read`, `fs.exists`, and `fs.remove` operations after the tool invocation has passed its pre-tool approval layer.
 - [x] Expose `fs.write(path, content)` as an approval-gated file-write helper.
 - [x] Expose `fs.writeJson(path, value)`, `fs.writeYaml(path, value)`, and `fs.writeCsv(path, rows)` for structured file writes.
 - [ ] Expose `tmp.file(prefix)` and `tmp.dir(prefix)` with automatic cleanup and explicit `.cleanup()` support.

@@ -245,6 +245,29 @@ mod tests {
     }
 
     #[tokio::test(flavor = "current_thread")]
+    async fn executor_runs_approved_fs_helpers() {
+        let bundle = embedded_hostrun_tool_bundle();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("tool-fs.txt");
+        let path_text = path.to_string_lossy().to_string();
+
+        let output = bundle
+            .executor()
+            .execute(call(
+                "session-1",
+                &format!(
+                    "fs.write({}, 'tool fs'); fs.read({});",
+                    json!(path_text),
+                    json!(path_text)
+                ),
+            ))
+            .await
+            .expect("tool output");
+
+        assert_eq!(output["value"], json!("tool fs"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
     async fn executor_reuses_one_quickjs_session_across_calls() {
         let bundle = embedded_hostrun_tool_bundle();
 
