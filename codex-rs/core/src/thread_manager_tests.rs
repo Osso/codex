@@ -65,6 +65,16 @@ fn disabled_environment_manager_for_tests() -> Arc<codex_exec_server::Environmen
     ))
 }
 
+fn contextual_user_interrupted_marker() -> ResponseItem {
+    interrupted_turn_history_marker(InterruptedTurnHistoryMarker::ContextualUser)
+        .expect("contextual user marker should exist")
+}
+
+fn developer_interrupted_marker() -> ResponseItem {
+    interrupted_turn_history_marker(InterruptedTurnHistoryMarker::Developer)
+        .expect("developer marker should exist")
+}
+
 #[test]
 fn truncates_before_requested_user_message() {
     let items = [

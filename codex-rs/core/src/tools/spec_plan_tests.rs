@@ -5,6 +5,7 @@ use crate::tools::handlers::goal_spec::create_get_goal_tool;
 use crate::tools::handlers::goal_spec::create_update_goal_tool;
 use crate::tools::handlers::multi_agents_spec::WaitAgentTimeoutOptions;
 use crate::tools::handlers::multi_agents_spec::create_close_agent_tool_v2;
+use crate::tools::handlers::multi_agents_spec::create_list_agents_tool;
 use crate::tools::handlers::multi_agents_spec::create_send_message_tool;
 use crate::tools::handlers::multi_agents_spec::create_spawn_agent_tool_v2;
 use crate::tools::handlers::multi_agents_spec::create_wait_agent_tool_v2;

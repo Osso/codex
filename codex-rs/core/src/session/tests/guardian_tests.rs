@@ -7,6 +7,7 @@ use crate::sandboxing::SandboxPermissions;
 use crate::test_support::models_manager_with_provider;
 use crate::tools::context::ExecCommandToolOutput;
 use crate::tools::context::ToolCallSource;
+use crate::tools::handlers::ExecCommandHandler;
 use crate::turn_diff_tracker::TurnDiffTracker;
 use codex_app_server_protocol::ConfigLayerSource;
 use codex_config::ConfigLayerEntry;
@@ -289,7 +290,7 @@ async fn guardian_allows_shell_additional_permissions_requests_past_policy_valid
     let turn_context = Arc::new(turn_context_raw);
     let timeout_ms: u64 = if cfg!(windows) { 2_500 } else { 1_000 };
 
-    let handler = UnifiedExecHandler;
+    let handler = ExecCommandHandler::default();
 
     let resp = handler
         .handle(ToolInvocation {
@@ -391,7 +392,7 @@ async fn strict_auto_review_turn_grant_forces_guardian_for_shell_policy_skip() {
     let session = Arc::new(session);
     let turn_context = Arc::new(turn_context_raw);
 
-    let handler = UnifiedExecHandler;
+    let handler = ExecCommandHandler::default();
 
     let resp = handler
         .handle(ToolInvocation {
@@ -559,7 +560,7 @@ async fn exec_command_allows_sticky_turn_permissions_without_inline_request_perm
     let session = Arc::new(session);
     let turn_context = Arc::new(turn_context_raw);
 
-    let handler = UnifiedExecHandler;
+    let handler = ExecCommandHandler::default();
 
     let resp = handler
         .handle(ToolInvocation {

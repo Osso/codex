@@ -84,6 +84,7 @@ pub(crate) fn resolve_environment_selections(
 
 #[cfg(test)]
 mod tests {
+    use codex_exec_server::EnvironmentManagerArgs;
     use codex_exec_server::ExecServerRuntimePaths;
     use codex_exec_server::LOCAL_ENVIRONMENT_ID;
 

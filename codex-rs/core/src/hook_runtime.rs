@@ -17,7 +17,13 @@ use codex_protocol::models::ResponseItem;
 use codex_protocol::protocol::AskForApproval;
 use codex_protocol::protocol::EventMsg;
 use codex_protocol::protocol::HookCompletedEvent;
+#[cfg(test)]
+use codex_protocol::protocol::HookEventName;
+#[cfg(test)]
+use codex_protocol::protocol::HookRunStatus;
 use codex_protocol::protocol::HookRunSummary;
+#[cfg(test)]
+use codex_protocol::protocol::HookSource;
 use codex_protocol::protocol::HookStartedEvent;
 use codex_protocol::user_input::UserInput;
 use serde_json::Value;

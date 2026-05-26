@@ -1728,7 +1728,7 @@ async fn multi_agent_v2_wait_agent_reports_completed_descendant_statuses() {
     let session = Arc::new(session);
     let turn = Arc::new(turn);
 
-    SpawnAgentHandlerV2
+    SpawnAgentHandlerV2::default()
         .handle(invocation(
             session.clone(),
             turn.clone(),
@@ -1787,7 +1787,7 @@ async fn multi_agent_v2_wait_agent_reports_completed_descendant_statuses() {
 
     let output = timeout(
         Duration::from_secs(5),
-        WaitAgentHandlerV2.handle(invocation(
+        WaitAgentHandlerV2::default().handle(invocation(
             session.clone(),
             turn.clone(),
             "wait_agent",

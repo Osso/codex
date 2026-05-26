@@ -3,7 +3,7 @@ use pretty_assertions::assert_eq;
 use std::collections::BTreeMap;
 
 fn windows_shell_safety_description() -> String {
-    format!("\n\n{}", windows_destructive_filesystem_guidance())
+    format!("\n\n{}", windows_shell_guidance())
 }
 
 #[test]

@@ -50,6 +50,9 @@ use codex_protocol::protocol::SandboxPolicy;
 use codex_protocol::protocol::TurnEnvironmentSelection;
 use codex_protocol::request_permissions::PermissionGrantScope;
 use codex_protocol::request_permissions::RequestPermissionProfile;
+use codex_protocol::request_user_input::RequestUserInputAnswer;
+use codex_rmcp_client::ElicitationAction;
+use core_test_support::wait_for_event_match;
 
 use crate::goals::ExternalGoalPreviousStatus;
 use crate::goals::ExternalGoalSet;
@@ -70,7 +73,6 @@ use crate::tools::context::ToolInvocation;
 use crate::tools::context::ToolPayload;
 use crate::tools::handlers::CreateGoalHandler;
 use crate::tools::handlers::ExecCommandHandler;
-use crate::tools::handlers::UnifiedExecHandler;
 use crate::tools::handlers::UpdateGoalHandler;
 use crate::tools::registry::ToolHandler;
 use crate::tools::router::ToolCallSource;
@@ -8864,7 +8866,7 @@ async fn rejects_escalated_permissions_when_policy_not_on_request() {
 
     let turn_diff_tracker = Arc::new(tokio::sync::Mutex::new(TurnDiffTracker::new()));
 
-    let handler = UnifiedExecHandler;
+    let handler = ExecCommandHandler::default();
     let resp = handler
         .handle(ToolInvocation {
             session: Arc::clone(&session),

@@ -317,7 +317,13 @@ async fn blocked_request_policy_does_not_override_user_denial_outcome() {
 #[tokio::test]
 async fn finish_call_returns_denial_and_unregisters_active_call() {
     let service = NetworkApprovalService::default();
-    register_call_with_default_shell_trigger(&service, "registration-1").await;
+    let cancellation_token =
+        register_call_with_default_shell_trigger(&service, "registration-1").await;
+    let deferred = DeferredNetworkApproval {
+        registration_id: "registration-1".to_string(),
+        cancellation_token,
+        finish_outcome: Arc::new(OnceCell::new()),
+    };
 
     service
         .record_call_outcome(
@@ -326,8 +332,8 @@ async fn finish_call_returns_denial_and_unregisters_active_call() {
         )
         .await;
 
-    let err = service
-        .finish_call("registration-1")
+    let err = deferred
+        .finish(&service)
         .await
         .expect_err("denial should be returned");
 

@@ -37,6 +37,10 @@ use tokio::time::sleep;
 use tokio::time::timeout;
 use toml::Value as TomlValue;
 
+fn agent_path(path: &str) -> AgentPath {
+    AgentPath::try_from(path).expect("valid agent path")
+}
+
 async fn test_config_with_cli_overrides(
     cli_overrides: Vec<(String, TomlValue)>,
 ) -> (TempDir, Config) {
