@@ -339,20 +339,26 @@ globalThis.rclone = {
   }
 };
 
+globalThis.__hostrun_commandBuilder = function (program, args) {
+  return {
+    program,
+    args: Array.from(args),
+    run: function () {
+      return globalThis.__hostrun_invokeCapability("cli." + program, this.args);
+    },
+    toJSON: function () {
+      return { program: this.program, args: this.args };
+    }
+  };
+};
+
 globalThis.__hostrun_cliProxy = function (path) {
   return new Proxy(function () {}, {
     get(_target, property) {
       return globalThis.__hostrun_cliProxy(path ? path + "." + String(property) : String(property));
     },
     apply(_target, _thisArg, args) {
-      const response = JSON.parse(globalThis.__hostrun_invokeTool("cli." + path, JSON.stringify(args)));
-      if (response.type === "needs_approval") {
-        throw new Error("__HOSTRUN_APPROVAL_REQUIRED__:" + JSON.stringify(response.approval));
-      }
-      if (response.type === "denied") {
-        throw new Error(response.reason);
-      }
-      return response.value;
+      return globalThis.__hostrun_commandBuilder(path, args);
     }
   });
 };
@@ -515,10 +521,26 @@ mod tests {
     }
 
     #[test]
-    fn cli_program_proxy_returns_command_approval() {
+    fn cli_program_proxy_returns_lazy_command_builder() {
         let session = HostrunSession::new().expect("session");
 
-        let result = session.eval("cli.dmidecode();").expect("approval");
+        let result = session.eval("cli.dmidecode();").expect("builder");
+
+        assert_eq!(result.result_type, "completed");
+        assert_eq!(
+            result.value,
+            Some(json!({
+                "program": "dmidecode",
+                "args": []
+            }))
+        );
+    }
+
+    #[test]
+    fn cli_command_builder_run_returns_command_approval() {
+        let session = HostrunSession::new().expect("session");
+
+        let result = session.eval("cli.dmidecode().run();").expect("approval");
 
         assert_eq!(result.result_type, "needs_approval");
         let approval = result.approval.expect("approval");
@@ -539,7 +561,7 @@ mod tests {
         let session = HostrunSession::new().expect("session");
 
         let result = session
-            .eval("cli.rg('needle', 'src', { '--json': true });")
+            .eval("cli.rg('needle', 'src', { '--json': true }).run();")
             .expect("approval");
 
         let approval = result.approval.expect("approval");

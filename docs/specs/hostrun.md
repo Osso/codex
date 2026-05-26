@@ -65,7 +65,8 @@ thread start. How the runtime is wired internally belongs in
 
 ### Command builder library contract
 
-- [ ] `cli.<program>(...args)` returns a lazy command builder rather than eagerly running the command.
+- [x] `cli.<program>(...args)` returns a lazy command builder rather than eagerly requesting approval.
+- [x] Command builder `.run()` preserves the existing approval request shape for `cli.<program>`.
 - [ ] `.run()` executes a command builder and returns structured status for each command in the execution graph.
 - [ ] `.spawn()` starts a command and returns process/stream handles.
 - [ ] `stdout.capture()` and `stderr.capture()` capture bounded text for model-visible results.

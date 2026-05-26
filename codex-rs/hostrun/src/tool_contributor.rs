@@ -23,7 +23,7 @@ Hostrun evaluates JavaScript in a persistent QuickJS session:
 - `ctx` persists across calls in the same session. Store scratch results there when a later tool call should reuse them.
 - `console.log`, `console.info`, `console.warn`, `console.error`, and `console.debug` are captured in the tool result.
 - Arrays have `.containing(needle)` for substring filtering.
-- `cli.<program>(...args)` requests an approval-gated host command. For example, `cli.dmidecode()` runs `dmidecode`, and `cli.rg('needle', 'path')` runs `rg needle path`.
+- `cli.<program>(...args)` creates a lazy host command builder. Call `.run()` to request approval and execute it, e.g. `cli.dmidecode().run()` or `cli.rg('needle', 'path').run()`.
 - `fs.write(path, content)`, `fs.read(path)`, `fs.exists(path)`, and `fs.remove(path)` request approval-gated host file operations.
 - `rclone.deletefile(target)` requests an approval-gated `rclone deletefile`.
 
@@ -327,7 +327,7 @@ mod tests {
         assert_eq!(tools[0].tool_name(), "hostrun_eval");
         assert_eq!(fragments.len(), 1);
         assert!(fragments[0].text().contains("ctx"));
-        assert!(fragments[0].text().contains("cli.<program>(...args)"));
+        assert!(fragments[0].text().contains("cli.dmidecode().run()"));
         assert!(fragments[0].text().contains("fs.read(path)"));
         assert!(fragments[0].text().contains("rclone.deletefile(target)"));
         assert!(!fragments[0].text().contains("tools.fs.write"));
