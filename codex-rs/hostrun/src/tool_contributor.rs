@@ -5,11 +5,10 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
 
-use codex_extension_api::ExtensionData;
-use codex_extension_api::ExtensionRegistryBuilder;
-use codex_extension_api::ThreadStartContributor;
-use codex_extension_api::ToolBundle;
-use codex_extension_api::ToolContributor;
+use codex_extension_api::{
+    ContextContributor, ExtensionData, ExtensionRegistryBuilder, PromptFragment,
+    ThreadStartContributor, ToolBundle, ToolContributor,
+};
 
 use crate::HostrunToolConfig;
 use crate::embedded_hostrun_tool_bundle;
@@ -17,6 +16,18 @@ use crate::hostrun_tool_bundle;
 
 pub const HOSTRUN_RUNNER_ENV: &str = "CODEX_HOSTRUN_RUNNER";
 const HOSTRUN_JS_PACKAGE: &str = "@openai/codex-hostrun-js";
+const HOSTRUN_INSTRUCTIONS: &str = "\
+Hostrun is available through the `hostrun_eval` tool.
+
+Hostrun evaluates JavaScript in a persistent QuickJS session:
+- `ctx` persists across calls in the same session. Store scratch results there when a later tool call should reuse them.
+- `console.log`, `console.info`, `console.warn`, `console.error`, and `console.debug` are captured in the tool result.
+- Arrays have `.containing(needle)` for substring filtering.
+- `cli.<program>(...args)` requests an approval-gated host command. For example, `cli.dmidecode()` runs `dmidecode`, and `cli.rg('needle', 'path')` runs `rg needle path`.
+- `tools.fs.write({ path, content })` requests an approval-gated host file write.
+- `tools.rclone.deletefile({ target })` requests an approval-gated `rclone deletefile`.
+
+Return a final expression value when useful.";
 
 #[derive(Clone, Debug)]
 pub struct HostrunToolContributor {
@@ -70,6 +81,7 @@ where
 {
     let contributor = Arc::new(HostrunFeatureGatedContributor { enabled });
     registry.thread_start_contributor(contributor.clone());
+    registry.prompt_contributor(contributor.clone());
     registry.tool_contributor(contributor);
 }
 
@@ -100,15 +112,35 @@ where
         _session_store: &ExtensionData,
         thread_store: &ExtensionData,
     ) -> Vec<ToolBundle> {
-        let Some(state) = thread_store.get::<HostrunFeatureState>() else {
-            return Vec::new();
-        };
-        if !state.enabled {
+        if !hostrun_enabled(thread_store) {
             return Vec::new();
         }
 
         vec![embedded_hostrun_tool_bundle()]
     }
+}
+
+impl<C> ContextContributor for HostrunFeatureGatedContributor<C>
+where
+    C: Send + Sync + 'static,
+{
+    fn contribute(
+        &self,
+        _session_store: &ExtensionData,
+        thread_store: &ExtensionData,
+    ) -> Vec<PromptFragment> {
+        if !hostrun_enabled(thread_store) {
+            return Vec::new();
+        }
+
+        vec![PromptFragment::developer_capability(HOSTRUN_INSTRUCTIONS)]
+    }
+}
+
+fn hostrun_enabled(thread_store: &ExtensionData) -> bool {
+    thread_store
+        .get::<HostrunFeatureState>()
+        .is_some_and(|state| state.enabled)
 }
 
 #[derive(Clone, Debug)]
@@ -274,5 +306,28 @@ mod tests {
         let tools = registry.tool_contributors()[0].tools(&session_store, &thread_store);
 
         assert!(tools.is_empty());
+        let fragments =
+            registry.context_contributors()[0].contribute(&session_store, &thread_store);
+        assert!(fragments.is_empty());
+    }
+
+    #[test]
+    fn feature_gated_install_contributes_tool_and_instructions_when_enabled() {
+        let mut builder = ExtensionRegistryBuilder::<bool>::new();
+        install_feature_gated(&mut builder, |enabled| *enabled);
+        let registry = builder.build();
+        let session_store = ExtensionData::new();
+        let thread_store = ExtensionData::new();
+
+        registry.thread_start_contributors()[0].contribute(&true, &session_store, &thread_store);
+        let tools = registry.tool_contributors()[0].tools(&session_store, &thread_store);
+        let fragments =
+            registry.context_contributors()[0].contribute(&session_store, &thread_store);
+
+        assert_eq!(tools[0].tool_name(), "hostrun_eval");
+        assert_eq!(fragments.len(), 1);
+        assert!(fragments[0].text().contains("ctx"));
+        assert!(fragments[0].text().contains("cli.<program>(...args)"));
+        assert!(fragments[0].text().contains("tools.fs.write"));
     }
 }

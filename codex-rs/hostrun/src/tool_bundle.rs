@@ -40,13 +40,7 @@ fn hostrun_eval_spec() -> FunctionToolSpec {
         name: "hostrun_eval".to_string(),
         description: concat!(
             "Evaluate JavaScript in a persistent Hostrun QuickJS session. ",
-            "Available globals: `ctx` persists across calls; `console.log/info/warn/error/debug` ",
-            "are captured in the result; arrays have `.containing(needle)` for substring filtering. ",
-            "`cli.<program>(...args)` requests an approval-gated host command, e.g. ",
-            "`cli.dmidecode()` runs `dmidecode` and `cli.rg('needle', 'path')` runs `rg needle path`. ",
-            "Use `tools.fs.write({ path, content })` to request an approval-gated host file write. ",
-            "Use `tools.rclone.deletefile({ target })` to request an approval-gated rclone delete. ",
-            "Return a final expression value when useful."
+            "Use the contributed Hostrun instructions for available globals and host APIs."
         )
         .to_string(),
         strict: true,
