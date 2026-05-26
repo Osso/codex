@@ -331,6 +331,141 @@ fn rg_search_wrapper_builds_rg_command() {
 }
 
 #[test]
+fn http_get_json_request_includes_redacted_metadata() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval(
+            "http.get('https://api.example.com/users', {
+                query: { q: 'hostrun', limit: 20 },
+                headers: {
+                    Accept: 'application/json',
+                    Authorization: 'Bearer secret',
+                    'X-Api-Key': 'secret-key'
+                },
+                auth: { bearer: 'secret-token' },
+                timeout: '10s',
+                retries: 2
+            }).json();",
+        )
+        .expect("approval");
+
+    let approval = result.approval.expect("approval");
+    assert_eq!(
+        approval.id,
+        "http.request:GET:https://api.example.com/users"
+    );
+    assert_eq!(approval.tool, "http.request");
+    assert_eq!(approval.summary, "HTTP GET https://api.example.com/users");
+    assert_eq!(
+        approval.args,
+        json!({
+            "method": "GET",
+            "url": "https://api.example.com/users",
+            "query": { "q": "hostrun", "limit": 20 },
+            "headers": {
+                "Accept": "application/json",
+                "Authorization": "<redacted>",
+                "X-Api-Key": "<redacted>"
+            },
+            "auth": { "bearer": "<redacted>" },
+            "timeout": "10s",
+            "retries": 2,
+            "response": { "type": "json" }
+        })
+    );
+}
+
+#[test]
+fn http_post_json_body_can_save_response_to_file() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval(
+            "http.post('https://api.example.com/users', {
+                json: { name: 'Alice' },
+                auth: { basic: { username: 'alice', password: 'secret' } }
+            }).save('/tmp/user.json');",
+        )
+        .expect("approval");
+
+    let approval = result.approval.expect("approval");
+    assert_eq!(
+        approval.args,
+        json!({
+            "method": "POST",
+            "url": "https://api.example.com/users",
+            "json": { "name": "Alice" },
+            "auth": {
+                "basic": { "username": "alice", "password": "<redacted>" }
+            },
+            "response": { "type": "file", "path": "/tmp/user.json" }
+        })
+    );
+}
+
+#[test]
+fn http_rejects_ambiguous_body_sources() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval(
+            "try {
+                http.post('https://api.example.com/users', {
+                    json: {},
+                    body: 'raw'
+                }).run();
+            } catch (error) {
+                error.message;
+            }",
+        )
+        .expect("eval");
+
+    assert_eq!(
+        result.value,
+        Some(json!("http request has multiple body sources: json, body"))
+    );
+}
+
+#[test]
+fn http_multipart_file_metadata_is_preserved() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval(
+            "http.post('https://upload.example.com/files', {
+                multipart: {
+                    title: 'Probe',
+                    upload: {
+                        file: '/tmp/probe.txt',
+                        filename: 'probe.txt',
+                        contentType: 'text/plain'
+                    }
+                }
+            }).text();",
+        )
+        .expect("approval");
+
+    let approval = result.approval.expect("approval");
+    assert_eq!(
+        approval.args,
+        json!({
+            "method": "POST",
+            "url": "https://upload.example.com/files",
+            "multipart": {
+                "title": "Probe",
+                "upload": {
+                    "file": "/tmp/probe.txt",
+                    "filename": "probe.txt",
+                    "contentType": "text/plain"
+                }
+            },
+            "response": { "type": "text" }
+        })
+    );
+}
+
+#[test]
 fn captures_console_messages_and_echoes_executed_code() {
     let session = HostrunSession::new().expect("session");
 

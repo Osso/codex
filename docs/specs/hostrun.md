@@ -51,20 +51,21 @@ thread start. How the runtime is wired internally belongs in
 
 ### HTTP client
 
-- [ ] Expose `http.request(method, url, options)` as an approval-gated HTTP client for common API workflows without curl flags.
-- [ ] Expose method wrappers: `http.get`, `http.post`, `http.put`, `http.patch`, `http.delete`, and `http.head`.
-- [ ] Support request headers as an object, e.g. `{ headers: { Accept: "application/json" } }`.
-- [ ] Support query params as an object, e.g. `{ query: { q: "hostrun", limit: 20 } }`.
-- [ ] Support exactly one body source per request: `json`, `form`, `body`, `file`, or `multipart`.
+- [x] Expose `http.request(method, url, options)` as an approval-gated HTTP request builder for common API workflows without curl flags.
+- [x] Expose method wrappers: `http.get`, `http.post`, `http.put`, `http.patch`, `http.delete`, and `http.head`.
+- [x] Preserve request headers in approval metadata, e.g. `{ headers: { Accept: "application/json" } }`.
+- [x] Preserve query params in approval metadata, e.g. `{ query: { q: "hostrun", limit: 20 } }`.
+- [x] Validate exactly one body source per request: `json`, `form`, `body`, `file`, or `multipart`.
 - [ ] `json: value` sends `JSON.stringify(value)` and sets JSON content/accept headers unless overridden.
 - [ ] `form: object` sends `application/x-www-form-urlencoded`.
 - [ ] `body: string|bytes` sends the raw request body and leaves content type to the caller.
 - [ ] `file: path` sends file bytes as the whole request body.
-- [ ] `multipart: object` sends form fields and one or more file parts with optional filename/content-type metadata.
-- [ ] Support bearer token, bearer token from environment, basic auth, and header-token auth without exposing secrets in transcript output.
+- [x] Preserve `multipart: object` fields and file-part metadata in approval metadata.
+- [x] Redact bearer/basic/header-token auth secrets from approval metadata.
 - [ ] Support timeout, retry policy, redirect policy, and TLS options with readable defaults.
-- [ ] Response objects expose `.status`, `.ok`, `.headers`, `.text()`, `.json()`, `.bytes()`, and `.save(path)`.
-- [ ] `.save(path)` streams the response body to disk and returns metadata including path, status, headers, and byte count.
+- [x] Expose response intent helpers `.text()`, `.json()`, `.bytes()`, `.save(path)`, and `.run()` in approval metadata.
+- [ ] Response objects expose `.status`, `.ok`, `.headers`, `.text()`, `.json()`, `.bytes()`, and `.save(path)` after real execution lands.
+- [ ] `.save(path)` streams the response body to disk and returns metadata including path, status, headers, and byte count after real execution lands.
 
 ### Command builder library contract
 

@@ -455,6 +455,67 @@ globalThis.rg = {
   }
 };
 
+globalThis.__hostrun_httpRequestBuilder = function (method, url, options = {}) {
+  const bodySources = ["json", "form", "body", "file", "multipart"].filter((key) => options[key] !== undefined);
+  if (bodySources.length > 1) {
+    throw new Error(`http request has multiple body sources: ${bodySources.join(", ")}`);
+  }
+  const state = {
+    method: String(method).toUpperCase(),
+    url: String(url),
+    ...options
+  };
+  const builder = {
+    run: function () {
+      return globalThis.__hostrun_invokeCapability("http.request", state);
+    },
+    text: function () {
+      state.response = { type: "text" };
+      return this.run();
+    },
+    json: function () {
+      state.response = { type: "json" };
+      return this.run();
+    },
+    bytes: function () {
+      state.response = { type: "bytes" };
+      return this.run();
+    },
+    save: function (path) {
+      state.response = { type: "file", path };
+      return this.run();
+    },
+    toJSON: function () {
+      return { ...state };
+    }
+  };
+  return builder;
+};
+
+globalThis.http = {
+  request: function (method, url, options = {}) {
+    return globalThis.__hostrun_httpRequestBuilder(method, url, options);
+  },
+  get: function (url, options = {}) {
+    return globalThis.http.request("GET", url, options);
+  },
+  post: function (url, options = {}) {
+    return globalThis.http.request("POST", url, options);
+  },
+  put: function (url, options = {}) {
+    return globalThis.http.request("PUT", url, options);
+  },
+  patch: function (url, options = {}) {
+    return globalThis.http.request("PATCH", url, options);
+  },
+  delete: function (url, options = {}) {
+    return globalThis.http.request("DELETE", url, options);
+  },
+  head: function (url, options = {}) {
+    return globalThis.http.request("HEAD", url, options);
+  }
+};
+
 globalThis.__hostrun_run = function (code) {
   globalThis.__hostrun_console = [];
   try {

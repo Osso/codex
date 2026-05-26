@@ -28,6 +28,7 @@ Hostrun evaluates JavaScript in a persistent QuickJS session:
 - `rclone.deletefile(target)` requests an approval-gated `rclone deletefile`; `rclone.lsf(target, { recursive: true })` builds a lazy `rclone lsf` command.
 - `fd.find(pattern, options)`, `fd.files(root, options)`, and `fd.dirs(root, options)` build lazy `fdfind` commands.
 - `rg.search(pattern, paths, options)`, `rg.files(pattern, paths, options)`, and `rg.matches(pattern, paths, options)` build lazy ripgrep commands.
+- `http.get/post/put/patch/delete/head(url, options)` and `http.request(method, url, options)` build approval-gated HTTP requests. Use `.json()`, `.text()`, `.bytes()`, `.save(path)`, or `.run()` to choose response handling.
 
 Return a final expression value when useful.";
 
@@ -334,6 +335,7 @@ mod tests {
         assert!(fragments[0].text().contains("rclone.lsf(target"));
         assert!(fragments[0].text().contains("fd.find(pattern"));
         assert!(fragments[0].text().contains("rg.search(pattern"));
+        assert!(fragments[0].text().contains("http.get/post"));
         assert!(!fragments[0].text().contains("tools.fs.write"));
     }
 }

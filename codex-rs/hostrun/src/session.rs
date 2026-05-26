@@ -117,6 +117,7 @@ impl HostCapabilityInvoker {
             }
             "fs.remove" => pending_approval(fs_path_approval("fs.remove", "Remove", args)),
             "rclone.deletefile" => pending_approval(rclone_deletefile_approval(args)),
+            "http.request" => pending_approval(http_request_approval(args)),
             tool if tool.starts_with("cli.") => pending_approval(cli_command_approval(tool, args)),
             _ => json!({
                 "type": "denied",
@@ -237,6 +238,73 @@ fn cli_arg_summary(arg: &Value) -> String {
     match arg {
         Value::String(value) => value.clone(),
         other => other.to_string(),
+    }
+}
+
+fn http_request_approval(args: Value) -> HostrunApprovalRequest {
+    let method = field_as_string(&args, "method");
+    let url = field_as_string(&args, "url");
+    HostrunApprovalRequest {
+        id: format!("http.request:{}:{url}", method.to_uppercase()),
+        tool: "http.request".to_string(),
+        summary: format!("HTTP {} {url}", method.to_uppercase()),
+        args: redact_http_auth(args),
+    }
+}
+
+fn redact_http_auth(mut args: Value) -> Value {
+    redact_http_auth_field(&mut args);
+    redact_http_headers(&mut args);
+    args
+}
+
+fn redact_http_auth_field(args: &mut Value) {
+    let Some(auth) = args.get_mut("auth") else {
+        return;
+    };
+    match auth {
+        Value::Object(auth) => {
+            for key in ["bearer", "token"] {
+                redact_object_key(auth, key);
+            }
+            if let Some(basic) = auth.get_mut("basic") {
+                redact_http_basic_auth(basic);
+            }
+        }
+        other => {
+            *other = Value::String("<redacted>".to_string());
+        }
+    }
+}
+
+fn redact_http_basic_auth(basic: &mut Value) {
+    match basic {
+        Value::Object(basic) => redact_object_key(basic, "password"),
+        other => *other = Value::String("<redacted>".to_string()),
+    }
+}
+
+fn redact_http_headers(args: &mut Value) {
+    let Some(Value::Object(headers)) = args.get_mut("headers") else {
+        return;
+    };
+    for (key, value) in headers {
+        if is_sensitive_http_header(key) {
+            *value = Value::String("<redacted>".to_string());
+        }
+    }
+}
+
+fn is_sensitive_http_header(key: &str) -> bool {
+    matches!(
+        key.to_ascii_lowercase().as_str(),
+        "authorization" | "proxy-authorization" | "x-api-key" | "x-auth-token"
+    )
+}
+
+fn redact_object_key(object: &mut serde_json::Map<String, Value>, key: &str) {
+    if object.contains_key(key) {
+        object.insert(key.to_string(), Value::String("<redacted>".to_string()));
     }
 }
 
