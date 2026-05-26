@@ -94,7 +94,7 @@ thread start. How the runtime is wired internally belongs in
 - [ ] Piped command graphs start producer and consumer commands concurrently.
 - [ ] Approval text for command graphs includes argv and redirect/pipe shape in a readable form without using a shell internally.
 - [ ] Command graph results include every command's exit code and fail the graph if any command fails unless explicitly configured otherwise.
-- [ ] Captured stdout/stderr have bounded size and explicit truncation metadata.
+- [x] Captured stdout/stderr/combined output have bounded size and explicit `{bytes, capturedBytes, truncated}` metadata.
 
 ### Structured data and collections
 

@@ -239,7 +239,12 @@ mod tests {
                 "args": ["hello"],
                 "exitCode": 0,
                 "success": true,
-                "stdout": "hello"
+                "stdout": "hello",
+                "stdoutMeta": {
+                    "bytes": 5,
+                    "capturedBytes": 5,
+                    "truncated": false
+                }
             })
         );
     }

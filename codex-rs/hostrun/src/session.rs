@@ -15,10 +15,10 @@ use serde::Serialize;
 use serde_json::Value;
 use serde_json::json;
 
-use crate::fs_capability::execute_fs_operation;
-use crate::fs_capability::fs_approval;
+use crate::fs_capability::{execute_fs_operation, fs_approval};
 
 const APPROVAL_REQUIRED_PREFIX: &str = "__HOSTRUN_APPROVAL_REQUIRED__:";
+const CAPTURE_LIMIT_BYTES: usize = 64 * 1024;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct HostrunEvalResult {
@@ -536,14 +536,18 @@ fn apply_output_intent(
         .unwrap_or("capture")
     {
         "capture" | "text" => {
+            let captured = bounded_capture(bytes);
             result.insert(
                 name.to_string(),
-                Value::String(String::from_utf8_lossy(bytes).to_string()),
+                Value::String(String::from_utf8_lossy(captured).to_string()),
             );
+            insert_capture_metadata(result, name, bytes.len(), captured.len());
         }
         "lines" => {
-            let text = String::from_utf8_lossy(bytes);
+            let captured = bounded_capture(bytes);
+            let text = String::from_utf8_lossy(captured);
             result.insert(name.to_string(), json!(text.lines().collect::<Vec<_>>()));
+            insert_capture_metadata(result, name, bytes.len(), captured.len());
         }
         "file" => {
             let path = field_as_string(intent, "path");
@@ -562,6 +566,26 @@ fn apply_output_intent(
         }
     }
     Ok(())
+}
+
+fn bounded_capture(bytes: &[u8]) -> &[u8] {
+    &bytes[..bytes.len().min(CAPTURE_LIMIT_BYTES)]
+}
+
+fn insert_capture_metadata(
+    result: &mut serde_json::Map<String, Value>,
+    name: &str,
+    bytes: usize,
+    captured_bytes: usize,
+) {
+    result.insert(
+        format!("{name}Meta"),
+        json!({
+            "bytes": bytes,
+            "capturedBytes": captured_bytes,
+            "truncated": captured_bytes < bytes
+        }),
+    );
 }
 
 fn http_request_approval(args: Value) -> HostrunApprovalRequest {

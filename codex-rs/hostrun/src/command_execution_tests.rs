@@ -19,7 +19,12 @@ fn approved_cli_command_captures_stdout_text() {
             "args": ["hello"],
             "exitCode": 0,
             "success": true,
-            "stdout": "hello"
+            "stdout": "hello",
+            "stdoutMeta": {
+                "bytes": 5,
+                "capturedBytes": 5,
+                "truncated": false
+            }
         }))
     );
 }
@@ -39,7 +44,12 @@ fn approved_cli_command_pipes_structured_stdin_to_process() {
             "args": [],
             "exitCode": 0,
             "success": true,
-            "stdout": ["alpha", "beta"]
+            "stdout": ["alpha", "beta"],
+            "stdoutMeta": {
+                "bytes": 11,
+                "capturedBytes": 11,
+                "truncated": false
+            }
         }))
     );
 }
@@ -87,7 +97,12 @@ fn approved_cli_command_captures_stderr_and_combined_output() {
             "args": ["-c", "printf err >&2"],
             "exitCode": 0,
             "success": true,
-            "stderr": "err"
+            "stderr": "err",
+            "stderrMeta": {
+                "bytes": 3,
+                "capturedBytes": 3,
+                "truncated": false
+            }
         }))
     );
 
@@ -120,8 +135,33 @@ fn approved_cli_command_can_redirect_stderr_to_stdout() {
             "args": ["-c", "printf out; printf err >&2"],
             "exitCode": 0,
             "success": true,
-            "stdout": "outerr"
+            "stdout": "outerr",
+            "stdoutMeta": {
+                "bytes": 6,
+                "capturedBytes": 6,
+                "truncated": false
+            }
         }))
+    );
+}
+
+#[test]
+fn approved_cli_command_bounds_captured_output() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+
+    let result = session
+        .eval("cli.sh('-c', 'printf %070000d 0').stdout.text().run();")
+        .expect("eval");
+    let value = result.value.expect("value");
+
+    assert_eq!(value["stdout"].as_str().expect("stdout").len(), 64 * 1024);
+    assert_eq!(
+        value["stdoutMeta"],
+        json!({
+            "bytes": 70000,
+            "capturedBytes": 64 * 1024,
+            "truncated": true
+        })
     );
 }
 
