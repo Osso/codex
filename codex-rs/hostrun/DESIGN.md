@@ -86,6 +86,14 @@ That keeps Codex-side approval rendering able to see a real shape such as:
 
 This is intentionally a thin path. It proves Codex can host Hostrun as an ordinary function tool before we commit to deeper `codex-core` registration or TUI rendering.
 
+Codex app-server installs the Hostrun tool contributor when `CODEX_HOSTRUN_RUNNER` points at the compiled runner, for example:
+
+```sh
+CODEX_HOSTRUN_RUNNER=/home/osso/Repos/codex/codex-rs/hostrun/js/dist/cli.js codex
+```
+
+Without that environment variable, Hostrun stays hidden.
+
 ## Sandbox and Capabilities
 
 The long-term model is closer to extending `just-bash` than replacing Bash with raw host Python. User code should run in a constrained runtime with a virtual filesystem and no direct host authority. Host effects should be exposed as explicit capabilities:

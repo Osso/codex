@@ -1,6 +1,7 @@
 //! Hostrun will provide a stateful, approval-readable host execution runtime.
 
 mod tool_bundle;
+mod tool_contributor;
 
 use std::collections::BTreeMap;
 
@@ -9,6 +10,10 @@ use serde::Serialize;
 
 pub use tool_bundle::HostrunToolConfig;
 pub use tool_bundle::hostrun_tool_bundle;
+pub use tool_contributor::HOSTRUN_RUNNER_ENV;
+pub use tool_contributor::HostrunToolContributor;
+pub use tool_contributor::install;
+pub use tool_contributor::install_from_env;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 #[serde(transparent)]

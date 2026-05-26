@@ -1305,6 +1305,7 @@ dependencies = [
  "codex-git-attribution",
  "codex-git-utils",
  "codex-hooks",
+ "codex-hostrun",
  "codex-login",
  "codex-mcp",
  "codex-memories-write",
@@ -2186,6 +2187,7 @@ dependencies = [
 name = "codex-hostrun"
 version = "0.0.0"
 dependencies = [
+ "codex-extension-api",
  "codex-tool-api",
  "serde",
  "serde_json",
