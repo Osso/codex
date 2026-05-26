@@ -102,7 +102,7 @@ thread start. How the runtime is wired internally belongs in
 - [x] Array `any` and `all` support truthiness, exact-value matching, and callback predicates.
 - [x] Provide text helpers for common shell replacements: `splitRow`, `splitColumn`, `splitWords`, `joinText`, `trimmed`, `replaceText`, `lineCount`, `head`, and `tail`.
 - [x] Arrays provide `head`, `tail`, and `joinText` helpers for line-list workflows.
-- [ ] Provide path helpers for common filesystem text transforms: `path.join`, `path.basename`, `path.dirname`, and `path.parse`.
+- [x] Provide path helpers for common filesystem text transforms: `path.join`, `path.basename`, `path.dirname`, and `path.parse`.
 - [ ] Provide byte helpers for binary inspection: byte length and byte ranges over raw command/file output.
 - [ ] Provide non-mutating string-array helpers: `containing`, `notContaining`, `startsWith`, `endsWith`, `matching`, `notMatching`, `glob`, `notGlob`, `first`, `last`, `take`, `unique`, `sort`, `reverse`, `lengths`, `bytes`, `lower`, and `upper`.
 - [x] Provide string-array helpers for `containing`, `notContaining`, `startsWith`, `endsWith`, `matching`, `notMatching`, `glob`, `notGlob`, `first`, `last`, `take`, `unique`, `lengths`, `bytes`, `lower`, `upper`, `sorted`, and `reversed`.

@@ -266,6 +266,53 @@ globalThis.__hostrun_transpose = function (rows) {
   return output;
 };
 
+globalThis.__hostrun_pathCleanParts = function (path) {
+  return String(path).split("/").filter((part) => part.length > 0);
+};
+
+globalThis.__hostrun_pathBasename = function (path) {
+  const parts = globalThis.__hostrun_pathCleanParts(path);
+  return parts.length === 0 ? "" : parts[parts.length - 1];
+};
+
+globalThis.__hostrun_pathDirname = function (path) {
+  const text = String(path);
+  const absolute = text.startsWith("/");
+  const parts = globalThis.__hostrun_pathCleanParts(text);
+  parts.pop();
+  if (parts.length === 0) {
+    return absolute ? "/" : ".";
+  }
+  return (absolute ? "/" : "") + parts.join("/");
+};
+
+globalThis.__hostrun_pathParse = function (path) {
+  const text = String(path);
+  const dir = globalThis.__hostrun_pathDirname(text);
+  const base = globalThis.__hostrun_pathBasename(text);
+  const dot = base.lastIndexOf(".");
+  const hasExtension = dot > 0;
+  return {
+    root: text.startsWith("/") ? "/" : "",
+    dir,
+    base,
+    name: hasExtension ? base.slice(0, dot) : base,
+    ext: hasExtension ? base.slice(dot) : ""
+  };
+};
+
+globalThis.path = {
+  join: function (...parts) {
+    const absolute = parts.length > 0 && String(parts[0]).startsWith("/");
+    const joined = parts.flat().map(String).join("/");
+    const cleaned = globalThis.__hostrun_pathCleanParts(joined).join("/");
+    return (absolute ? "/" : "") + cleaned;
+  },
+  basename: globalThis.__hostrun_pathBasename,
+  dirname: globalThis.__hostrun_pathDirname,
+  parse: globalThis.__hostrun_pathParse
+};
+
 globalThis.__hostrun_regex = function (pattern) {
   return pattern instanceof RegExp ? pattern : new RegExp(String(pattern));
 };
@@ -319,12 +366,9 @@ globalThis.__hostrun_formatField = function (value, transform, args) {
       return text.replaceAll(from, to);
     }
     case "basename":
-      return text.split("/").filter((part) => part.length > 0).pop() ?? "";
-    case "dirname": {
-      const parts = text.split("/");
-      parts.pop();
-      return parts.join("/") || ".";
-    }
+      return globalThis.path.basename(text);
+    case "dirname":
+      return globalThis.path.dirname(text);
     default:
       throw new Error("unknown Hostrun field transform: " + transform);
   }

@@ -362,3 +362,7 @@ mod collection_tests;
 #[cfg(test)]
 #[path = "text_tests.rs"]
 mod text_tests;
+
+#[cfg(test)]
+#[path = "path_tests.rs"]
+mod path_tests;
