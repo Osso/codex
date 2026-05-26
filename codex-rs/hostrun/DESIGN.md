@@ -66,7 +66,9 @@ The first Codex integration point is the existing contributed-tool seam, not a n
 }
 ```
 
-The Rust executor validates that input, feeds it as JSON to an injected Hostrun runner process, and returns the runner's structured JSON output unchanged. That keeps Codex-side approval rendering able to see a real shape such as:
+The Rust executor validates that input, feeds it as JSON to an injected Hostrun runner process, and returns the runner's structured JSON output unchanged. The normal runner mode is long-lived JSONL: Codex writes one eval request per line, the runner keeps a `HostrunSession` map keyed by `session_id`, and replies with one JSON result line per request. This keeps `ctx` alive across separate `hostrun_eval` calls while preserving an easy one-shot CLI mode for smoke tests.
+
+That keeps Codex-side approval rendering able to see a real shape such as:
 
 ```json
 {
@@ -135,7 +137,7 @@ Normal exceptions should not destroy the session. Catastrophic timeout, memory l
 
 - Whether the persistent QuickJS work should live in a Codex-owned fork first or be proposed upstream immediately.
 - Whether `HostrunSession` should expose bash compatibility at all, or only sandboxed JavaScript plus capabilities.
-- How Codex should host and reset the persistent interpreter process beyond the current single-request runner.
+- How Codex should reset or reap idle persistent interpreter sessions.
 - How to represent live context values in the TUI without pretending they are fully serializable.
 - Which side effects require declaration before execution and which can be discovered dynamically.
 - How much CLI wrapper generation is useful before hand-written resource wrappers become clearer.

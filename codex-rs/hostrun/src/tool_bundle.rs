@@ -1,9 +1,15 @@
+use std::io::BufRead;
+use std::io::BufReader;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Child;
+use std::process::ChildStdin;
+use std::process::ChildStdout;
 use std::process::Command;
 use std::process::Stdio;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use codex_tool_api::FunctionToolSpec;
 use codex_tool_api::ToolBundle;
@@ -31,7 +37,10 @@ impl HostrunToolConfig {
 pub fn hostrun_tool_bundle(config: HostrunToolConfig) -> ToolBundle {
     ToolBundle::new(
         hostrun_eval_spec(),
-        Arc::new(HostrunToolExecutor { config }),
+        Arc::new(HostrunToolExecutor {
+            config,
+            runner: Mutex::new(None),
+        }),
     )
 }
 
@@ -54,14 +63,32 @@ fn hostrun_eval_spec() -> FunctionToolSpec {
 
 struct HostrunToolExecutor {
     config: HostrunToolConfig,
+    runner: Mutex<Option<PersistentRunner>>,
 }
 
 impl ToolExecutor for HostrunToolExecutor {
     fn execute<'a>(&'a self, call: ToolCall) -> ToolFuture<'a> {
         Box::pin(async move {
             let input = parse_eval_arguments(&call.arguments)?;
-            run_hostrun_eval(&self.config.runner, &input)
+            self.run_eval(&input)
         })
+    }
+}
+
+impl HostrunToolExecutor {
+    fn run_eval(&self, input: &HostrunEvalArguments) -> Result<Value, ToolError> {
+        let mut runner_slot = self
+            .runner
+            .lock()
+            .map_err(|_| ToolError::fatal("Hostrun runner lock was poisoned"))?;
+        if runner_slot.is_none() {
+            *runner_slot = Some(PersistentRunner::start(&self.config.runner)?);
+        }
+        let runner = runner_slot
+            .as_mut()
+            .ok_or_else(|| ToolError::fatal("Hostrun runner was not initialized"))?;
+
+        runner.eval(input)
     }
 }
 
@@ -77,48 +104,65 @@ fn parse_eval_arguments(arguments: &str) -> Result<HostrunEvalArguments, ToolErr
     })
 }
 
-fn run_hostrun_eval(runner: &Path, input: &HostrunEvalArguments) -> Result<Value, ToolError> {
-    let mut child = spawn_runner(runner)?;
-    let mut stdin = child
-        .stdin
-        .take()
-        .ok_or_else(|| ToolError::fatal("Hostrun runner stdin was unavailable"))?;
-    let input_json = serde_json::to_vec(input)
-        .map_err(|error| ToolError::fatal(format!("failed to encode Hostrun eval: {error}")))?;
-
-    stdin
-        .write_all(&input_json)
-        .map_err(|error| ToolError::fatal(format!("failed to write Hostrun eval: {error}")))?;
-    drop(stdin);
-
-    let output = child
-        .wait_with_output()
-        .map_err(|error| ToolError::fatal(format!("failed to wait for Hostrun runner: {error}")))?;
-
-    if !output.status.success() {
-        return Err(runner_failure(output.stderr));
-    }
-
-    serde_json::from_slice(&output.stdout)
-        .map_err(|error| ToolError::fatal(format!("Hostrun runner returned invalid JSON: {error}")))
+struct PersistentRunner {
+    _child: Child,
+    stdin: ChildStdin,
+    stdout: BufReader<ChildStdout>,
 }
 
-fn spawn_runner(runner: &Path) -> Result<std::process::Child, ToolError> {
-    Command::new(runner)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|error| ToolError::fatal(format!("failed to start Hostrun runner: {error}")))
-}
+impl PersistentRunner {
+    fn start(runner: &Path) -> Result<Self, ToolError> {
+        let mut child = Command::new(runner)
+            .arg("--serve")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|error| {
+                ToolError::fatal(format!("failed to start Hostrun runner: {error}"))
+            })?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| ToolError::fatal("Hostrun runner stdin was unavailable"))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| ToolError::fatal("Hostrun runner stdout was unavailable"))?;
 
-fn runner_failure(stderr: Vec<u8>) -> ToolError {
-    let message = String::from_utf8_lossy(&stderr).trim().to_string();
-    if message.is_empty() {
-        return ToolError::respond_to_model("Hostrun runner failed");
+        Ok(Self {
+            _child: child,
+            stdin,
+            stdout: BufReader::new(stdout),
+        })
     }
 
-    ToolError::respond_to_model(message)
+    fn eval(&mut self, input: &HostrunEvalArguments) -> Result<Value, ToolError> {
+        let input_json = serde_json::to_vec(input)
+            .map_err(|error| ToolError::fatal(format!("failed to encode Hostrun eval: {error}")))?;
+
+        self.stdin
+            .write_all(&input_json)
+            .map_err(|error| ToolError::fatal(format!("failed to write Hostrun eval: {error}")))?;
+        self.stdin
+            .write_all(b"\n")
+            .map_err(|error| ToolError::fatal(format!("failed to write Hostrun eval: {error}")))?;
+        self.stdin
+            .flush()
+            .map_err(|error| ToolError::fatal(format!("failed to flush Hostrun eval: {error}")))?;
+
+        let mut output = String::new();
+        let bytes_read = self.stdout.read_line(&mut output).map_err(|error| {
+            ToolError::fatal(format!("failed to read Hostrun runner output: {error}"))
+        })?;
+        if bytes_read == 0 {
+            return Err(ToolError::fatal("Hostrun runner exited without output"));
+        }
+
+        serde_json::from_str(output.trim_end()).map_err(|error| {
+            ToolError::fatal(format!("Hostrun runner returned invalid JSON: {error}"))
+        })
+    }
 }
 
 #[cfg(test)]
@@ -216,6 +260,48 @@ printf '%s\n' '{"type":"needs_approval","approval":{"id":"approval-1","tool":"rc
                 }
             })
         );
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn executor_reuses_one_runner_process_across_calls() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        let runner = temp_dir.path().join("hostrun-runner");
+        write_runner(
+            &runner,
+            r#"#!/bin/sh
+count=0
+while read input; do
+  count=$((count + 1))
+  printf '{"type":"completed","value":%s}\n' "$count"
+done
+"#,
+        );
+        let bundle = hostrun_tool_bundle(HostrunToolConfig::new(&runner));
+
+        let first = bundle
+            .executor()
+            .execute(call("session-1", "ctx.count = 1"))
+            .await
+            .expect("first eval");
+        let second = bundle
+            .executor()
+            .execute(call("session-1", "ctx.count += 1"))
+            .await
+            .expect("second eval");
+
+        assert_eq!(first, json!({ "type": "completed", "value": 1 }));
+        assert_eq!(second, json!({ "type": "completed", "value": 2 }));
+    }
+
+    fn call(session_id: &str, code: &str) -> ToolCall {
+        ToolCall {
+            call_id: "call-1".to_string(),
+            arguments: json!({
+                "session_id": session_id,
+                "code": code
+            })
+            .to_string(),
+        }
     }
 
     fn write_runner(path: &Path, content: &str) {

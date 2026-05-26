@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runHostrunRequest } from "./runner.js";
+import { HostrunRunnerServer, runHostrunRequest } from "./runner.js";
 
 describe("runHostrunRequest", () => {
   it("evaluates code in a Hostrun session", async () => {
@@ -44,5 +44,24 @@ describe("runHostrunRequest", () => {
     await expect(
       runHostrunRequest({ session_id: "session-1" }),
     ).rejects.toThrow("Hostrun runner request must include code");
+  });
+
+  it("keeps ctx alive across JSONL server requests with the same session id", async () => {
+    const server = new HostrunRunnerServer();
+    try {
+      const first = await server.run({
+        session_id: "session-1",
+        code: "ctx.count = 41; ctx.count;",
+      });
+      const second = await server.run({
+        session_id: "session-1",
+        code: "ctx.count += 1; ctx.count;",
+      });
+
+      expect(first).toEqual({ type: "completed", value: 41 });
+      expect(second).toEqual({ type: "completed", value: 42 });
+    } finally {
+      server.dispose();
+    }
   });
 });

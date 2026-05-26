@@ -10,6 +10,7 @@ export {
 } from "./hostrun-session.js";
 
 export {
+  HostrunRunnerServer,
   runHostrunRequest,
   type HostrunRunnerCapability,
   type HostrunRunnerRequest,
