@@ -40,6 +40,26 @@ describe("runHostrunRequest", () => {
     });
   });
 
+  it("recognizes built-in fs.write as an approval-gated host capability", async () => {
+    const result = await runHostrunRequest({
+      session_id: "session-1",
+      code: `tools.fs.write({ path: "/tmp/hostrun.txt", content: "hello" });`,
+    });
+
+    expect(result).toEqual({
+      type: "needs_approval",
+      approval: {
+        id: "fs.write:/tmp/hostrun.txt",
+        tool: "fs.write",
+        summary: "Write 5 bytes to /tmp/hostrun.txt",
+        args: {
+          path: "/tmp/hostrun.txt",
+          content: "hello",
+        },
+      },
+    });
+  });
+
   it("rejects requests without code", async () => {
     await expect(
       runHostrunRequest({ session_id: "session-1" }),

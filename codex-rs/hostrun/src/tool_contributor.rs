@@ -1,6 +1,8 @@
 use std::env;
+use std::fmt;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command;
 use std::sync::Arc;
 
 use codex_extension_api::ExtensionData;
@@ -12,6 +14,7 @@ use crate::HostrunToolConfig;
 use crate::hostrun_tool_bundle;
 
 pub const HOSTRUN_RUNNER_ENV: &str = "CODEX_HOSTRUN_RUNNER";
+const HOSTRUN_JS_PACKAGE: &str = "@openai/codex-hostrun-js";
 
 #[derive(Clone, Debug)]
 pub struct HostrunToolContributor {
@@ -47,12 +50,115 @@ pub fn install_from_env<C>(registry: &mut ExtensionRegistryBuilder<C>) {
     install(registry, PathBuf::from(runner));
 }
 
+pub fn install_managed<C>(
+    registry: &mut ExtensionRegistryBuilder<C>,
+) -> Result<PathBuf, HostrunRunnerLifecycleError> {
+    let runner = if let Some(runner) = env::var_os(HOSTRUN_RUNNER_ENV) {
+        PathBuf::from(runner)
+    } else {
+        HostrunRunnerLifecycle::managed_package().ensure_runner()?
+    };
+    install(registry, &runner);
+    Ok(runner)
+}
+
+#[derive(Clone, Debug)]
+pub struct HostrunRunnerLifecycle {
+    workspace_root: PathBuf,
+    package_dir: PathBuf,
+}
+
+impl HostrunRunnerLifecycle {
+    pub fn new(workspace_root: impl AsRef<Path>, package_dir: impl AsRef<Path>) -> Self {
+        Self {
+            workspace_root: workspace_root.as_ref().to_path_buf(),
+            package_dir: package_dir.as_ref().to_path_buf(),
+        }
+    }
+
+    pub fn managed_package() -> Self {
+        let hostrun_crate = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let workspace_root = hostrun_crate
+            .parent()
+            .and_then(Path::parent)
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| hostrun_crate.clone());
+        Self::new(workspace_root, hostrun_crate.join("js"))
+    }
+
+    pub fn runner_path(&self) -> PathBuf {
+        self.package_dir.join("dist").join("cli.js")
+    }
+
+    pub fn ensure_runner(&self) -> Result<PathBuf, HostrunRunnerLifecycleError> {
+        let runner = self.runner_path();
+        if runner.is_file() {
+            return Ok(runner);
+        }
+
+        self.build_runner()?;
+        if runner.is_file() {
+            return Ok(runner);
+        }
+
+        Err(HostrunRunnerLifecycleError::RunnerMissingAfterBuild { path: runner })
+    }
+
+    fn build_runner(&self) -> Result<(), HostrunRunnerLifecycleError> {
+        let output = Command::new("npx")
+            .args(["pnpm", "--filter", HOSTRUN_JS_PACKAGE, "build"])
+            .current_dir(&self.workspace_root)
+            .output()
+            .map_err(|source| HostrunRunnerLifecycleError::BuildSpawnFailed { source })?;
+
+        if output.status.success() {
+            return Ok(());
+        }
+
+        Err(HostrunRunnerLifecycleError::BuildFailed {
+            status: output.status.to_string(),
+            stderr: String::from_utf8_lossy(&output.stderr).trim().to_string(),
+        })
+    }
+}
+
+#[derive(Debug)]
+pub enum HostrunRunnerLifecycleError {
+    BuildSpawnFailed { source: std::io::Error },
+    BuildFailed { status: String, stderr: String },
+    RunnerMissingAfterBuild { path: PathBuf },
+}
+
+impl fmt::Display for HostrunRunnerLifecycleError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::BuildSpawnFailed { source } => {
+                write!(formatter, "failed to start Hostrun JS build: {source}")
+            }
+            Self::BuildFailed { status, stderr } => {
+                write!(formatter, "Hostrun JS build failed with {status}: {stderr}")
+            }
+            Self::RunnerMissingAfterBuild { path } => {
+                write!(
+                    formatter,
+                    "Hostrun JS build finished but runner is missing at {}",
+                    path.display()
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for HostrunRunnerLifecycleError {}
+
 #[cfg(test)]
 mod tests {
     use codex_extension_api::ExtensionData;
     use codex_extension_api::ExtensionRegistryBuilder;
     use codex_extension_api::ToolContributor;
+    use tempfile::TempDir;
 
+    use super::HostrunRunnerLifecycle;
     use super::HostrunToolContributor;
     use super::install;
 
@@ -76,5 +182,18 @@ mod tests {
             registry.tool_contributors()[0].tools(&ExtensionData::new(), &ExtensionData::new());
 
         assert_eq!(tools[0].tool_name(), "hostrun_eval");
+    }
+
+    #[test]
+    fn managed_lifecycle_uses_existing_built_runner() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        let workspace_root = temp_dir.path().join("repo");
+        let package_dir = workspace_root.join("codex-rs").join("hostrun").join("js");
+        let runner = package_dir.join("dist").join("cli.js");
+        std::fs::create_dir_all(runner.parent().expect("runner parent")).expect("create dist");
+        std::fs::write(&runner, "#!/usr/bin/env node\n").expect("write runner");
+        let lifecycle = HostrunRunnerLifecycle::new(&workspace_root, &package_dir);
+
+        assert_eq!(lifecycle.ensure_runner().expect("runner exists"), runner);
     }
 }

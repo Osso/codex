@@ -55,6 +55,8 @@ Will:
 
 Raw command strings are still possible as a fallback, but common operations should expose structured approval data.
 
+The runner ships with a minimal built-in `tools.fs.write({ path, content })` capability. By default it fails closed: the call returns `type: "needs_approval"` with a structured summary such as `Write 5 bytes to /tmp/file` and does not write the host file.
+
 ## Codex Tool Boundary
 
 The first Codex integration point is the existing contributed-tool seam, not a new core tool kind. `codex-hostrun` exposes a `codex_tool_api::ToolBundle` named `hostrun_eval` with this model-visible input:
@@ -86,13 +88,13 @@ That keeps Codex-side approval rendering able to see a real shape such as:
 
 This is intentionally a thin path. It proves Codex can host Hostrun as an ordinary function tool before we commit to deeper `codex-core` registration or TUI rendering.
 
-Codex app-server installs the Hostrun tool contributor when `CODEX_HOSTRUN_RUNNER` points at the compiled runner, for example:
+Codex app-server owns the runner lifecycle. On startup it asks `codex-hostrun` for a managed runner path; if `codex-rs/hostrun/js/dist/cli.js` is missing, `codex-hostrun` runs:
 
 ```sh
-CODEX_HOSTRUN_RUNNER=/home/osso/Repos/codex/codex-rs/hostrun/js/dist/cli.js codex
+npx pnpm --filter @openai/codex-hostrun-js build
 ```
 
-Without that environment variable, Hostrun stays hidden.
+Then app-server registers the resulting runner as the `hostrun_eval` extension tool. `CODEX_HOSTRUN_RUNNER` remains only as a developer override for testing a different runner path.
 
 ## Sandbox and Capabilities
 
@@ -136,6 +138,7 @@ Normal exceptions should not destroy the session. Catastrophic timeout, memory l
 - Persistent context is a feature, not an accident.
 - Live objects may stay in memory between tool calls.
 - Objects that perform side effects must provide approval descriptions.
+- Built-in host capabilities default to pending approval, not silent execution.
 - Large context values should show count, preview, provenance, and hash.
 - Secrets must be redacted in logs and approval summaries.
 - Commands should be built as argv, not shell strings, unless shell evaluation is explicitly requested.

@@ -95,20 +95,7 @@ export class HostrunRunnerServer {
   }
 
   private capabilityFor(tool: string): HostrunCapability | undefined {
-    const fixture = this.request().capabilities?.[tool];
-    if (!fixture) {
-      return undefined;
-    }
-
-    return {
-      describe: (args) => ({
-        id: fixture.approval.id,
-        tool,
-        summary: fixture.approval.summary,
-        args,
-      }),
-      invoke: () => fixture.result,
-    };
+    return buildCapabilities(this.request().capabilities ?? {})[tool];
   }
 
   private request(): HostrunRunnerRequest {
@@ -131,6 +118,32 @@ function validateString(value: unknown, field: string): string {
 function buildCapabilities(
   fixtures: Record<string, HostrunRunnerCapability>,
 ): Record<string, HostrunCapability> {
+  return {
+    ...builtInCapabilities(),
+    ...fixtureCapabilities(fixtures),
+  };
+}
+
+function approvalDecisionFor(
+  request: HostrunRunnerRequest,
+  tool: string,
+): HostrunApprovalDecision {
+  const fixture = request.capabilities?.[tool];
+  const decision = fixture?.decision ?? defaultApprovalDecision(tool);
+
+  if (decision === "deny") {
+    return {
+      type: "deny",
+      reason: fixture?.denyReason ?? `Hostrun denied ${tool}`,
+    };
+  }
+
+  return { type: decision };
+}
+
+function fixtureCapabilities(
+  fixtures: Record<string, HostrunRunnerCapability>,
+): Record<string, HostrunCapability> {
   return Object.fromEntries(
     Object.entries(fixtures).map(([tool, fixture]) => [
       tool,
@@ -147,19 +160,34 @@ function buildCapabilities(
   );
 }
 
-function approvalDecisionFor(
-  request: HostrunRunnerRequest,
-  tool: string,
-): HostrunApprovalDecision {
-  const fixture = request.capabilities?.[tool];
-  const decision = fixture?.decision ?? "approve";
+function builtInCapabilities(): Record<string, HostrunCapability> {
+  return {
+    "fs.write": {
+      describe: (args) => {
+        const path = validateCapabilityString(args.path, "path");
+        const content = validateCapabilityString(args.content, "content");
+        return {
+          id: `fs.write:${path}`,
+          tool: "fs.write",
+          summary: `Write ${content.length} bytes to ${path}`,
+          args,
+        };
+      },
+      invoke: () => {
+        throw new Error("fs.write requires approval");
+      },
+    },
+  };
+}
 
-  if (decision === "deny") {
-    return {
-      type: "deny",
-      reason: fixture?.denyReason ?? `Hostrun denied ${tool}`,
-    };
+function defaultApprovalDecision(tool: string): "approve" | "pending" {
+  return builtInCapabilities()[tool] ? "pending" : "approve";
+}
+
+function validateCapabilityString(value: unknown, field: string): string {
+  if (typeof value !== "string") {
+    throw new Error(`Hostrun capability argument ${field} must be a string`);
   }
 
-  return { type: decision };
+  return value;
 }
