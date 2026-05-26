@@ -37,24 +37,27 @@ if (!Array.prototype.containing) {
   });
 }
 
-globalThis.__hostrun_defineArrayHelper = function (name, value) {
-  if (!Array.prototype[name]) {
-    Object.defineProperty(Array.prototype, name, {
-      value,
-      configurable: true,
-      writable: true
-    });
+globalThis.__hostrun_definePrototypeHelper = function (prototype, name, value) {
+  if (Object.prototype.hasOwnProperty.call(prototype, name)) {
+    return;
   }
+  const descriptor = Object.create(null);
+  descriptor.value = value;
+  descriptor.configurable = true;
+  descriptor.writable = true;
+  Object.defineProperty(prototype, name, descriptor);
+};
+
+globalThis.__hostrun_defineArrayHelper = function (name, value) {
+  globalThis.__hostrun_definePrototypeHelper(Array.prototype, name, value);
 };
 
 globalThis.__hostrun_defineStringHelper = function (name, value) {
-  if (!String.prototype[name]) {
-    Object.defineProperty(String.prototype, name, {
-      value,
-      configurable: true,
-      writable: true
-    });
-  }
+  globalThis.__hostrun_definePrototypeHelper(String.prototype, name, value);
+};
+
+globalThis.__hostrun_defineObjectHelper = function (name, value) {
+  globalThis.__hostrun_definePrototypeHelper(Object.prototype, name, value);
 };
 
 globalThis.__hostrun_utf8ByteLength = function (value) {
@@ -117,6 +120,89 @@ globalThis.__hostrun_defineStringHelper("bytes", function () {
 globalThis.__hostrun_defineStringHelper("chars", function () {
   return Array.from(String(this));
 });
+
+globalThis.__hostrun_pathParts = function (path) {
+  return String(path).split(".").filter((part) => part.length > 0);
+};
+
+globalThis.__hostrun_pathValue = function (value, path) {
+  let current = value;
+  for (const part of globalThis.__hostrun_pathParts(path)) {
+    if (current === null || current === undefined) {
+      return undefined;
+    }
+    current = current[part];
+  }
+  return current;
+};
+
+globalThis.__hostrun_objectEntries = function (record) {
+  return Object.entries(Object(record));
+};
+
+globalThis.__hostrun_objectFromFields = function (record, fields) {
+  const output = {};
+  for (const field of fields) {
+    output[field] = globalThis.__hostrun_pathValue(record, field);
+  }
+  return output;
+};
+
+globalThis.__hostrun_objectWithoutFields = function (record, fields) {
+  const rejected = new Set(fields.map((field) => String(field)));
+  const output = {};
+  for (const [key, value] of globalThis.__hostrun_objectEntries(record)) {
+    if (!rejected.has(key)) {
+      output[key] = value;
+    }
+  }
+  return output;
+};
+
+globalThis.__hostrun_recordMatches = function (record, expected) {
+  for (const [path, value] of globalThis.__hostrun_objectEntries(expected)) {
+    if (globalThis.__hostrun_pathValue(record, path) !== value) {
+      return false;
+    }
+  }
+  return true;
+};
+
+globalThis.__hostrun_recordColumns = function (record) {
+  return Object.keys(Object(record));
+};
+
+globalThis.__hostrun_tableColumns = function (rows) {
+  const columns = [];
+  const seen = new Set();
+  for (const row of rows) {
+    for (const key of Object.keys(Object(row))) {
+      if (!seen.has(key)) {
+        seen.add(key);
+        columns.push(key);
+      }
+    }
+  }
+  return columns;
+};
+
+globalThis.__hostrun_recordRename = function (record, names) {
+  const output = {};
+  for (const [key, value] of globalThis.__hostrun_objectEntries(record)) {
+    output[names[key] ?? key] = value;
+  }
+  return output;
+};
+
+globalThis.__hostrun_recordInsert = function (record, key, value) {
+  return { ...Object(record), [key]: value };
+};
+
+globalThis.__hostrun_recordUpdate = function (record, key, valueOrFn) {
+  const current = globalThis.__hostrun_pathValue(record, key);
+  const next = typeof valueOrFn === "function" ? valueOrFn(current, record) : valueOrFn;
+  return { ...Object(record), [key]: next };
+};
 
 globalThis.__hostrun_regex = function (pattern) {
   return pattern instanceof RegExp ? pattern : new RegExp(String(pattern));
@@ -277,6 +363,37 @@ globalThis.__hostrun_defineArrayHelper("fields", function (separator = /\s+/) {
   return globalThis.__hostrun_fieldTable(
     this.map((line) => String(line).trim().split(separator).filter((field) => field.length > 0))
   );
+});
+
+globalThis.__hostrun_defineArrayHelper("get", function (path) {
+  return this.map((record) => globalThis.__hostrun_pathValue(record, path));
+});
+
+globalThis.__hostrun_defineArrayHelper("valuesOf", function (path) {
+  return this.get(path);
+});
+
+globalThis.__hostrun_defineArrayHelper("pluck", function (path) {
+  return this.get(path);
+});
+
+globalThis.__hostrun_defineArrayHelper("select", function (...fields) {
+  return this.map((record) => globalThis.__hostrun_objectFromFields(record, fields));
+});
+
+globalThis.__hostrun_defineArrayHelper("reject", function (...fields) {
+  return this.map((record) => globalThis.__hostrun_objectWithoutFields(record, fields));
+});
+
+globalThis.__hostrun_defineArrayHelper("where", function (predicateOrObject) {
+  if (typeof predicateOrObject === "function") {
+    return this.filter((record, index) => predicateOrObject(record, index));
+  }
+  return this.filter((record) => globalThis.__hostrun_recordMatches(record, predicateOrObject));
+});
+
+globalThis.__hostrun_defineArrayHelper("columns", function () {
+  return globalThis.__hostrun_tableColumns(this);
 });
 
 globalThis.__hostrun_defineArrayHelper("notContaining", function (needle) {
@@ -630,6 +747,50 @@ globalThis.http = {
     return globalThis.http.request("HEAD", url, options);
   }
 };
+
+globalThis.__hostrun_defineObjectHelper("get", function (path) {
+  return globalThis.__hostrun_pathValue(this, path);
+});
+
+globalThis.__hostrun_defineObjectHelper("select", function (...fields) {
+  return globalThis.__hostrun_objectFromFields(this, fields);
+});
+
+globalThis.__hostrun_defineObjectHelper("reject", function (...fields) {
+  return globalThis.__hostrun_objectWithoutFields(this, fields);
+});
+
+globalThis.__hostrun_defineObjectHelper("rename", function (names) {
+  return globalThis.__hostrun_recordRename(this, names);
+});
+
+globalThis.__hostrun_defineObjectHelper("insert", function (key, value) {
+  return globalThis.__hostrun_recordInsert(this, key, value);
+});
+
+globalThis.__hostrun_defineObjectHelper("update", function (key, valueOrFn) {
+  return globalThis.__hostrun_recordUpdate(this, key, valueOrFn);
+});
+
+globalThis.__hostrun_defineObjectHelper("merge", function (other) {
+  return { ...Object(this), ...Object(other) };
+});
+
+globalThis.__hostrun_defineObjectHelper("columns", function () {
+  return globalThis.__hostrun_recordColumns(this);
+});
+
+globalThis.__hostrun_defineObjectHelper("values", function () {
+  return Object.values(Object(this));
+});
+
+globalThis.__hostrun_defineObjectHelper("entries", function () {
+  return globalThis.__hostrun_objectEntries(this);
+});
+
+globalThis.__hostrun_defineObjectHelper("items", function () {
+  return globalThis.__hostrun_objectEntries(this);
+});
 
 globalThis.__hostrun_run = function (code) {
   globalThis.__hostrun_console = [];

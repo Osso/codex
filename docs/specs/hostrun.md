@@ -95,7 +95,8 @@ thread start. How the runtime is wired internally belongs in
 - [ ] Support JSONL, YAML, and CSV parsing from command output and strings.
 - [ ] Support JSONL, YAML, and CSV serialization to stdin and files.
 - [ ] Support conversion helpers between JSON-compatible values, YAML, CSV, JSONL, arrays, and table objects.
-- [ ] Provide object/table projection helpers for common `nu`/`jq` workflows: `get`, `select`, `reject`, `rename`, `insert`, `update`, `merge`, `columns`, `values`, and entry iteration.
+- [x] Provide object/table projection helpers for common `nu`/`jq` workflows: `get`, `select`, `reject`, `rename`, `insert`, `update`, `merge`, `columns`, `values`, and entry iteration.
+- [x] Object/table projection helpers are non-mutating and support dotted paths for nested field access.
 - [ ] Provide collection cleanup/shape helpers: `flatten`, `compact`, `default`, `wrap`, `transpose`, and `enumerate`.
 - [ ] Provide predicates and reducers: `isEmpty`, `isNotEmpty`, `any`, `all`, `sum`, `avg`, `min`, `max`, and `round`.
 - [ ] Provide text helpers for common shell replacements: `splitRow`, `splitColumn`, `splitWords`, `join`, `trim`, `replace`, and line count/head/tail equivalents.

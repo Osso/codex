@@ -350,3 +350,7 @@ const HOSTRUN_BOOTSTRAP: &str = include_str!("bootstrap.js");
 #[cfg(test)]
 #[path = "session_tests.rs"]
 mod session_tests;
+
+#[cfg(test)]
+#[path = "projection_tests.rs"]
+mod projection_tests;
