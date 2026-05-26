@@ -111,6 +111,11 @@ impl HostCapabilityInvoker {
         let args = serde_json::from_str(args_json).unwrap_or(Value::Null);
         match tool_path {
             "fs.write" => pending_approval(fs_write_approval(args)),
+            "fs.read" => pending_approval(fs_path_approval("fs.read", "Read", args)),
+            "fs.exists" => {
+                pending_approval(fs_path_approval("fs.exists", "Check existence of", args))
+            }
+            "fs.remove" => pending_approval(fs_path_approval("fs.remove", "Remove", args)),
             "rclone.deletefile" => pending_approval(rclone_deletefile_approval(args)),
             tool if tool.starts_with("cli.") => pending_approval(cli_command_approval(tool, args)),
             _ => json!({
@@ -155,6 +160,16 @@ fn fs_write_approval(args: Value) -> HostrunApprovalRequest {
         id: format!("fs.write:{path}"),
         tool: "fs.write".to_string(),
         summary: format!("Write {} bytes to {path}", content.len()),
+        args,
+    }
+}
+
+fn fs_path_approval(tool: &str, verb: &str, args: Value) -> HostrunApprovalRequest {
+    let path = field_as_string(&args, "path");
+    HostrunApprovalRequest {
+        id: format!("{tool}:{path}"),
+        tool: tool.to_string(),
+        summary: format!("{verb} {path}"),
         args,
     }
 }
@@ -306,6 +321,15 @@ globalThis.tools = globalThis.__hostrun_toolProxy("");
 globalThis.fs = {
   write: function (path, content) {
     return globalThis.__hostrun_invokeCapability("fs.write", { path, content });
+  },
+  read: function (path) {
+    return globalThis.__hostrun_invokeCapability("fs.read", { path });
+  },
+  exists: function (path) {
+    return globalThis.__hostrun_invokeCapability("fs.exists", { path });
+  },
+  remove: function (path) {
+    return globalThis.__hostrun_invokeCapability("fs.remove", { path });
   }
 };
 
@@ -432,6 +456,33 @@ mod tests {
     }
 
     #[test]
+    fn public_fs_read_returns_approval() {
+        assert_fs_path_approval(
+            "fs.read('/tmp/hostrun.txt');",
+            "fs.read",
+            "Read /tmp/hostrun.txt",
+        );
+    }
+
+    #[test]
+    fn public_fs_exists_returns_approval() {
+        assert_fs_path_approval(
+            "fs.exists('/tmp/hostrun.txt');",
+            "fs.exists",
+            "Check existence of /tmp/hostrun.txt",
+        );
+    }
+
+    #[test]
+    fn public_fs_remove_returns_approval() {
+        assert_fs_path_approval(
+            "fs.remove('/tmp/hostrun.txt');",
+            "fs.remove",
+            "Remove /tmp/hostrun.txt",
+        );
+    }
+
+    #[test]
     fn public_rclone_deletefile_returns_approval() {
         let session = HostrunSession::new().expect("session");
 
@@ -448,6 +499,19 @@ mod tests {
             approval.args,
             json!({ "target": "spaces:bucket/probe.txt" })
         );
+    }
+
+    fn assert_fs_path_approval(code: &str, tool: &str, summary: &str) {
+        let session = HostrunSession::new().expect("session");
+
+        let result = session.eval(code).expect("approval");
+
+        assert_eq!(result.result_type, "needs_approval");
+        let approval = result.approval.expect("approval");
+        assert_eq!(approval.id, format!("{tool}:/tmp/hostrun.txt"));
+        assert_eq!(approval.tool, tool);
+        assert_eq!(approval.summary, summary);
+        assert_eq!(approval.args, json!({ "path": "/tmp/hostrun.txt" }));
     }
 
     #[test]

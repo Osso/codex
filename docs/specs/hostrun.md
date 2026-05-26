@@ -36,7 +36,7 @@ thread start. How the runtime is wired internally belongs in
 - [x] Preserve `cli.<program>` arguments as argv-style data rather than shell text.
 - [x] Include the command program and arguments in the approval request for `cli.<program>`.
 - [x] Prefer public `fs.write` and `rclone.deletefile` in contributed instructions instead of their `tools.*` bridge forms.
-- [ ] Expose `fs.write(path, content)`, `fs.read(path)`, `fs.exists(path)`, and `fs.remove(path)` as approval-gated file helpers.
+- [x] Expose `fs.write(path, content)`, `fs.read(path)`, `fs.exists(path)`, and `fs.remove(path)` as approval-gated file helpers.
 - [x] Expose `fs.write(path, content)` as an approval-gated file-write helper.
 - [ ] Expose `fs.writeJson(path, value)`, `fs.writeYaml(path, value)`, and `fs.writeCsv(path, rows)` for structured file writes.
 - [ ] Expose `tmp.file(prefix)` and `tmp.dir(prefix)` with automatic cleanup and explicit `.cleanup()` support.
@@ -150,7 +150,7 @@ thread start. How the runtime is wired internally belongs in
 ## Known gaps (current cycle)
 
 - [ ] Update contributed Hostrun instructions to use public `fs.*`, `rclone.*`, `fd.*`, `rg.*`, `http.*`, and `cli.*` APIs; `fs.write` and `rclone.deletefile` are already public.
-- [ ] Implement public file, temp, rclone, fd, rg, and HTTP helpers with approval-aware host execution.
+- [ ] Implement public file, temp, rclone, fd, rg, and HTTP helpers with approval-aware host execution; basic `fs.write/read/exists/remove` approvals are already public.
 - [ ] Implement the command builder API for `cli.<program>` so stdout/stderr redirects and stdin piping are real runtime behavior.
 - [ ] Add tests for stdout/stderr capture, redirects, stderr/stdout composition, stdin sources, stream-handle piping, and command graph approval text.
 - [ ] Add tests for HTTP query params, headers, auth redaction, JSON/form/raw/file/multipart bodies, response save-to-file, timeouts, retries, and non-2xx handling.
