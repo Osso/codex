@@ -638,6 +638,91 @@ mod tests {
     }
 
     #[test]
+    fn string_helpers_parse_lines_json_and_json_lines() {
+        let session = HostrunSession::new().expect("session");
+        let result = session
+            .eval(
+                r#"
+                ({
+                  lines: "a\r\nb\n".lines(),
+                  json: '{"ok":true,"n":2}'.json(),
+                  jsonLines: '{"a":1}\n{"a":2}\n'.jsonLines(),
+                  lower: "HeLLo".lower(),
+                  upper: "HeLLo".upper(),
+                  bytes: "é".bytes(),
+                  chars: "éx".chars()
+                });
+                "#,
+            )
+            .expect("eval");
+        assert_eq!(
+            result.value,
+            Some(json!({
+                "lines": ["a", "b", ""],
+                "json": { "ok": true, "n": 2 },
+                "jsonLines": [{ "a": 1 }, { "a": 2 }],
+                "lower": "hello",
+                "upper": "HELLO",
+                "bytes": 2,
+                "chars": ["é", "x"]
+            }))
+        );
+    }
+
+    #[test]
+    fn array_helpers_filter_and_transform_strings_without_mutating() {
+        let session = HostrunSession::new().expect("session");
+
+        let result = session
+            .eval(
+                r#"
+                const items = ["beta.txt", "alpha.rs", "alpha.rs", "src/main.rs"];
+                ({
+                  original: items,
+                  notContaining: items.notContaining("src"),
+                  startsWith: items.startsWith("alpha"),
+                  endsWith: items.endsWith(".rs"),
+                  matching: items.matching(/alpha|main/),
+                  notMatching: items.notMatching(/alpha/),
+                  first: items.first(),
+                  last: items.last(),
+                  take: items.take(2),
+                  unique: items.unique(),
+                  lengths: items.lengths(),
+                  bytes: ["é", "x"].bytes(),
+                  lower: ["A", "B"].lower(),
+                  upper: ["a", "b"].upper(),
+                  sorted: items.sorted(),
+                  reversed: items.reversed()
+                });
+                "#,
+            )
+            .expect("eval");
+
+        assert_eq!(
+            result.value,
+            Some(json!({
+                "original": ["beta.txt", "alpha.rs", "alpha.rs", "src/main.rs"],
+                "notContaining": ["beta.txt", "alpha.rs", "alpha.rs"],
+                "startsWith": ["alpha.rs", "alpha.rs"],
+                "endsWith": ["alpha.rs", "alpha.rs", "src/main.rs"],
+                "matching": ["alpha.rs", "alpha.rs", "src/main.rs"],
+                "notMatching": ["beta.txt", "src/main.rs"],
+                "first": "beta.txt",
+                "last": "src/main.rs",
+                "take": ["beta.txt", "alpha.rs"],
+                "unique": ["beta.txt", "alpha.rs", "src/main.rs"],
+                "lengths": [8, 8, 8, 11],
+                "bytes": [2, 1],
+                "lower": ["a", "b"],
+                "upper": ["A", "B"],
+                "sorted": ["alpha.rs", "alpha.rs", "beta.txt", "src/main.rs"],
+                "reversed": ["src/main.rs", "alpha.rs", "alpha.rs", "beta.txt"]
+            }))
+        );
+    }
+
+    #[test]
     fn store_keeps_sessions_separate_and_persistent() {
         let mut store = HostrunSessionStore::new();
 

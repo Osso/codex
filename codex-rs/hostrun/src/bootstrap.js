@@ -37,6 +37,143 @@ if (!Array.prototype.containing) {
   });
 }
 
+globalThis.__hostrun_defineArrayHelper = function (name, value) {
+  if (!Array.prototype[name]) {
+    Object.defineProperty(Array.prototype, name, {
+      value,
+      configurable: true,
+      writable: true
+    });
+  }
+};
+
+globalThis.__hostrun_defineStringHelper = function (name, value) {
+  if (!String.prototype[name]) {
+    Object.defineProperty(String.prototype, name, {
+      value,
+      configurable: true,
+      writable: true
+    });
+  }
+};
+
+globalThis.__hostrun_utf8ByteLength = function (value) {
+  let bytes = 0;
+  for (const char of String(value)) {
+    const codePoint = char.codePointAt(0);
+    if (codePoint <= 0x7f) {
+      bytes += 1;
+    } else if (codePoint <= 0x7ff) {
+      bytes += 2;
+    } else if (codePoint <= 0xffff) {
+      bytes += 3;
+    } else {
+      bytes += 4;
+    }
+  }
+  return bytes;
+};
+
+globalThis.__hostrun_defineStringHelper("lines", function () {
+  const text = String(this);
+  if (text.length === 0) {
+    return [];
+  }
+  return text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+});
+
+globalThis.__hostrun_defineStringHelper("json", function () {
+  return JSON.parse(String(this));
+});
+
+globalThis.__hostrun_defineStringHelper("jsonLines", function () {
+  return String(this).lines()
+    .filter((line) => line.trim().length > 0)
+    .map((line) => JSON.parse(line));
+});
+
+globalThis.__hostrun_defineStringHelper("lower", function () {
+  return String(this).toLowerCase();
+});
+
+globalThis.__hostrun_defineStringHelper("upper", function () {
+  return String(this).toUpperCase();
+});
+
+globalThis.__hostrun_defineStringHelper("bytes", function () {
+  return globalThis.__hostrun_utf8ByteLength(this);
+});
+
+globalThis.__hostrun_defineStringHelper("chars", function () {
+  return Array.from(String(this));
+});
+
+globalThis.__hostrun_regex = function (pattern) {
+  return pattern instanceof RegExp ? pattern : new RegExp(String(pattern));
+};
+
+globalThis.__hostrun_defineArrayHelper("notContaining", function (needle) {
+  return this.filter((value) => !String(value).includes(String(needle)));
+});
+
+globalThis.__hostrun_defineArrayHelper("startsWith", function (prefix) {
+  return this.filter((value) => String(value).startsWith(String(prefix)));
+});
+
+globalThis.__hostrun_defineArrayHelper("endsWith", function (suffix) {
+  return this.filter((value) => String(value).endsWith(String(suffix)));
+});
+
+globalThis.__hostrun_defineArrayHelper("matching", function (pattern) {
+  const regex = globalThis.__hostrun_regex(pattern);
+  return this.filter((value) => regex.test(String(value)));
+});
+
+globalThis.__hostrun_defineArrayHelper("notMatching", function (pattern) {
+  const regex = globalThis.__hostrun_regex(pattern);
+  return this.filter((value) => !regex.test(String(value)));
+});
+
+globalThis.__hostrun_defineArrayHelper("first", function () {
+  return this[0] ?? null;
+});
+
+globalThis.__hostrun_defineArrayHelper("last", function () {
+  return this.length === 0 ? null : this[this.length - 1];
+});
+
+globalThis.__hostrun_defineArrayHelper("take", function (count) {
+  return this.slice(0, Number(count));
+});
+
+globalThis.__hostrun_defineArrayHelper("unique", function () {
+  return Array.from(new Set(this));
+});
+
+globalThis.__hostrun_defineArrayHelper("lengths", function () {
+  return this.map((value) => String(value).length);
+});
+
+globalThis.__hostrun_defineArrayHelper("bytes", function () {
+  return this.map((value) => String(value).bytes());
+});
+
+globalThis.__hostrun_defineArrayHelper("lower", function () {
+  return this.map((value) => String(value).toLowerCase());
+});
+
+globalThis.__hostrun_defineArrayHelper("upper", function () {
+  return this.map((value) => String(value).toUpperCase());
+});
+
+globalThis.__hostrun_defineArrayHelper("sorted", function () {
+  return Array.from(this).sort();
+});
+
+globalThis.__hostrun_defineArrayHelper("reversed", function () {
+  return Array.from(this).reverse();
+});
+
 globalThis.__hostrun_invokeCapability = function (path, payload) {
   const response = JSON.parse(globalThis.__hostrun_invokeTool(path, JSON.stringify(payload ?? {})));
   if (response.type === "needs_approval") {

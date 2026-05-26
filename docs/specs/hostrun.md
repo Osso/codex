@@ -90,11 +90,14 @@ thread start. How the runtime is wired internally belongs in
 ### Structured data and collections
 
 - [ ] Keep JSON manipulation deliberately small: native `JSON.parse` / `JSON.stringify`, `.stdout.json()`, `str.json()`, HTTP response `.json()`, and JSON stdin/file serialization.
+- [x] Provide string helpers for `str.json()` and `str.jsonLines()`.
 - [ ] Support JSONL, YAML, and CSV parsing from command output and strings.
 - [ ] Support JSONL, YAML, and CSV serialization to stdin and files.
 - [ ] Support conversion helpers between JSON-compatible values, YAML, CSV, JSONL, arrays, and table objects.
 - [ ] Provide non-mutating string-array helpers: `containing`, `notContaining`, `startsWith`, `endsWith`, `matching`, `notMatching`, `glob`, `notGlob`, `first`, `last`, `take`, `unique`, `sort`, `reverse`, `lengths`, `bytes`, `lower`, and `upper`.
+- [x] Provide string-array helpers for `containing`, `notContaining`, `startsWith`, `endsWith`, `matching`, `notMatching`, `first`, `last`, `take`, `unique`, `lengths`, `bytes`, `lower`, `upper`, `sorted`, and `reversed`.
 - [ ] Provide scalar helpers where they improve agent readability: `lines`, `bytes`, `lower`, `upper`, `length`, and `chars`.
+- [x] Provide scalar helpers for `lines`, `bytes`, `lower`, `upper`, and `chars`.
 - [ ] Provide whitespace field parsing with 1-based fields: `lines.fields(separator = /\s+/)`.
 - [ ] Provide template formatting for field rows: `lines.fields().format("user:{1} prefix:{3|substr:0,7}")`.
 - [ ] Provide object template formatting for field rows: `lines.fields().format({ user: "{1}", prefix: "{3|substr:0,7}" })`.
