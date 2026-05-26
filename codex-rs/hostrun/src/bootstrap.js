@@ -846,6 +846,7 @@ globalThis.__hostrun_invokeCapability = function (path, payload) {
 };
 
 globalThis.__hostrun_tmpCounter = globalThis.__hostrun_tmpCounter ?? 0;
+globalThis.__hostrun_tmpResources = globalThis.__hostrun_tmpResources ?? [];
 
 globalThis.__hostrun_nextTmpPath = function (prefix, suffix = "") {
   globalThis.__hostrun_tmpCounter += 1;
@@ -855,6 +856,7 @@ globalThis.__hostrun_nextTmpPath = function (prefix, suffix = "") {
 };
 
 globalThis.__hostrun_tmpHandle = function (kind, path) {
+  globalThis.__hostrun_tmpResources.push({ kind, path });
   const handle = {
     kind,
     path,

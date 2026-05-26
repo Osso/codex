@@ -74,3 +74,46 @@ fn tmp_dir_handle_has_path_and_cleanup_approval() {
         json!({ "path": "/tmp/hostrun-cleanup-2" })
     );
 }
+
+#[test]
+fn approved_session_removes_tracked_temp_files_on_drop() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+    let created = session
+        .eval(
+            "ctx.probe = tmp.file('drop-cleanup', { suffix: '.txt' });
+             ctx.probe.write('cleanup');
+             ctx.probe.path;",
+        )
+        .expect("create temp file");
+    let path = created
+        .value
+        .and_then(|value| value.as_str().map(ToOwned::to_owned))
+        .expect("temp path");
+    assert!(std::path::Path::new(&path).exists());
+
+    drop(session);
+
+    assert!(!std::path::Path::new(&path).exists());
+}
+
+#[test]
+fn approved_session_removes_tracked_temp_files_after_eval_error() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+    let path = session
+        .eval(
+            "ctx.failed = tmp.file('drop-failure', { suffix: '.txt' });
+             ctx.failed.write('cleanup');
+             ctx.failed.path;",
+        )
+        .expect("create temp file")
+        .value
+        .and_then(|value| value.as_str().map(ToOwned::to_owned))
+        .expect("temp path");
+    session
+        .eval("throw new Error('after temp creation');")
+        .expect_err("eval error");
+
+    drop(session);
+
+    assert!(!std::path::Path::new(&path).exists());
+}

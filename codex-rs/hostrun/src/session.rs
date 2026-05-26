@@ -17,6 +17,7 @@ use serde_json::json;
 
 use crate::fs_capability::{execute_fs_operation, fs_approval};
 use crate::http_capability::{execute_http_request, http_request_approval};
+use crate::tmp_capability::{remove_tmp_resource, tmp_resources};
 
 const APPROVAL_REQUIRED_PREFIX: &str = "__HOSTRUN_APPROVAL_REQUIRED__:";
 const CAPTURE_LIMIT_BYTES: usize = 64 * 1024;
@@ -50,6 +51,7 @@ pub struct HostrunApprovalRequest {
 pub struct HostrunSession {
     _runtime: Runtime,
     context: Context,
+    capability_mode: HostCapabilityMode,
 }
 
 impl HostrunSession {
@@ -69,6 +71,7 @@ impl HostrunSession {
         let session = Self {
             _runtime: runtime,
             context,
+            capability_mode,
         };
         session.initialize_context(capability_mode)?;
         Ok(session)
@@ -109,6 +112,17 @@ impl HostrunSession {
             ctx.eval::<String, _>("globalThis.__hostrun_run(globalThis.__hostrun_evalCode)")?;
         globals.set("__hostrun_evalCode", rquickjs::Null)?;
         Ok(parse_eval_output(&output))
+    }
+}
+
+impl Drop for HostrunSession {
+    fn drop(&mut self) {
+        if !matches!(self.capability_mode, HostCapabilityMode::AutoApprove) {
+            return;
+        }
+        for resource in tmp_resources(&self.context) {
+            remove_tmp_resource(&resource.path);
+        }
     }
 }
 

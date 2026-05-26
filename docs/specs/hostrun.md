@@ -44,6 +44,7 @@ thread start. How the runtime is wired internally belongs in
 - [ ] Expose `tmp.file(prefix)` and `tmp.dir(prefix)` with automatic cleanup and explicit `.cleanup()` support.
 - [x] Expose `tmp.file(prefix, options)` and `tmp.dir(prefix)` handles with deterministic `/tmp/hostrun-*` paths and approval-gated explicit `.cleanup()`.
 - [x] `tmp.file` handles support approval-gated `.write`, `.writeJson`, `.writeYaml`, and `.writeCsv`.
+- [x] Approved Hostrun sessions track temp handles and remove existing temp files/dirs when the session is dropped, including after JavaScript evaluation errors.
 - [ ] Expose `rclone.deletefile(target)` and `rclone.lsf(target, options)` as readable wrappers for common rclone workflows.
 - [x] Expose `rclone.deletefile(target)` as an approval-gated rclone delete helper.
 - [x] Expose `rclone.lsf(target, options)` as a lazy command-builder wrapper.

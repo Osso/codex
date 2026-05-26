@@ -3,6 +3,7 @@
 mod fs_capability;
 mod http_capability;
 mod session;
+mod tmp_capability;
 mod tool_bundle;
 mod tool_contributor;
 
