@@ -506,14 +506,30 @@ fn cli_execution_result(
     result.insert("args".to_string(), json!(argv));
     result.insert("exitCode".to_string(), json!(output.exit_code));
     result.insert("success".to_string(), Value::Bool(output.success));
-    apply_output_intent(&mut result, "stdout", payload.get("stdout"), &output.stdout)?;
-    apply_output_intent(&mut result, "stderr", payload.get("stderr"), &output.stderr)?;
+    let stderr_to_stdout = output_intent_type(payload.get("stderr")) == Some("stdout");
+    let stdout = if stderr_to_stdout {
+        let mut bytes = output.stdout.clone();
+        bytes.extend_from_slice(&output.stderr);
+        bytes
+    } else {
+        output.stdout.clone()
+    };
+    apply_output_intent(&mut result, "stdout", payload.get("stdout"), &stdout)?;
+    if !stderr_to_stdout {
+        apply_output_intent(&mut result, "stderr", payload.get("stderr"), &output.stderr)?;
+    }
     if let Some(combined) = payload.get("combined") {
         let mut bytes = output.stdout.clone();
         bytes.extend_from_slice(&output.stderr);
         apply_output_intent(&mut result, "combined", Some(combined), &bytes)?;
     }
     Ok(Value::Object(result))
+}
+
+fn output_intent_type(intent: Option<&Value>) -> Option<&str> {
+    intent
+        .and_then(|intent| intent.get("type"))
+        .and_then(Value::as_str)
 }
 
 fn apply_output_intent(

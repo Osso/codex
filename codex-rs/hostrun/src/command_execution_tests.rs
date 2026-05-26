@@ -72,3 +72,92 @@ fn approved_cli_command_redirects_stdout_to_file() {
         }))
     );
 }
+
+#[test]
+fn approved_cli_command_captures_stderr_and_combined_output() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+
+    let stderr = session
+        .eval("cli.sh('-c', 'printf err >&2').stderr.text().run();")
+        .expect("stderr eval");
+    assert_eq!(
+        stderr.value,
+        Some(json!({
+            "program": "sh",
+            "args": ["-c", "printf err >&2"],
+            "exitCode": 0,
+            "success": true,
+            "stderr": "err"
+        }))
+    );
+
+    let combined = session
+        .eval("cli.sh('-c', 'printf out; printf err >&2').combined.capture().run();")
+        .expect("combined eval");
+    assert_eq!(
+        combined.value.expect("combined value")["combined"],
+        json!("outerr")
+    );
+}
+
+#[test]
+fn approved_cli_command_can_redirect_stderr_to_stdout() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+
+    let result = session
+        .eval(
+            "cli.sh('-c', 'printf out; printf err >&2')
+              .stderr.toStdout()
+              .stdout.text()
+              .run();",
+        )
+        .expect("eval");
+
+    assert_eq!(
+        result.value,
+        Some(json!({
+            "program": "sh",
+            "args": ["-c", "printf out; printf err >&2"],
+            "exitCode": 0,
+            "success": true,
+            "stdout": "outerr"
+        }))
+    );
+}
+
+#[test]
+fn approved_cli_command_serializes_structured_stdin_sources() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+
+    let json_result = session
+        .eval("cli.cat().stdin.json({ ok: true }).stdout.text().run();")
+        .expect("json stdin");
+    assert_eq!(
+        json_result.value.expect("json value")["stdout"],
+        "{\"ok\":true}\n"
+    );
+
+    let yaml_result = session
+        .eval("cli.cat().stdin.yaml({ ok: true }).stdout.text().run();")
+        .expect("yaml stdin");
+    assert_eq!(
+        yaml_result.value.expect("yaml value")["stdout"],
+        "ok: true\n"
+    );
+
+    let csv_result = session
+        .eval("cli.cat().stdin.csv([['name', 'ok'], ['alpha', true]]).stdout.text().run();")
+        .expect("csv stdin");
+    assert_eq!(
+        csv_result.value.expect("csv value")["stdout"],
+        "name,ok\nalpha,true\n"
+    );
+
+    let jsonl_result = session
+        .eval("cli.cat().stdin.jsonl([{ name: 'alpha' }, { ok: true }]).stdout.text().run();")
+        .expect("jsonl stdin");
+    assert_eq!(
+        jsonl_result.value.expect("jsonl value")["stdout"],
+        "{\"name\":\"alpha\"}\n{\"ok\":true}\n"
+    );
+}

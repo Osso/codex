@@ -85,7 +85,7 @@ thread start. How the runtime is wired internally belongs in
 - [ ] `stdout.text()` returns captured stdout text.
 - [ ] `stdout.lines()` returns captured stdout split into lines.
 - [ ] `stdin.text(str)`, `stdin.file(path)`, `stdin.json(value)`, `stdin.yaml(value)`, `stdin.csv(rows)`, and `stdin.lines(values)` provide explicit stdin sources.
-- [x] The internal approved execution path supports stdout text, stdout lines, stdout file redirects, and line-based stdin.
+- [x] The approved `cli.*` execution path supports stdout text, stdout lines, stdout file redirects, stderr text, combined capture, stderr-to-stdout composition, line-based stdin, and structured JSON/YAML/CSV/JSONL stdin.
 - [x] Command builders preserve explicit `stdin.yaml`, `stdin.csv`, `stdin.tsv`, `stdin.jsonLines`, and `stdin.jsonl` metadata in approval requests.
 - [ ] A downstream command can pipe from an upstream stream handle, e.g. `cli.cat().stdin(cli.rclone(...).stdout).run()`.
 - [ ] Named upstream command handles can be reused for piping, e.g. `const result = cli.rclone(...); cli.cat().stdin(result.stdout).run()`.
