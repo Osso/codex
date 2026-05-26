@@ -112,6 +112,35 @@ globalThis.__hostrun_regex = function (pattern) {
   return pattern instanceof RegExp ? pattern : new RegExp(String(pattern));
 };
 
+globalThis.__hostrun_escapeRegex = function (value) {
+  return String(value).replace(/[\\^$+?.()|[\]{}]/g, "\\$&");
+};
+
+globalThis.__hostrun_globRegex = function (pattern) {
+  const glob = String(pattern);
+  let source = "^";
+  for (let index = 0; index < glob.length; index += 1) {
+    const char = glob[index];
+    if (char === "*") {
+      const isGlobstar = glob[index + 1] === "*";
+      if (isGlobstar && glob[index + 2] === "/") {
+        source += "(?:.*\\/)?";
+        index += 2;
+      } else if (isGlobstar) {
+        source += ".*";
+        index += 1;
+      } else {
+        source += "[^/]*";
+      }
+    } else if (char === "?") {
+      source += "[^/]";
+    } else {
+      source += globalThis.__hostrun_escapeRegex(char);
+    }
+  }
+  return new RegExp(source + "$");
+};
+
 globalThis.__hostrun_formatField = function (value, transform, args) {
   let text = value === undefined ? "" : String(value);
   switch (transform) {
@@ -157,6 +186,18 @@ globalThis.__hostrun_formatTemplate = function (template, row) {
   return output;
 };
 
+globalThis.__hostrun_fieldSelector = function (fieldOrTemplate) {
+  if (typeof fieldOrTemplate === "number" || /^\d+$/.test(String(fieldOrTemplate))) {
+    const index = Number(fieldOrTemplate) - 1;
+    return function (row) {
+      return row[index] ?? "";
+    };
+  }
+  return function (row) {
+    return globalThis.__hostrun_formatTemplate(fieldOrTemplate, row);
+  };
+};
+
 globalThis.__hostrun_fieldTable = function (rows) {
   return {
     rows: function () {
@@ -168,6 +209,56 @@ globalThis.__hostrun_fieldTable = function (rows) {
     field: function (number) {
       const index = Number(number) - 1;
       return rows.map((row) => row[index] ?? "");
+    },
+    sortBy: function (fieldOrTemplate) {
+      const selector = globalThis.__hostrun_fieldSelector(fieldOrTemplate);
+      return globalThis.__hostrun_fieldTable(
+        Array.from(rows).sort((left, right) => String(selector(left)).localeCompare(String(selector(right))))
+      );
+    },
+    uniqueBy: function (fieldOrTemplate) {
+      const selector = globalThis.__hostrun_fieldSelector(fieldOrTemplate);
+      const seen = new Set();
+      return globalThis.__hostrun_fieldTable(rows.filter((row) => {
+        const key = String(selector(row));
+        if (seen.has(key)) {
+          return false;
+        }
+        seen.add(key);
+        return true;
+      }));
+    },
+    countBy: function (fieldOrTemplate) {
+      const selector = globalThis.__hostrun_fieldSelector(fieldOrTemplate);
+      const groups = [];
+      const byKey = new Map();
+      for (const row of rows) {
+        const key = String(selector(row));
+        let group = byKey.get(key);
+        if (!group) {
+          group = { key, count: 0 };
+          byKey.set(key, group);
+          groups.push(group);
+        }
+        group.count += 1;
+      }
+      return groups;
+    },
+    groupBy: function (fieldOrTemplate) {
+      const selector = globalThis.__hostrun_fieldSelector(fieldOrTemplate);
+      const groups = [];
+      const byKey = new Map();
+      for (const row of rows) {
+        const key = String(selector(row));
+        let group = byKey.get(key);
+        if (!group) {
+          group = { key, rows: [] };
+          byKey.set(key, group);
+          groups.push(group);
+        }
+        group.rows.push(row);
+      }
+      return groups;
     }
   };
 };
@@ -197,6 +288,16 @@ globalThis.__hostrun_defineArrayHelper("matching", function (pattern) {
 
 globalThis.__hostrun_defineArrayHelper("notMatching", function (pattern) {
   const regex = globalThis.__hostrun_regex(pattern);
+  return this.filter((value) => !regex.test(String(value)));
+});
+
+globalThis.__hostrun_defineArrayHelper("glob", function (pattern) {
+  const regex = globalThis.__hostrun_globRegex(pattern);
+  return this.filter((value) => regex.test(String(value)));
+});
+
+globalThis.__hostrun_defineArrayHelper("notGlob", function (pattern) {
+  const regex = globalThis.__hostrun_globRegex(pattern);
   return this.filter((value) => !regex.test(String(value)));
 });
 

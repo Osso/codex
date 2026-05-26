@@ -534,6 +534,8 @@ fn array_helpers_filter_and_transform_strings_without_mutating() {
               endsWith: items.endsWith(".rs"),
               matching: items.matching(/alpha|main/),
               notMatching: items.notMatching(/alpha/),
+              glob: items.glob("**/*.rs"),
+              notGlob: items.notGlob("*.txt"),
               first: items.first(),
               last: items.last(),
               take: items.take(2),
@@ -558,6 +560,8 @@ fn array_helpers_filter_and_transform_strings_without_mutating() {
             "endsWith": ["alpha.rs", "alpha.rs", "src/main.rs"],
             "matching": ["alpha.rs", "alpha.rs", "src/main.rs"],
             "notMatching": ["beta.txt", "src/main.rs"],
+            "glob": ["alpha.rs", "alpha.rs", "src/main.rs"],
+            "notGlob": ["alpha.rs", "alpha.rs", "src/main.rs"],
             "first": "beta.txt",
             "last": "src/main.rs",
             "take": ["beta.txt", "alpha.rs"],
@@ -568,6 +572,63 @@ fn array_helpers_filter_and_transform_strings_without_mutating() {
             "upper": ["A", "B"],
             "sorted": ["alpha.rs", "alpha.rs", "beta.txt", "src/main.rs"],
             "reversed": ["src/main.rs", "alpha.rs", "alpha.rs", "beta.txt"]
+        }))
+    );
+}
+
+#[test]
+fn fields_helper_groups_counts_uniques_and_sorts_by_selectors() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval(
+            r#"
+            const lines = [
+              "bob active beta-222",
+              "alice active alpha-111",
+              "bob inactive beta-333",
+              "carol active gamma-444"
+            ];
+            const table = lines.fields();
+            ({
+              sortedUsers: table.sortBy(1).format("{1}:{3|substr:0,4}"),
+              uniqueUsers: table.uniqueBy(1).format("{1}:{2}"),
+              counts: table.countBy("{2|upper}"),
+              groups: table.groupBy("{1}-{3|substr:0,4}").map((group) => ({
+                key: group.key,
+                rows: group.rows
+              }))
+            });
+            "#,
+        )
+        .expect("eval");
+
+    assert_eq!(
+        result.value,
+        Some(json!({
+            "sortedUsers": ["alice:alph", "bob:beta", "bob:beta", "carol:gamm"],
+            "uniqueUsers": ["bob:active", "alice:active", "carol:active"],
+            "counts": [
+                { "key": "ACTIVE", "count": 3 },
+                { "key": "INACTIVE", "count": 1 }
+            ],
+            "groups": [
+                {
+                    "key": "bob-beta",
+                    "rows": [
+                        ["bob", "active", "beta-222"],
+                        ["bob", "inactive", "beta-333"]
+                    ]
+                },
+                {
+                    "key": "alice-alph",
+                    "rows": [["alice", "active", "alpha-111"]]
+                },
+                {
+                    "key": "carol-gamm",
+                    "rows": [["carol", "active", "gamma-444"]]
+                }
+            ]
         }))
     );
 }

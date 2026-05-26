@@ -96,7 +96,8 @@ thread start. How the runtime is wired internally belongs in
 - [ ] Support JSONL, YAML, and CSV serialization to stdin and files.
 - [ ] Support conversion helpers between JSON-compatible values, YAML, CSV, JSONL, arrays, and table objects.
 - [ ] Provide non-mutating string-array helpers: `containing`, `notContaining`, `startsWith`, `endsWith`, `matching`, `notMatching`, `glob`, `notGlob`, `first`, `last`, `take`, `unique`, `sort`, `reverse`, `lengths`, `bytes`, `lower`, and `upper`.
-- [x] Provide string-array helpers for `containing`, `notContaining`, `startsWith`, `endsWith`, `matching`, `notMatching`, `first`, `last`, `take`, `unique`, `lengths`, `bytes`, `lower`, `upper`, `sorted`, and `reversed`.
+- [x] Provide string-array helpers for `containing`, `notContaining`, `startsWith`, `endsWith`, `matching`, `notMatching`, `glob`, `notGlob`, `first`, `last`, `take`, `unique`, `lengths`, `bytes`, `lower`, `upper`, `sorted`, and `reversed`.
+- [x] `glob` and `notGlob` use case-sensitive path-glob matching with `*`, `?`, and `**`, without shell expansion.
 - [ ] Provide scalar helpers where they improve agent readability: `lines`, `bytes`, `lower`, `upper`, `length`, and `chars`.
 - [x] Provide scalar helpers for `lines`, `bytes`, `lower`, `upper`, and `chars`.
 - [ ] Provide whitespace field parsing with 1-based fields: `lines.fields(separator = /\s+/)`.
@@ -104,7 +105,8 @@ thread start. How the runtime is wired internally belongs in
 - [ ] Provide object template formatting for field rows: `lines.fields().format({ user: "{1}", prefix: "{3|substr:0,7}" })`.
 - [ ] Template transforms include `trim`, `lower`, `upper`, `substr`, `replace`, `basename`, and `dirname`.
 - [x] Provide whitespace field parsing, `field(n)`, string template formatting, object template formatting, and template transforms.
-- [ ] Table helpers include `groupBy`, `sortBy`, `uniqueBy`, and `countBy`.
+- [x] Table helpers include `groupBy`, `sortBy`, `uniqueBy`, and `countBy`; selectors accept 1-based field numbers and field templates with transforms.
+- [x] `groupBy` returns `{ key, rows }`, `countBy` returns `{ key, count }`, and grouped/count/unique helpers preserve first-appearance order.
 
 ### Transcript and UX
 
@@ -139,6 +141,10 @@ thread start. How the runtime is wired internally belongs in
   - `preserves_cli_command_arguments`
   - `captures_console_messages_and_echoes_executed_code`
   - `store_keeps_ctx_per_session`
+- `codex-rs/hostrun/src/session_tests.rs`:
+  - `array_helpers_filter_and_transform_strings_without_mutating`
+  - `fields_helper_formats_text_and_object_templates`
+  - `fields_helper_groups_counts_uniques_and_sorts_by_selectors`
 - `codex-rs/hostrun/src/tool_bundle.rs`:
   - `hostrun_eval_tool_spec_accepts_session_id_and_code`
   - `missing_code_returns_model_visible_error`
@@ -165,7 +171,7 @@ thread start. How the runtime is wired internally belongs in
 - [ ] Add tests for stdout/stderr capture, redirects, stderr/stdout composition, stdin sources, stream-handle piping, and command graph approval text.
 - [ ] Add tests for HTTP query params, headers, auth redaction, JSON/form/raw/file/multipart bodies, response save-to-file, timeouts, retries, and non-2xx handling.
 - [ ] Add tests for JSON/YAML/CSV/JSONL parse/serialize helpers.
-- [ ] Add tests for collection and table helpers, including templates, transforms, grouping, sorting, unique values, reverse order, lengths, bytes, lower, and upper.
+- [ ] Add tests for remaining collection and table helpers, including reverse aliases, fd/rg structured output parsing, and error behavior.
 - [ ] Add tests for temp resource cleanup on success and failure.
 - [ ] Update contributed Hostrun instructions after the command builder API is implemented, keeping instructions aligned with tested behavior.
 - [ ] Add `docs/wiki/systems/hostrun.md` with architecture details once the command builder design stabilizes.
