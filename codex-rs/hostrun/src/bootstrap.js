@@ -112,6 +112,72 @@ globalThis.__hostrun_regex = function (pattern) {
   return pattern instanceof RegExp ? pattern : new RegExp(String(pattern));
 };
 
+globalThis.__hostrun_formatField = function (value, transform, args) {
+  let text = value === undefined ? "" : String(value);
+  switch (transform) {
+    case "":
+      return text;
+    case "trim":
+      return text.trim();
+    case "lower":
+      return text.toLowerCase();
+    case "upper":
+      return text.toUpperCase();
+    case "substr": {
+      const parts = String(args).split(",").map((part) => Number(part.trim()));
+      return text.substring(parts[0] || 0, parts.length > 1 ? parts[1] : undefined);
+    }
+    case "replace": {
+      const [from, to = ""] = String(args).split(",");
+      return text.replaceAll(from, to);
+    }
+    case "basename":
+      return text.split("/").filter((part) => part.length > 0).pop() ?? "";
+    case "dirname": {
+      const parts = text.split("/");
+      parts.pop();
+      return parts.join("/") || ".";
+    }
+    default:
+      throw new Error("unknown Hostrun field transform: " + transform);
+  }
+};
+
+globalThis.__hostrun_formatTemplate = function (template, row) {
+  if (typeof template === "string") {
+    return String(template).replace(/\{(\d+)(?:\|([a-zA-Z]+)(?::([^}]*))?)?\}/g, function (_match, field, transform, args) {
+      const index = Number(field) - 1;
+      return globalThis.__hostrun_formatField(row[index], transform ?? "", args ?? "");
+    });
+  }
+  const output = {};
+  for (const [key, value] of Object.entries(template)) {
+    output[key] = globalThis.__hostrun_formatTemplate(value, row);
+  }
+  return output;
+};
+
+globalThis.__hostrun_fieldTable = function (rows) {
+  return {
+    rows: function () {
+      return rows;
+    },
+    format: function (template) {
+      return rows.map((row) => globalThis.__hostrun_formatTemplate(template, row));
+    },
+    field: function (number) {
+      const index = Number(number) - 1;
+      return rows.map((row) => row[index] ?? "");
+    }
+  };
+};
+
+globalThis.__hostrun_defineArrayHelper("fields", function (separator = /\s+/) {
+  return globalThis.__hostrun_fieldTable(
+    this.map((line) => String(line).trim().split(separator).filter((field) => field.length > 0))
+  );
+});
+
 globalThis.__hostrun_defineArrayHelper("notContaining", function (needle) {
   return this.filter((value) => !String(value).includes(String(needle)));
 });

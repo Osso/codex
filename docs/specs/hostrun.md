@@ -102,6 +102,7 @@ thread start. How the runtime is wired internally belongs in
 - [ ] Provide template formatting for field rows: `lines.fields().format("user:{1} prefix:{3|substr:0,7}")`.
 - [ ] Provide object template formatting for field rows: `lines.fields().format({ user: "{1}", prefix: "{3|substr:0,7}" })`.
 - [ ] Template transforms include `trim`, `lower`, `upper`, `substr`, `replace`, `basename`, and `dirname`.
+- [x] Provide whitespace field parsing, `field(n)`, string template formatting, object template formatting, and template transforms.
 - [ ] Table helpers include `groupBy`, `sortBy`, `uniqueBy`, and `countBy`.
 
 ### Transcript and UX
