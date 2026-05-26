@@ -186,21 +186,45 @@ fn rclone_deletefile_approval(args: Value) -> HostrunApprovalRequest {
 
 fn cli_command_approval(tool_path: &str, args: Value) -> HostrunApprovalRequest {
     let program = tool_path.trim_start_matches("cli.");
-    let cli_args = match args {
-        Value::Array(args) => args,
-        Value::Null => Vec::new(),
-        other => vec![other],
-    };
+    let (cli_args, io) = split_cli_command_payload(args);
     let command = cli_command_summary(program, &cli_args);
     HostrunApprovalRequest {
         id: format!("cli.{program}:{command}"),
         tool: format!("cli.{program}"),
         summary: format!("Run {command}"),
-        args: json!({
-            "program": program,
-            "args": cli_args,
-        }),
+        args: cli_command_args(program, cli_args, io),
     }
+}
+
+fn split_cli_command_payload(args: Value) -> (Vec<Value>, Option<Value>) {
+    match args {
+        Value::Array(args) => (args, None),
+        Value::Object(mut payload) if payload.contains_key("args") => {
+            let cli_args = match payload.remove("args").unwrap_or(Value::Null) {
+                Value::Array(args) => args,
+                Value::Null => Vec::new(),
+                other => vec![other],
+            };
+            if payload.is_empty() {
+                (cli_args, None)
+            } else {
+                (cli_args, Some(Value::Object(payload)))
+            }
+        }
+        Value::Null => (Vec::new(), None),
+        other => (vec![other], None),
+    }
+}
+
+fn cli_command_args(program: &str, args: Vec<Value>, io: Option<Value>) -> Value {
+    let mut payload = json!({
+        "program": program,
+        "args": args,
+    });
+    if let (Value::Object(payload), Some(Value::Object(io))) = (&mut payload, io) {
+        payload.extend(io);
+    }
+    payload
 }
 
 fn cli_command_summary(program: &str, args: &[Value]) -> String {
@@ -253,137 +277,7 @@ impl Default for HostrunSessionStore {
     }
 }
 
-const HOSTRUN_BOOTSTRAP: &str = r#"
-globalThis.ctx = globalThis.ctx ?? {};
-globalThis.__hostrun_console = [];
-
-globalThis.__hostrun_formatConsoleValue = function (value) {
-  if (typeof value === "string") {
-    return value;
-  }
-  try {
-    return JSON.stringify(value);
-  } catch (_error) {
-    return String(value);
-  }
-};
-
-globalThis.__hostrun_consolePush = function (level, args) {
-  globalThis.__hostrun_console.push({
-    level,
-    message: Array.from(args).map(globalThis.__hostrun_formatConsoleValue).join(" ")
-  });
-};
-
-globalThis.console = {
-  log: function (...args) { globalThis.__hostrun_consolePush("log", args); },
-  info: function (...args) { globalThis.__hostrun_consolePush("info", args); },
-  warn: function (...args) { globalThis.__hostrun_consolePush("warn", args); },
-  error: function (...args) { globalThis.__hostrun_consolePush("error", args); },
-  debug: function (...args) { globalThis.__hostrun_consolePush("debug", args); }
-};
-
-if (!Array.prototype.containing) {
-  Object.defineProperty(Array.prototype, "containing", {
-    value: function (needle) {
-      return this.filter((value) => String(value).includes(String(needle)));
-    },
-    configurable: true,
-    writable: true
-  });
-}
-
-globalThis.__hostrun_invokeCapability = function (path, payload) {
-  const response = JSON.parse(globalThis.__hostrun_invokeTool(path, JSON.stringify(payload ?? {})));
-  if (response.type === "needs_approval") {
-    throw new Error("__HOSTRUN_APPROVAL_REQUIRED__:" + JSON.stringify(response.approval));
-  }
-  if (response.type === "denied") {
-    throw new Error(response.reason);
-  }
-  return response.value;
-};
-
-globalThis.__hostrun_toolProxy = function (path) {
-  return new Proxy(function () {}, {
-    get(_target, property) {
-      return globalThis.__hostrun_toolProxy(path ? path + "." + String(property) : String(property));
-    },
-    apply(_target, _thisArg, args) {
-      const payload = args.length > 0 ? args[0] : {};
-      return globalThis.__hostrun_invokeCapability(path, payload);
-    }
-  });
-};
-
-globalThis.tools = globalThis.__hostrun_toolProxy("");
-
-globalThis.fs = {
-  write: function (path, content) {
-    return globalThis.__hostrun_invokeCapability("fs.write", { path, content });
-  },
-  read: function (path) {
-    return globalThis.__hostrun_invokeCapability("fs.read", { path });
-  },
-  exists: function (path) {
-    return globalThis.__hostrun_invokeCapability("fs.exists", { path });
-  },
-  remove: function (path) {
-    return globalThis.__hostrun_invokeCapability("fs.remove", { path });
-  }
-};
-
-globalThis.rclone = {
-  deletefile: function (target) {
-    return globalThis.__hostrun_invokeCapability("rclone.deletefile", { target });
-  }
-};
-
-globalThis.__hostrun_commandBuilder = function (program, args) {
-  return {
-    program,
-    args: Array.from(args),
-    run: function () {
-      return globalThis.__hostrun_invokeCapability("cli." + program, this.args);
-    },
-    toJSON: function () {
-      return { program: this.program, args: this.args };
-    }
-  };
-};
-
-globalThis.__hostrun_cliProxy = function (path) {
-  return new Proxy(function () {}, {
-    get(_target, property) {
-      return globalThis.__hostrun_cliProxy(path ? path + "." + String(property) : String(property));
-    },
-    apply(_target, _thisArg, args) {
-      return globalThis.__hostrun_commandBuilder(path, args);
-    }
-  });
-};
-
-globalThis.cli = globalThis.__hostrun_cliProxy("");
-
-globalThis.__hostrun_run = function (code) {
-  globalThis.__hostrun_console = [];
-  try {
-    const value = (0, eval)(code);
-    return JSON.stringify({
-      type: "completed",
-      executed: code,
-      console: globalThis.__hostrun_console,
-      value: value === undefined ? null : value
-    });
-  } catch (error) {
-    const message = error && error.message ? String(error.message) : String(error);
-    if (message.startsWith("__HOSTRUN_APPROVAL_REQUIRED__:")) {
-      return message;
-    }
-    throw error;
-  }
-};
-"#;
+const HOSTRUN_BOOTSTRAP: &str = include_str!("bootstrap.js");
 
 #[cfg(test)]
 mod tests {
@@ -571,6 +465,67 @@ mod tests {
             json!({
                 "program": "rg",
                 "args": ["needle", "src", { "--json": true }]
+            })
+        );
+    }
+
+    #[test]
+    fn cli_command_builder_includes_io_metadata_in_approval() {
+        let session = HostrunSession::new().expect("session");
+
+        let result = session
+            .eval(
+                "cli.rg('needle', 'src')
+                  .stdout.toFile('/tmp/matches.txt')
+                  .stderr.toStdout()
+                  .stdin.text('input')
+                  .run();",
+            )
+            .expect("approval");
+
+        let approval = result.approval.expect("approval");
+        assert_eq!(approval.tool, "cli.rg");
+        assert_eq!(
+            approval.args,
+            json!({
+                "program": "rg",
+                "args": ["needle", "src"],
+                "stdout": { "type": "file", "path": "/tmp/matches.txt" },
+                "stderr": { "type": "stdout" },
+                "stdin": { "type": "text", "text": "input" }
+            })
+        );
+    }
+
+    #[test]
+    fn cli_command_builder_can_pipe_from_named_stdout_handle() {
+        let session = HostrunSession::new().expect("session");
+
+        let result = session
+            .eval(
+                "const source = cli.rclone('cat', 'spaces:bucket/index.txt');
+                 cli.cat().stdin(source.stdout).combined.capture().run();",
+            )
+            .expect("approval");
+
+        let approval = result.approval.expect("approval");
+        assert_eq!(approval.tool, "cli.cat");
+        assert_eq!(
+            approval.args,
+            json!({
+                "program": "cat",
+                "args": [],
+                "stdin": {
+                    "type": "stream",
+                    "source": {
+                        "stream": "stdout",
+                        "command": {
+                            "program": "rclone",
+                            "args": ["cat", "spaces:bucket/index.txt"]
+                        }
+                    }
+                },
+                "combined": { "type": "capture" }
             })
         );
     }
