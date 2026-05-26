@@ -16,6 +16,7 @@ use serde_json::Value;
 use serde_json::json;
 
 use crate::fs_capability::{execute_fs_operation, fs_approval};
+use crate::http_capability::{execute_http_request, http_request_approval};
 
 const APPROVAL_REQUIRED_PREFIX: &str = "__HOSTRUN_APPROVAL_REQUIRED__:";
 const CAPTURE_LIMIT_BYTES: usize = 64 * 1024;
@@ -141,7 +142,7 @@ impl HostCapabilityInvoker {
                 self.invoke_fs_operation(tool_path, args)
             }
             "rclone.deletefile" => pending_approval(rclone_deletefile_approval(args)),
-            "http.request" => pending_approval(http_request_approval(args)),
+            "http.request" => self.invoke_http_request(args),
             tool if tool.starts_with("cli.") => self.invoke_cli_command(tool, args),
             _ => json!({
                 "type": "denied",
@@ -167,6 +168,16 @@ impl HostCapabilityInvoker {
                 pending_approval(cli_command_approval(tool_path, args))
             }
             HostCapabilityMode::AutoApprove => match execute_cli_command(tool_path, args) {
+                Ok(value) => completed(value),
+                Err(error) => denied(error.to_string()),
+            },
+        }
+    }
+
+    fn invoke_http_request(&self, args: Value) -> String {
+        match self.capability_mode {
+            HostCapabilityMode::PendingApproval => pending_approval(http_request_approval(args)),
+            HostCapabilityMode::AutoApprove => match execute_http_request(args) {
                 Ok(value) => completed(value),
                 Err(error) => denied(error.to_string()),
             },
@@ -588,73 +599,6 @@ fn insert_capture_metadata(
     );
 }
 
-fn http_request_approval(args: Value) -> HostrunApprovalRequest {
-    let method = field_as_string(&args, "method");
-    let url = field_as_string(&args, "url");
-    HostrunApprovalRequest {
-        id: format!("http.request:{}:{url}", method.to_uppercase()),
-        tool: "http.request".to_string(),
-        summary: format!("HTTP {} {url}", method.to_uppercase()),
-        args: redact_http_auth(args),
-    }
-}
-
-fn redact_http_auth(mut args: Value) -> Value {
-    redact_http_auth_field(&mut args);
-    redact_http_headers(&mut args);
-    args
-}
-
-fn redact_http_auth_field(args: &mut Value) {
-    let Some(auth) = args.get_mut("auth") else {
-        return;
-    };
-    match auth {
-        Value::Object(auth) => {
-            for key in ["bearer", "token"] {
-                redact_object_key(auth, key);
-            }
-            if let Some(basic) = auth.get_mut("basic") {
-                redact_http_basic_auth(basic);
-            }
-        }
-        other => {
-            *other = Value::String("<redacted>".to_string());
-        }
-    }
-}
-
-fn redact_http_basic_auth(basic: &mut Value) {
-    match basic {
-        Value::Object(basic) => redact_object_key(basic, "password"),
-        other => *other = Value::String("<redacted>".to_string()),
-    }
-}
-
-fn redact_http_headers(args: &mut Value) {
-    let Some(Value::Object(headers)) = args.get_mut("headers") else {
-        return;
-    };
-    for (key, value) in headers {
-        if is_sensitive_http_header(key) {
-            *value = Value::String("<redacted>".to_string());
-        }
-    }
-}
-
-fn is_sensitive_http_header(key: &str) -> bool {
-    matches!(
-        key.to_ascii_lowercase().as_str(),
-        "authorization" | "proxy-authorization" | "x-api-key" | "x-auth-token"
-    )
-}
-
-fn redact_object_key(object: &mut serde_json::Map<String, Value>, key: &str) {
-    if object.contains_key(key) {
-        object.insert(key.to_string(), Value::String("<redacted>".to_string()));
-    }
-}
-
 fn field_as_string(args: &Value, field: &str) -> String {
     args.get(field)
         .and_then(Value::as_str)
@@ -744,6 +688,10 @@ mod command_execution_tests;
 #[cfg(test)]
 #[path = "fs_execution_tests.rs"]
 mod fs_execution_tests;
+
+#[cfg(test)]
+#[path = "http_execution_tests.rs"]
+mod http_execution_tests;
 
 #[cfg(test)]
 #[path = "tmp_tests.rs"]

@@ -68,6 +68,7 @@ thread start. How the runtime is wired internally belongs in
 - [x] Redact bearer/basic/header-token auth secrets from approval metadata.
 - [ ] Support timeout, retry policy, redirect policy, and TLS options with readable defaults.
 - [x] Expose response intent helpers `.text()`, `.json()`, `.bytes()`, `.save(path)`, and `.run()` in approval metadata.
+- [x] `hostrun_eval` executes approved HTTP requests for common methods with query parameters, headers, bearer/basic auth, JSON/form/raw/file bodies, and response text/json/bytes/save handling.
 - [ ] Response objects expose `.status`, `.ok`, `.headers`, `.text()`, `.json()`, `.bytes()`, and `.save(path)` after real execution lands.
 - [ ] `.save(path)` streams the response body to disk and returns metadata including path, status, headers, and byte count after real execution lands.
 

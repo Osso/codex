@@ -2189,6 +2189,7 @@ version = "0.0.0"
 dependencies = [
  "codex-extension-api",
  "codex-tool-api",
+ "reqwest",
  "rquickjs",
  "serde",
  "serde_json",
