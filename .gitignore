@@ -67,6 +67,8 @@ coverage/
 
 # personal files
 personal/
+!codex-rs/hostrun/DESIGN.md
+codex-rs/hostrun/PLAN.md
 
 # os
 .DS_Store

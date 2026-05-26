@@ -2183,6 +2183,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "codex-hostrun"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "codex-install-context"
 version = "0.0.0"
 dependencies = [

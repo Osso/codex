@@ -101,6 +101,7 @@ members = [
     "codex-experimental-api-macros",
     "plugin",
     "model-provider",
+    "hostrun",
 ]
 default-members = ["cli"]
 resolver = "2"
@@ -158,6 +159,7 @@ codex-install-context = { path = "install-context" }
 codex-file-search = { path = "file-search" }
 codex-file-watcher = { path = "file-watcher" }
 codex-git-utils = { path = "git-utils" }
+codex-hostrun = { path = "hostrun" }
 codex-hooks = { path = "hooks" }
 codex-keyring-store = { path = "keyring-store" }
 codex-linux-sandbox = { path = "linux-sandbox" }
