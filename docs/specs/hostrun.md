@@ -76,6 +76,8 @@ thread start. How the runtime is wired internally belongs in
 - [x] Command builder `.run()` preserves the existing approval request shape for `cli.<program>`.
 - [x] Command builders include requested stdout/stderr/stdin/combined handling in approval metadata.
 - [ ] `.run()` executes a command builder and returns structured status for each command in the execution graph.
+- [x] The internal approved execution path can run scalar-argv commands and return `{ program, args, exitCode, success }`.
+- [x] `hostrun_eval` uses the approved execution path for `cli.*` after the tool invocation has passed its pre-tool approval layer.
 - [ ] `.spawn()` starts a command and returns process/stream handles.
 - [ ] `stdout.capture()` and `stderr.capture()` capture bounded text for model-visible results.
 - [ ] `stdout.toFile(path)` and `stderr.toFile(path)` redirect output to host files.
@@ -83,6 +85,7 @@ thread start. How the runtime is wired internally belongs in
 - [ ] `stdout.text()` returns captured stdout text.
 - [ ] `stdout.lines()` returns captured stdout split into lines.
 - [ ] `stdin.text(str)`, `stdin.file(path)`, `stdin.json(value)`, `stdin.yaml(value)`, `stdin.csv(rows)`, and `stdin.lines(values)` provide explicit stdin sources.
+- [x] The internal approved execution path supports stdout text, stdout lines, stdout file redirects, and line-based stdin.
 - [x] Command builders preserve explicit `stdin.yaml`, `stdin.csv`, `stdin.tsv`, `stdin.jsonLines`, and `stdin.jsonl` metadata in approval requests.
 - [ ] A downstream command can pipe from an upstream stream handle, e.g. `cli.cat().stdin(cli.rclone(...).stdout).run()`.
 - [ ] Named upstream command handles can be reused for piping, e.g. `const result = cli.rclone(...); cli.cat().stdin(result.stdout).run()`.

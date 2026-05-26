@@ -1,5 +1,9 @@
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::fs;
+use std::io::Write;
+use std::process::Command;
+use std::process::Stdio;
 use std::sync::Arc;
 
 use rquickjs::Context;
@@ -46,13 +50,23 @@ pub struct HostrunSession {
 
 impl HostrunSession {
     pub fn new() -> Result<Self, HostrunSessionError> {
+        Self::new_with_capability_mode(HostCapabilityMode::PendingApproval)
+    }
+
+    pub fn new_auto_approve() -> Result<Self, HostrunSessionError> {
+        Self::new_with_capability_mode(HostCapabilityMode::AutoApprove)
+    }
+
+    fn new_with_capability_mode(
+        capability_mode: HostCapabilityMode,
+    ) -> Result<Self, HostrunSessionError> {
         let runtime = Runtime::new().map_err(HostrunSessionError::from_quickjs)?;
         let context = Context::full(&runtime).map_err(HostrunSessionError::from_quickjs)?;
         let session = Self {
             _runtime: runtime,
             context,
         };
-        session.initialize_context()?;
+        session.initialize_context(capability_mode)?;
         Ok(session)
     }
 
@@ -62,8 +76,11 @@ impl HostrunSession {
             .map_err(HostrunSessionError::from_quickjs)?
     }
 
-    fn initialize_context(&self) -> Result<(), HostrunSessionError> {
-        let invoker = Arc::new(HostCapabilityInvoker);
+    fn initialize_context(
+        &self,
+        capability_mode: HostCapabilityMode,
+    ) -> Result<(), HostrunSessionError> {
+        let invoker = Arc::new(HostCapabilityInvoker { capability_mode });
         self.context
             .with(|ctx| {
                 let globals = ctx.globals();
@@ -103,8 +120,15 @@ impl HostrunSessionError {
     }
 }
 
-#[derive(Default)]
-struct HostCapabilityInvoker;
+#[derive(Clone, Copy)]
+enum HostCapabilityMode {
+    PendingApproval,
+    AutoApprove,
+}
+
+struct HostCapabilityInvoker {
+    capability_mode: HostCapabilityMode,
+}
 
 impl HostCapabilityInvoker {
     fn invoke_tool(&self, tool_path: &str, args_json: &str) -> String {
@@ -118,12 +142,24 @@ impl HostCapabilityInvoker {
             "fs.remove" => pending_approval(fs_path_approval("fs.remove", "Remove", args)),
             "rclone.deletefile" => pending_approval(rclone_deletefile_approval(args)),
             "http.request" => pending_approval(http_request_approval(args)),
-            tool if tool.starts_with("cli.") => pending_approval(cli_command_approval(tool, args)),
+            tool if tool.starts_with("cli.") => self.invoke_cli_command(tool, args),
             _ => json!({
                 "type": "denied",
                 "reason": format!("Hostrun capability is unavailable: {tool_path}")
             })
             .to_string(),
+        }
+    }
+
+    fn invoke_cli_command(&self, tool_path: &str, args: Value) -> String {
+        match self.capability_mode {
+            HostCapabilityMode::PendingApproval => {
+                pending_approval(cli_command_approval(tool_path, args))
+            }
+            HostCapabilityMode::AutoApprove => match execute_cli_command(tool_path, args) {
+                Ok(value) => completed(value),
+                Err(error) => denied(error.to_string()),
+            },
         }
     }
 }
@@ -150,6 +186,22 @@ fn pending_approval(approval: HostrunApprovalRequest) -> String {
     json!({
         "type": "needs_approval",
         "approval": approval
+    })
+    .to_string()
+}
+
+fn completed(value: Value) -> String {
+    json!({
+        "type": "completed",
+        "value": value
+    })
+    .to_string()
+}
+
+fn denied(reason: String) -> String {
+    json!({
+        "type": "denied",
+        "reason": reason
     })
     .to_string()
 }
@@ -241,6 +293,272 @@ fn cli_arg_summary(arg: &Value) -> String {
     }
 }
 
+fn execute_cli_command(tool_path: &str, args: Value) -> Result<Value, HostrunSessionError> {
+    let program = tool_path.trim_start_matches("cli.");
+    let (cli_args, io) = split_cli_command_payload(args);
+    let payload = cli_command_args(program, cli_args, io);
+    let Value::Object(payload) = merge_cli_payload(program, payload, tool_path)? else {
+        unreachable!("cli command payload is always an object");
+    };
+    let argv = cli_payload_args(&payload)?;
+    let output = run_cli_process(program, &argv, payload.get("stdin"))?;
+    cli_execution_result(program, &argv, &payload, output)
+}
+
+fn merge_cli_payload(
+    program: &str,
+    fallback: Value,
+    tool_path: &str,
+) -> Result<Value, HostrunSessionError> {
+    let Value::Object(mut payload) = fallback else {
+        return Err(HostrunSessionError::Eval(format!(
+            "invalid payload for {tool_path}"
+        )));
+    };
+    payload
+        .entry("program".to_string())
+        .or_insert_with(|| Value::String(program.to_string()));
+    payload
+        .entry("args".to_string())
+        .or_insert_with(|| json!([]));
+    Ok(Value::Object(payload))
+}
+
+fn cli_payload_args(
+    payload: &serde_json::Map<String, Value>,
+) -> Result<Vec<String>, HostrunSessionError> {
+    let values = payload
+        .get("args")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    values.iter().map(cli_arg_to_string).collect()
+}
+
+fn cli_arg_to_string(value: &Value) -> Result<String, HostrunSessionError> {
+    match value {
+        Value::String(value) => Ok(value.clone()),
+        Value::Number(value) => Ok(value.to_string()),
+        Value::Bool(value) => Ok(value.to_string()),
+        Value::Null => Ok(String::new()),
+        Value::Array(_) | Value::Object(_) => Err(HostrunSessionError::Eval(format!(
+            "cli arguments must be scalar argv values, got {value}"
+        ))),
+    }
+}
+
+struct CliProcessOutput {
+    exit_code: Option<i32>,
+    success: bool,
+    stdout: Vec<u8>,
+    stderr: Vec<u8>,
+}
+
+fn run_cli_process(
+    program: &str,
+    argv: &[String],
+    stdin: Option<&Value>,
+) -> Result<CliProcessOutput, HostrunSessionError> {
+    let mut child = Command::new(program)
+        .args(argv)
+        .stdin(if stdin.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| {
+            HostrunSessionError::Eval(format!("failed to start {program}: {error}"))
+        })?;
+
+    if let Some(stdin) = stdin {
+        let input = stdin_bytes(stdin)?;
+        let child_stdin = child.stdin.as_mut().ok_or_else(|| {
+            HostrunSessionError::Eval(format!("failed to open stdin for {program}"))
+        })?;
+        child_stdin.write_all(&input).map_err(|error| {
+            HostrunSessionError::Eval(format!("failed to write stdin for {program}: {error}"))
+        })?;
+    }
+
+    let output = child.wait_with_output().map_err(|error| {
+        HostrunSessionError::Eval(format!("failed to wait for {program}: {error}"))
+    })?;
+    Ok(CliProcessOutput {
+        exit_code: output.status.code(),
+        success: output.status.success(),
+        stdout: output.stdout,
+        stderr: output.stderr,
+    })
+}
+
+fn stdin_bytes(stdin: &Value) -> Result<Vec<u8>, HostrunSessionError> {
+    let stdin_type = stdin
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or("stream");
+    match stdin_type {
+        "text" => Ok(field_as_string(stdin, "text").into_bytes()),
+        "file" => fs::read(field_as_string(stdin, "path")).map_err(|error| {
+            HostrunSessionError::Eval(format!("failed to read stdin file: {error}"))
+        }),
+        "json" => serialize_json_stdin(stdin.get("value").unwrap_or(&Value::Null)),
+        "yaml" => serialize_yaml_stdin(stdin.get("value").unwrap_or(&Value::Null)),
+        "csv" => serialize_delimited_rows(stdin.get("rows"), ","),
+        "tsv" => serialize_delimited_rows(stdin.get("rows"), "\t"),
+        "jsonLines" => serialize_json_lines(stdin.get("values")),
+        "lines" => serialize_lines(stdin.get("lines")),
+        other => Err(HostrunSessionError::Eval(format!(
+            "unsupported stdin source type: {other}"
+        ))),
+    }
+}
+
+fn serialize_json_stdin(value: &Value) -> Result<Vec<u8>, HostrunSessionError> {
+    serde_json::to_vec(value)
+        .map(|mut bytes| {
+            bytes.push(b'\n');
+            bytes
+        })
+        .map_err(|error| {
+            HostrunSessionError::Eval(format!("failed to serialize JSON stdin: {error}"))
+        })
+}
+
+fn serialize_yaml_stdin(value: &Value) -> Result<Vec<u8>, HostrunSessionError> {
+    serde_yaml::to_string(value)
+        .map(String::into_bytes)
+        .map_err(|error| {
+            HostrunSessionError::Eval(format!("failed to serialize YAML stdin: {error}"))
+        })
+}
+
+fn serialize_delimited_rows(
+    rows: Option<&Value>,
+    delimiter: &str,
+) -> Result<Vec<u8>, HostrunSessionError> {
+    let rows = rows
+        .and_then(Value::as_array)
+        .ok_or_else(|| HostrunSessionError::Eval("stdin rows must be an array".to_string()))?;
+    let lines = rows
+        .iter()
+        .map(|row| {
+            row.as_array()
+                .ok_or_else(|| HostrunSessionError::Eval("stdin row must be an array".to_string()))
+                .map(|cells| {
+                    cells
+                        .iter()
+                        .map(stdin_cell_text)
+                        .collect::<Vec<_>>()
+                        .join(delimiter)
+                })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok((lines.join("\n") + "\n").into_bytes())
+}
+
+fn stdin_cell_text(value: &Value) -> String {
+    match value {
+        Value::String(value) => value.clone(),
+        Value::Null => String::new(),
+        Value::Number(value) => value.to_string(),
+        Value::Bool(value) => value.to_string(),
+        Value::Array(_) | Value::Object(_) => value.to_string(),
+    }
+}
+
+fn serialize_json_lines(values: Option<&Value>) -> Result<Vec<u8>, HostrunSessionError> {
+    let values = values.and_then(Value::as_array).ok_or_else(|| {
+        HostrunSessionError::Eval("stdin JSON lines must be an array".to_string())
+    })?;
+    let lines = values
+        .iter()
+        .map(serde_json::to_string)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| {
+            HostrunSessionError::Eval(format!("failed to serialize JSONL stdin: {error}"))
+        })?;
+    Ok((lines.join("\n") + "\n").into_bytes())
+}
+
+fn serialize_lines(lines: Option<&Value>) -> Result<Vec<u8>, HostrunSessionError> {
+    let lines = lines
+        .and_then(Value::as_array)
+        .ok_or_else(|| HostrunSessionError::Eval("stdin lines must be an array".to_string()))?;
+    let text = lines
+        .iter()
+        .map(stdin_cell_text)
+        .collect::<Vec<_>>()
+        .join("\n");
+    Ok((text + "\n").into_bytes())
+}
+
+fn cli_execution_result(
+    program: &str,
+    argv: &[String],
+    payload: &serde_json::Map<String, Value>,
+    output: CliProcessOutput,
+) -> Result<Value, HostrunSessionError> {
+    let mut result = serde_json::Map::new();
+    result.insert("program".to_string(), Value::String(program.to_string()));
+    result.insert("args".to_string(), json!(argv));
+    result.insert("exitCode".to_string(), json!(output.exit_code));
+    result.insert("success".to_string(), Value::Bool(output.success));
+    apply_output_intent(&mut result, "stdout", payload.get("stdout"), &output.stdout)?;
+    apply_output_intent(&mut result, "stderr", payload.get("stderr"), &output.stderr)?;
+    if let Some(combined) = payload.get("combined") {
+        let mut bytes = output.stdout.clone();
+        bytes.extend_from_slice(&output.stderr);
+        apply_output_intent(&mut result, "combined", Some(combined), &bytes)?;
+    }
+    Ok(Value::Object(result))
+}
+
+fn apply_output_intent(
+    result: &mut serde_json::Map<String, Value>,
+    name: &str,
+    intent: Option<&Value>,
+    bytes: &[u8],
+) -> Result<(), HostrunSessionError> {
+    let Some(intent) = intent else {
+        return Ok(());
+    };
+    match intent
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or("capture")
+    {
+        "capture" | "text" => {
+            result.insert(
+                name.to_string(),
+                Value::String(String::from_utf8_lossy(bytes).to_string()),
+            );
+        }
+        "lines" => {
+            let text = String::from_utf8_lossy(bytes);
+            result.insert(name.to_string(), json!(text.lines().collect::<Vec<_>>()));
+        }
+        "file" => {
+            let path = field_as_string(intent, "path");
+            fs::write(&path, bytes).map_err(|error| {
+                HostrunSessionError::Eval(format!("failed to write {name} to {path}: {error}"))
+            })?;
+            result.insert(
+                name.to_string(),
+                json!({ "path": path, "bytes": bytes.len() }),
+            );
+        }
+        other => {
+            return Err(HostrunSessionError::Eval(format!(
+                "unsupported {name} output intent: {other}"
+            )));
+        }
+    }
+    Ok(())
+}
+
 fn http_request_approval(args: Value) -> HostrunApprovalRequest {
     let method = field_as_string(&args, "method");
     let url = field_as_string(&args, "url");
@@ -317,12 +635,21 @@ fn field_as_string(args: &Value, field: &str) -> String {
 
 pub struct HostrunSessionStore {
     sessions: HashMap<String, HostrunSession>,
+    capability_mode: HostCapabilityMode,
 }
 
 impl HostrunSessionStore {
     pub fn new() -> Self {
         Self {
             sessions: HashMap::new(),
+            capability_mode: HostCapabilityMode::PendingApproval,
+        }
+    }
+
+    pub fn new_auto_approve() -> Self {
+        Self {
+            sessions: HashMap::new(),
+            capability_mode: HostCapabilityMode::AutoApprove,
         }
     }
 
@@ -333,7 +660,9 @@ impl HostrunSessionStore {
     ) -> Result<HostrunEvalResult, HostrunSessionError> {
         let session = match self.sessions.entry(session_id.to_string()) {
             Entry::Occupied(entry) => entry.into_mut(),
-            Entry::Vacant(entry) => entry.insert(HostrunSession::new()?),
+            Entry::Vacant(entry) => entry.insert(HostrunSession::new_with_capability_mode(
+                self.capability_mode,
+            )?),
         };
         session.eval(code)
     }
@@ -378,6 +707,10 @@ mod structured_write_tests;
 #[cfg(test)]
 #[path = "structured_data_tests.rs"]
 mod structured_data_tests;
+
+#[cfg(test)]
+#[path = "command_execution_tests.rs"]
+mod command_execution_tests;
 
 #[cfg(test)]
 #[path = "tmp_tests.rs"]

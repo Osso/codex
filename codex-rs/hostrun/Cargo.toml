@@ -10,6 +10,7 @@ codex-tool-api = { workspace = true }
 rquickjs = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+serde_yaml = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]

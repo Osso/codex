@@ -26,7 +26,7 @@ pub fn hostrun_tool_bundle(_config: HostrunToolConfig) -> ToolBundle {
     ToolBundle::new(
         hostrun_eval_spec(),
         Arc::new(HostrunToolExecutor {
-            sessions: Mutex::new(HostrunSessionStore::new()),
+            sessions: Mutex::new(HostrunSessionStore::new_auto_approve()),
         }),
     )
 }
@@ -215,6 +215,31 @@ mod tests {
                         "target": "spaces:bucket/probe.txt"
                     }
                 }
+            })
+        );
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn executor_runs_approved_cli_command() {
+        let bundle = embedded_hostrun_tool_bundle();
+
+        let output = bundle
+            .executor()
+            .execute(call(
+                "session-1",
+                "cli.printf('hello').stdout.text().run();",
+            ))
+            .await
+            .expect("tool output");
+
+        assert_eq!(
+            output["value"],
+            json!({
+                "program": "printf",
+                "args": ["hello"],
+                "exitCode": 0,
+                "success": true,
+                "stdout": "hello"
             })
         );
     }
