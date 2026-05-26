@@ -82,6 +82,7 @@ thread start. How the runtime is wired internally belongs in
 - [ ] `stdout.text()` returns captured stdout text.
 - [ ] `stdout.lines()` returns captured stdout split into lines.
 - [ ] `stdin.text(str)`, `stdin.file(path)`, `stdin.json(value)`, `stdin.yaml(value)`, `stdin.csv(rows)`, and `stdin.lines(values)` provide explicit stdin sources.
+- [x] Command builders preserve explicit `stdin.yaml`, `stdin.csv`, `stdin.tsv`, `stdin.jsonLines`, and `stdin.jsonl` metadata in approval requests.
 - [ ] A downstream command can pipe from an upstream stream handle, e.g. `cli.cat().stdin(cli.rclone(...).stdout).run()`.
 - [ ] Named upstream command handles can be reused for piping, e.g. `const result = cli.rclone(...); cli.cat().stdin(result.stdout).run()`.
 - [ ] A downstream command can pipe either upstream stdout or upstream stderr into stdin.
@@ -96,6 +97,9 @@ thread start. How the runtime is wired internally belongs in
 - [x] Provide string helpers for `str.json()` and `str.jsonLines()`.
 - [ ] Support JSONL, YAML, and CSV parsing from command output and strings.
 - [ ] Support JSONL, YAML, and CSV serialization to stdin and files.
+- [x] Support `str.jsonl()` as an alias for JSONL parsing.
+- [x] Support CSV and TSV parsing from strings with `str.csv()` and `str.tsv()`.
+- [x] Support TSV and JSONL serialization to files with `fs.writeTsv`, `fs.writeJsonLines`, and `fs.writeJsonl`.
 - [ ] Support conversion helpers between JSON-compatible values, YAML, CSV, JSONL, arrays, and table objects.
 - [x] Provide object/table projection helpers for common `nu`/`jq` workflows: `get`, `select`, `reject`, `rename`, `insert`, `update`, `merge`, `columns`, `values`, and entry iteration.
 - [x] Object/table projection helpers are non-mutating and support dotted paths for nested field access.

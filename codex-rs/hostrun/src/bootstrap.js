@@ -179,6 +179,10 @@ globalThis.__hostrun_defineStringHelper("jsonLines", function () {
     .map((line) => JSON.parse(line));
 });
 
+globalThis.__hostrun_defineStringHelper("jsonl", function () {
+  return String(this).jsonLines();
+});
+
 globalThis.__hostrun_defineStringHelper("lower", function () {
   return String(this).toLowerCase();
 });
@@ -358,6 +362,79 @@ globalThis.__hostrun_csvCell = function (value) {
 globalThis.__hostrun_toCsv = function (rows) {
   return rows.map((row) => Array.from(row).map(globalThis.__hostrun_csvCell).join(",")).join("\n") + "\n";
 };
+
+globalThis.__hostrun_tsvCell = function (value) {
+  const text = value === null || value === undefined ? "" : String(value);
+  return text.replaceAll("\\", "\\\\").replaceAll("\t", "\\t").replaceAll("\n", "\\n").replaceAll("\r", "\\r");
+};
+
+globalThis.__hostrun_toTsv = function (rows) {
+  return rows.map((row) => Array.from(row).map(globalThis.__hostrun_tsvCell).join("\t")).join("\n") + "\n";
+};
+
+globalThis.__hostrun_toJsonLines = function (values) {
+  return Array.from(values).map((value) => JSON.stringify(value)).join("\n") + "\n";
+};
+
+globalThis.__hostrun_parseCsv = function (text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+  const input = String(text).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  for (let index = 0; index < input.length; index += 1) {
+    const char = input[index];
+    if (quoted) {
+      if (char === '"' && input[index + 1] === '"') {
+        cell += '"';
+        index += 1;
+      } else if (char === '"') {
+        quoted = false;
+      } else {
+        cell += char;
+      }
+    } else if (char === '"') {
+      quoted = true;
+    } else if (char === ",") {
+      row.push(cell);
+      cell = "";
+    } else if (char === "\n") {
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += char;
+    }
+  }
+  if (cell.length > 0 || row.length > 0) {
+    row.push(cell);
+    rows.push(row);
+  }
+  return rows;
+};
+
+globalThis.__hostrun_parseTsvCell = function (value) {
+  return String(value)
+    .replaceAll("\\t", "\t")
+    .replaceAll("\\n", "\n")
+    .replaceAll("\\r", "\r")
+    .replaceAll("\\\\", "\\");
+};
+
+globalThis.__hostrun_parseTsv = function (text) {
+  return String(text).lines()
+    .filter((line) => line.length > 0)
+    .map((line) => line.split("\t").map(globalThis.__hostrun_parseTsvCell));
+};
+
+globalThis.__hostrun_defineStringHelper("csv", function () {
+  return globalThis.__hostrun_parseCsv(this);
+});
+
+globalThis.__hostrun_defineStringHelper("tsv", function () {
+  return globalThis.__hostrun_parseTsv(this);
+});
 
 globalThis.__hostrun_toYamlScalar = function (value) {
   if (value === null || value === undefined) {
@@ -804,6 +881,15 @@ globalThis.__hostrun_tmpHandle = function (kind, path) {
     handle.writeCsv = function (rows) {
       return globalThis.fs.writeCsv(path, rows);
     };
+    handle.writeTsv = function (rows) {
+      return globalThis.fs.writeTsv(path, rows);
+    };
+    handle.writeJsonLines = function (values) {
+      return globalThis.fs.writeJsonLines(path, values);
+    };
+    handle.writeJsonl = function (values) {
+      return globalThis.fs.writeJsonLines(path, values);
+    };
   }
   return handle;
 };
@@ -834,6 +920,15 @@ globalThis.fs = {
   },
   writeCsv: function (path, rows) {
     return globalThis.fs.write(path, globalThis.__hostrun_toCsv(rows));
+  },
+  writeTsv: function (path, rows) {
+    return globalThis.fs.write(path, globalThis.__hostrun_toTsv(rows));
+  },
+  writeJsonLines: function (path, values) {
+    return globalThis.fs.write(path, globalThis.__hostrun_toJsonLines(values));
+  },
+  writeJsonl: function (path, values) {
+    return globalThis.fs.writeJsonLines(path, values);
   },
   read: function (path) {
     return globalThis.__hostrun_invokeCapability("fs.read", { path });
@@ -938,6 +1033,26 @@ globalThis.__hostrun_commandBuilder = function (program, args) {
   };
   stdin.json = function (value) {
     state.stdin = { type: "json", value };
+    return builder;
+  };
+  stdin.yaml = function (value) {
+    state.stdin = { type: "yaml", value };
+    return builder;
+  };
+  stdin.csv = function (rows) {
+    state.stdin = { type: "csv", rows };
+    return builder;
+  };
+  stdin.tsv = function (rows) {
+    state.stdin = { type: "tsv", rows };
+    return builder;
+  };
+  stdin.jsonLines = function (values) {
+    state.stdin = { type: "jsonLines", values };
+    return builder;
+  };
+  stdin.jsonl = function (values) {
+    state.stdin = { type: "jsonLines", values };
     return builder;
   };
   stdin.lines = function (lines) {
