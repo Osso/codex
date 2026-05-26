@@ -53,6 +53,35 @@ Will:
 
 Raw command strings are still possible as a fallback, but common operations should expose structured approval data.
 
+## Codex Tool Boundary
+
+The first Codex integration point is the existing contributed-tool seam, not a new core tool kind. `codex-hostrun` exposes a `codex_tool_api::ToolBundle` named `hostrun_eval` with this model-visible input:
+
+```json
+{
+  "session_id": "session-1",
+  "code": "ctx.files = tools.rclone.lsf({ remote: 'spaces:bucket' })"
+}
+```
+
+The Rust executor validates that input, feeds it as JSON to an injected Hostrun runner process, and returns the runner's structured JSON output unchanged. That keeps Codex-side approval rendering able to see a real shape such as:
+
+```json
+{
+  "type": "needs_approval",
+  "approval": {
+    "id": "approval-1",
+    "tool": "rclone.deletefile",
+    "summary": "Delete probe object",
+    "args": {
+      "target": "spaces:bucket/probe.txt"
+    }
+  }
+}
+```
+
+This is intentionally a thin path. It proves Codex can host Hostrun as an ordinary function tool before we commit to deeper `codex-core` registration or TUI rendering.
+
 ## Sandbox and Capabilities
 
 The long-term model is closer to extending `just-bash` than replacing Bash with raw host Python. User code should run in a constrained runtime with a virtual filesystem and no direct host authority. Host effects should be exposed as explicit capabilities:
@@ -104,7 +133,7 @@ Normal exceptions should not destroy the session. Catastrophic timeout, memory l
 
 - Whether the persistent QuickJS work should live in a Codex-owned fork first or be proposed upstream immediately.
 - Whether `HostrunSession` should expose bash compatibility at all, or only sandboxed JavaScript plus capabilities.
-- How Codex should host and reset the persistent interpreter process.
+- How Codex should host and reset the persistent interpreter process beyond the current single-request runner.
 - How to represent live context values in the TUI without pretending they are fully serializable.
 - Which side effects require declaration before execution and which can be discovered dynamically.
 - How much CLI wrapper generation is useful before hand-written resource wrappers become clearer.

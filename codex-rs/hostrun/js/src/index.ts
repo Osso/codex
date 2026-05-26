@@ -8,3 +8,9 @@ export {
   type HostrunEvalResult,
   type HostrunSessionOptions,
 } from "./hostrun-session.js";
+
+export {
+  runHostrunRequest,
+  type HostrunRunnerCapability,
+  type HostrunRunnerRequest,
+} from "./runner.js";

@@ -2186,8 +2186,11 @@ dependencies = [
 name = "codex-hostrun"
 version = "0.0.0"
 dependencies = [
+ "codex-tool-api",
  "serde",
  "serde_json",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]
