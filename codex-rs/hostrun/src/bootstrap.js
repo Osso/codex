@@ -768,6 +768,46 @@ globalThis.__hostrun_invokeCapability = function (path, payload) {
   return response.value;
 };
 
+globalThis.__hostrun_tmpCounter = globalThis.__hostrun_tmpCounter ?? 0;
+
+globalThis.__hostrun_nextTmpPath = function (prefix, suffix = "") {
+  globalThis.__hostrun_tmpCounter += 1;
+  const cleanPrefix = String(prefix ?? "tmp").replace(/[^a-zA-Z0-9._-]/g, "-");
+  const cleanSuffix = suffix ? String(suffix).replace(/[^a-zA-Z0-9._-]/g, "-") : "";
+  return `/tmp/hostrun-${cleanPrefix}-${globalThis.__hostrun_tmpCounter}${cleanSuffix}`;
+};
+
+globalThis.__hostrun_tmpHandle = function (kind, path) {
+  const handle = {
+    kind,
+    path,
+    toString: function () {
+      return path;
+    },
+    cleanup: function () {
+      return globalThis.fs.remove(path);
+    },
+    toJSON: function () {
+      return { kind, path };
+    }
+  };
+  if (kind === "file") {
+    handle.write = function (content) {
+      return globalThis.fs.write(path, content);
+    };
+    handle.writeJson = function (value, space = 2) {
+      return globalThis.fs.writeJson(path, value, space);
+    };
+    handle.writeYaml = function (value) {
+      return globalThis.fs.writeYaml(path, value);
+    };
+    handle.writeCsv = function (rows) {
+      return globalThis.fs.writeCsv(path, rows);
+    };
+  }
+  return handle;
+};
+
 globalThis.__hostrun_toolProxy = function (path) {
   return new Proxy(function () {}, {
     get(_target, property) {
@@ -803,6 +843,15 @@ globalThis.fs = {
   },
   remove: function (path) {
     return globalThis.__hostrun_invokeCapability("fs.remove", { path });
+  }
+};
+
+globalThis.tmp = {
+  file: function (prefix = "tmp", options = {}) {
+    return globalThis.__hostrun_tmpHandle("file", globalThis.__hostrun_nextTmpPath(prefix, options.suffix ?? ""));
+  },
+  dir: function (prefix = "tmp") {
+    return globalThis.__hostrun_tmpHandle("dir", globalThis.__hostrun_nextTmpPath(prefix, ""));
   }
 };
 

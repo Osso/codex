@@ -40,6 +40,8 @@ thread start. How the runtime is wired internally belongs in
 - [x] Expose `fs.write(path, content)` as an approval-gated file-write helper.
 - [x] Expose `fs.writeJson(path, value)`, `fs.writeYaml(path, value)`, and `fs.writeCsv(path, rows)` for structured file writes.
 - [ ] Expose `tmp.file(prefix)` and `tmp.dir(prefix)` with automatic cleanup and explicit `.cleanup()` support.
+- [x] Expose `tmp.file(prefix, options)` and `tmp.dir(prefix)` handles with deterministic `/tmp/hostrun-*` paths and approval-gated explicit `.cleanup()`.
+- [x] `tmp.file` handles support approval-gated `.write`, `.writeJson`, `.writeYaml`, and `.writeCsv`.
 - [ ] Expose `rclone.deletefile(target)` and `rclone.lsf(target, options)` as readable wrappers for common rclone workflows.
 - [x] Expose `rclone.deletefile(target)` as an approval-gated rclone delete helper.
 - [x] Expose `rclone.lsf(target, options)` as a lazy command-builder wrapper.
