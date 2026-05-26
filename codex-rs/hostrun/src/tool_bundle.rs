@@ -196,7 +196,7 @@ mod tests {
             .executor()
             .execute(call(
                 "session-1",
-                "tools.rclone.deletefile({ target: 'spaces:bucket/probe.txt' })",
+                "rclone.deletefile('spaces:bucket/probe.txt')",
             ))
             .await
             .expect("tool output");

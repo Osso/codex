@@ -35,11 +35,13 @@ thread start. How the runtime is wired internally belongs in
 - [x] Expose `cli.<program>(...args)` as an approval-gated host command request.
 - [x] Preserve `cli.<program>` arguments as argv-style data rather than shell text.
 - [x] Include the command program and arguments in the approval request for `cli.<program>`.
-- [ ] Prefer public `fs.*`, `rclone.*`, `fd.*`, `rg.*`, `http.*`, and `cli.*` APIs in contributed instructions; keep `tools.*` internal or explicitly documented as a low-level bridge.
+- [x] Prefer public `fs.write` and `rclone.deletefile` in contributed instructions instead of their `tools.*` bridge forms.
 - [ ] Expose `fs.write(path, content)`, `fs.read(path)`, `fs.exists(path)`, and `fs.remove(path)` as approval-gated file helpers.
+- [x] Expose `fs.write(path, content)` as an approval-gated file-write helper.
 - [ ] Expose `fs.writeJson(path, value)`, `fs.writeYaml(path, value)`, and `fs.writeCsv(path, rows)` for structured file writes.
 - [ ] Expose `tmp.file(prefix)` and `tmp.dir(prefix)` with automatic cleanup and explicit `.cleanup()` support.
 - [ ] Expose `rclone.deletefile(target)` and `rclone.lsf(target, options)` as readable wrappers for common rclone workflows.
+- [x] Expose `rclone.deletefile(target)` as an approval-gated rclone delete helper.
 - [ ] Expose `fd.find`, `fd.files`, and `fd.dirs` as readable wrappers around `fdfind`/`fd`.
 - [ ] Expose `rg.search`, `rg.files`, and `rg.matches` as readable wrappers around ripgrep, including structured match parsing where possible.
 - [ ] Execute approved `cli.<program>` requests on the host and return exit status plus stdout/stderr handles or captured text.
@@ -147,7 +149,7 @@ thread start. How the runtime is wired internally belongs in
 
 ## Known gaps (current cycle)
 
-- [ ] Update contributed Hostrun instructions to use public `fs.*`, `rclone.*`, `fd.*`, `rg.*`, `http.*`, and `cli.*` APIs.
+- [ ] Update contributed Hostrun instructions to use public `fs.*`, `rclone.*`, `fd.*`, `rg.*`, `http.*`, and `cli.*` APIs; `fs.write` and `rclone.deletefile` are already public.
 - [ ] Implement public file, temp, rclone, fd, rg, and HTTP helpers with approval-aware host execution.
 - [ ] Implement the command builder API for `cli.<program>` so stdout/stderr redirects and stdin piping are real runtime behavior.
 - [ ] Add tests for stdout/stderr capture, redirects, stderr/stdout composition, stdin sources, stream-handle piping, and command graph approval text.

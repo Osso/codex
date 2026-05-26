@@ -24,8 +24,8 @@ Hostrun evaluates JavaScript in a persistent QuickJS session:
 - `console.log`, `console.info`, `console.warn`, `console.error`, and `console.debug` are captured in the tool result.
 - Arrays have `.containing(needle)` for substring filtering.
 - `cli.<program>(...args)` requests an approval-gated host command. For example, `cli.dmidecode()` runs `dmidecode`, and `cli.rg('needle', 'path')` runs `rg needle path`.
-- `tools.fs.write({ path, content })` requests an approval-gated host file write.
-- `tools.rclone.deletefile({ target })` requests an approval-gated `rclone deletefile`.
+- `fs.write(path, content)` requests an approval-gated host file write.
+- `rclone.deletefile(target)` requests an approval-gated `rclone deletefile`.
 
 Return a final expression value when useful.";
 
@@ -328,6 +328,8 @@ mod tests {
         assert_eq!(fragments.len(), 1);
         assert!(fragments[0].text().contains("ctx"));
         assert!(fragments[0].text().contains("cli.<program>(...args)"));
-        assert!(fragments[0].text().contains("tools.fs.write"));
+        assert!(fragments[0].text().contains("fs.write(path, content)"));
+        assert!(fragments[0].text().contains("rclone.deletefile(target)"));
+        assert!(!fragments[0].text().contains("tools.fs.write"));
     }
 }

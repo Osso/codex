@@ -278,6 +278,17 @@ if (!Array.prototype.containing) {
   });
 }
 
+globalThis.__hostrun_invokeCapability = function (path, payload) {
+  const response = JSON.parse(globalThis.__hostrun_invokeTool(path, JSON.stringify(payload ?? {})));
+  if (response.type === "needs_approval") {
+    throw new Error("__HOSTRUN_APPROVAL_REQUIRED__:" + JSON.stringify(response.approval));
+  }
+  if (response.type === "denied") {
+    throw new Error(response.reason);
+  }
+  return response.value;
+};
+
 globalThis.__hostrun_toolProxy = function (path) {
   return new Proxy(function () {}, {
     get(_target, property) {
@@ -285,19 +296,24 @@ globalThis.__hostrun_toolProxy = function (path) {
     },
     apply(_target, _thisArg, args) {
       const payload = args.length > 0 ? args[0] : {};
-      const response = JSON.parse(globalThis.__hostrun_invokeTool(path, JSON.stringify(payload)));
-      if (response.type === "needs_approval") {
-        throw new Error("__HOSTRUN_APPROVAL_REQUIRED__:" + JSON.stringify(response.approval));
-      }
-      if (response.type === "denied") {
-        throw new Error(response.reason);
-      }
-      return response.value;
+      return globalThis.__hostrun_invokeCapability(path, payload);
     }
   });
 };
 
 globalThis.tools = globalThis.__hostrun_toolProxy("");
+
+globalThis.fs = {
+  write: function (path, content) {
+    return globalThis.__hostrun_invokeCapability("fs.write", { path, content });
+  }
+};
+
+globalThis.rclone = {
+  deletefile: function (target) {
+    return globalThis.__hostrun_invokeCapability("rclone.deletefile", { target });
+  }
+};
 
 globalThis.__hostrun_cliProxy = function (path) {
   return new Proxy(function () {}, {
@@ -393,6 +409,44 @@ mod tests {
         assert_eq!(
             approval.args,
             json!({ "path": "/tmp/hostrun.txt", "content": "hello" })
+        );
+    }
+
+    #[test]
+    fn public_fs_write_returns_approval() {
+        let session = HostrunSession::new().expect("session");
+
+        let result = session
+            .eval("fs.write('/tmp/hostrun.txt', 'hello');")
+            .expect("approval");
+
+        assert_eq!(result.result_type, "needs_approval");
+        let approval = result.approval.expect("approval");
+        assert_eq!(approval.id, "fs.write:/tmp/hostrun.txt");
+        assert_eq!(approval.tool, "fs.write");
+        assert_eq!(approval.summary, "Write 5 bytes to /tmp/hostrun.txt");
+        assert_eq!(
+            approval.args,
+            json!({ "path": "/tmp/hostrun.txt", "content": "hello" })
+        );
+    }
+
+    #[test]
+    fn public_rclone_deletefile_returns_approval() {
+        let session = HostrunSession::new().expect("session");
+
+        let result = session
+            .eval("rclone.deletefile('spaces:bucket/probe.txt');")
+            .expect("approval");
+
+        assert_eq!(result.result_type, "needs_approval");
+        let approval = result.approval.expect("approval");
+        assert_eq!(approval.id, "rclone.deletefile:spaces:bucket/probe.txt");
+        assert_eq!(approval.tool, "rclone.deletefile");
+        assert_eq!(approval.summary, "Delete spaces:bucket/probe.txt");
+        assert_eq!(
+            approval.args,
+            json!({ "target": "spaces:bucket/probe.txt" })
         );
     }
 
