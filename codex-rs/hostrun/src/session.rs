@@ -410,8 +410,41 @@ fn stdin_bytes(stdin: &Value) -> Result<Vec<u8>, HostrunSessionError> {
         "tsv" => serialize_delimited_rows(stdin.get("rows"), "\t"),
         "jsonLines" => serialize_json_lines(stdin.get("values")),
         "lines" => serialize_lines(stdin.get("lines")),
+        "stream" => stream_stdin_bytes(stdin.get("source")),
         other => Err(HostrunSessionError::Eval(format!(
             "unsupported stdin source type: {other}"
+        ))),
+    }
+}
+
+fn stream_stdin_bytes(source: Option<&Value>) -> Result<Vec<u8>, HostrunSessionError> {
+    let source = source
+        .ok_or_else(|| HostrunSessionError::Eval("stdin stream source is required".to_string()))?;
+    let stream = source
+        .get("stream")
+        .and_then(Value::as_str)
+        .unwrap_or("stdout");
+    let command = source
+        .get("command")
+        .ok_or_else(|| HostrunSessionError::Eval("stdin stream command is required".to_string()))?;
+    let Value::Object(command) = command else {
+        return Err(HostrunSessionError::Eval(
+            "stdin stream command must be an object".to_string(),
+        ));
+    };
+    let program = command
+        .get("program")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            HostrunSessionError::Eval("stdin stream command program is required".to_string())
+        })?;
+    let argv = cli_payload_args(command)?;
+    let output = run_cli_process(program, &argv, None)?;
+    match stream {
+        "stdout" => Ok(output.stdout),
+        "stderr" => Ok(output.stderr),
+        other => Err(HostrunSessionError::Eval(format!(
+            "unsupported stdin stream source: {other}"
         ))),
     }
 }

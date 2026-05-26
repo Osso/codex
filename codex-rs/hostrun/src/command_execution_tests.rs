@@ -201,3 +201,30 @@ fn approved_cli_command_serializes_structured_stdin_sources() {
         "{\"name\":\"alpha\"}\n{\"ok\":true}\n"
     );
 }
+
+#[test]
+fn approved_cli_command_pipes_from_upstream_stdout_and_stderr() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+
+    let stdout = session
+        .eval(
+            "const source = cli.printf('from stdout');
+             cli.cat().stdin(source.stdout).stdout.text().run();",
+        )
+        .expect("stdout pipe");
+    assert_eq!(
+        stdout.value.expect("stdout value")["stdout"],
+        json!("from stdout")
+    );
+
+    let stderr = session
+        .eval(
+            "const source = cli.sh('-c', 'printf from-stderr >&2');
+             cli.cat().stdin(source.stderr).stdout.text().run();",
+        )
+        .expect("stderr pipe");
+    assert_eq!(
+        stderr.value.expect("stderr value")["stdout"],
+        json!("from-stderr")
+    );
+}
