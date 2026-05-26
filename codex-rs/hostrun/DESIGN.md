@@ -63,12 +63,13 @@ The first Codex integration point is the existing contributed-tool seam, not a n
 
 ```json
 {
-  "session_id": "session-1",
   "code": "ctx.files = tools.rclone.lsf({ remote: 'spaces:bucket' })"
 }
 ```
 
-The Rust executor validates that input, feeds it as JSON to an injected Hostrun runner process, and returns the runner's structured JSON output unchanged. The normal runner mode is long-lived JSONL: Codex writes one eval request per line, the runner keeps a `HostrunSession` map keyed by `session_id`, and replies with one JSON result line per request. This keeps `ctx` alive across separate `hostrun_eval` calls while preserving an easy one-shot CLI mode for smoke tests.
+`session_id` is not part of the model-visible schema because strict tool schemas require every declared property to be required. Hostrun uses the current default tool session implicitly; the Rust parser still accepts `session_id` for internal compatibility while the visible tool surface stays simple.
+
+The Rust executor validates that input, evaluates it inside an embedded QuickJS `HostrunSession`, and returns structured JSON. The tool bundle keeps a `HostrunSession` map keyed by `session_id`, so `ctx` stays alive across separate `hostrun_eval` calls. Completed results echo the executed code and any `console.log` / `console.debug` / `console.info` / `console.warn` / `console.error` messages so the UI can render a bash-like "what ran" block.
 
 That keeps Codex-side approval rendering able to see a real shape such as:
 
@@ -89,12 +90,7 @@ That keeps Codex-side approval rendering able to see a real shape such as:
 This is intentionally a thin path. It proves Codex can host Hostrun as an ordinary function tool before we commit to deeper `codex-core` registration or TUI rendering.
 
 Codex app-server owns the runner lifecycle, but Hostrun is hidden unless the `hostrun` experimental feature is enabled. When enabled, session startup asks `codex-hostrun` for a managed runner path; if `codex-rs/hostrun/js/dist/cli.js` is missing, `codex-hostrun` runs:
-
-```sh
-npx pnpm --filter @openai/codex-hostrun-js build
-```
-
-Then app-server registers the resulting runner as the `hostrun_eval` extension tool. The Rust executor starts managed `.js` runners with `node <runner> --serve` instead of executing the file directly, so generated JavaScript does not depend on executable permission bits. `CODEX_HOSTRUN_RUNNER` remains only as a developer override for testing a different runner path.
+Codex app-server owns registration, but the normal runtime is now fully embedded in `codex-hostrun`; enabling `hostrun` registers the `hostrun_eval` extension tool without building or spawning `@openai/codex-hostrun-js`. The JavaScript package remains a reference spike until its useful tests and docs are either ported or deleted.
 
 ## Sandbox and Capabilities
 

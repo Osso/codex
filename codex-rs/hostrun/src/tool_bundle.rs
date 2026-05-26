@@ -1,13 +1,3 @@
-use std::io::BufRead;
-use std::io::BufReader;
-use std::io::Write;
-use std::path::Path;
-use std::path::PathBuf;
-use std::process::Child;
-use std::process::ChildStdin;
-use std::process::ChildStdout;
-use std::process::Command;
-use std::process::Stdio;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -21,49 +11,56 @@ use serde::Deserialize;
 use serde_json::Value;
 use serde_json::json;
 
-#[derive(Clone, Debug)]
-pub struct HostrunToolConfig {
-    runner: PathBuf,
-}
+use crate::HostrunSessionStore;
+
+#[derive(Clone, Debug, Default)]
+pub struct HostrunToolConfig;
 
 impl HostrunToolConfig {
-    pub fn new(runner: impl AsRef<Path>) -> Self {
-        Self {
-            runner: runner.as_ref().to_path_buf(),
-        }
+    pub fn new(_runner: impl AsRef<std::path::Path>) -> Self {
+        Self
     }
 }
 
-pub fn hostrun_tool_bundle(config: HostrunToolConfig) -> ToolBundle {
+pub fn hostrun_tool_bundle(_config: HostrunToolConfig) -> ToolBundle {
     ToolBundle::new(
         hostrun_eval_spec(),
         Arc::new(HostrunToolExecutor {
-            config,
-            runner: Mutex::new(None),
+            sessions: Mutex::new(HostrunSessionStore::new()),
         }),
     )
+}
+
+pub fn embedded_hostrun_tool_bundle() -> ToolBundle {
+    hostrun_tool_bundle(HostrunToolConfig)
 }
 
 fn hostrun_eval_spec() -> FunctionToolSpec {
     FunctionToolSpec {
         name: "hostrun_eval".to_string(),
-        description: "Evaluate JavaScript in a Hostrun session.".to_string(),
+        description: concat!(
+            "Evaluate JavaScript in a persistent Hostrun QuickJS session. ",
+            "Available globals: `ctx` persists across calls; `console.log/info/warn/error/debug` ",
+            "are captured in the result; arrays have `.containing(needle)` for substring filtering. ",
+            "Use `tools.fs.write({ path, content })` to request an approval-gated host file write. ",
+            "Use `tools.rclone.deletefile({ target })` to request an approval-gated rclone delete. ",
+            "Return a final expression value when useful."
+        )
+        .to_string(),
         strict: true,
         parameters: json!({
             "type": "object",
             "properties": {
-                "session_id": { "type": "string" },
                 "code": { "type": "string" }
             },
-            "required": ["session_id", "code"],
+            "required": ["code"],
             "additionalProperties": false
         }),
     }
 }
 
 struct HostrunToolExecutor {
-    config: HostrunToolConfig,
-    runner: Mutex<Option<PersistentRunner>>,
+    sessions: Mutex<HostrunSessionStore>,
 }
 
 impl ToolExecutor for HostrunToolExecutor {
@@ -77,126 +74,46 @@ impl ToolExecutor for HostrunToolExecutor {
 
 impl HostrunToolExecutor {
     fn run_eval(&self, input: &HostrunEvalArguments) -> Result<Value, ToolError> {
-        let mut runner_slot = self
-            .runner
+        let mut sessions = self
+            .sessions
             .lock()
-            .map_err(|_| ToolError::fatal("Hostrun runner lock was poisoned"))?;
-        if runner_slot.is_none() {
-            *runner_slot = Some(PersistentRunner::start(&self.config.runner)?);
-        }
-        let runner = runner_slot
-            .as_mut()
-            .ok_or_else(|| ToolError::fatal("Hostrun runner was not initialized"))?;
+            .map_err(|_| ToolError::fatal("Hostrun session lock was poisoned"))?;
+        let result = sessions
+            .eval(
+                input.session_id.as_deref().unwrap_or("default"),
+                &input.code,
+            )
+            .map_err(|error| ToolError::respond_to_model(error.to_string()))?;
 
-        runner.eval(input)
+        serde_json::to_value(result)
+            .map_err(|error| ToolError::fatal(format!("failed to encode Hostrun eval: {error}")))
     }
 }
 
 #[derive(Deserialize, serde::Serialize)]
 struct HostrunEvalArguments {
-    session_id: String,
+    session_id: Option<String>,
     code: String,
 }
 
 fn parse_eval_arguments(arguments: &str) -> Result<HostrunEvalArguments, ToolError> {
-    serde_json::from_str(arguments).map_err(|error| {
-        ToolError::respond_to_model(format!("Invalid Hostrun eval arguments: {error}"))
-    })
-}
-
-struct PersistentRunner {
-    _child: Child,
-    stdin: ChildStdin,
-    stdout: BufReader<ChildStdout>,
-}
-
-impl PersistentRunner {
-    fn start(runner: &Path) -> Result<Self, ToolError> {
-        let mut command = runner_command(runner);
-        let mut child = command
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|error| {
-                ToolError::respond_to_model(format!("failed to start Hostrun runner: {error}"))
-            })?;
-        let stdin = child
-            .stdin
-            .take()
-            .ok_or_else(|| ToolError::fatal("Hostrun runner stdin was unavailable"))?;
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| ToolError::fatal("Hostrun runner stdout was unavailable"))?;
-
-        Ok(Self {
-            _child: child,
-            stdin,
-            stdout: BufReader::new(stdout),
-        })
-    }
-
-    fn eval(&mut self, input: &HostrunEvalArguments) -> Result<Value, ToolError> {
-        let input_json = serde_json::to_vec(input)
-            .map_err(|error| ToolError::fatal(format!("failed to encode Hostrun eval: {error}")))?;
-
-        self.stdin
-            .write_all(&input_json)
-            .map_err(|error| ToolError::fatal(format!("failed to write Hostrun eval: {error}")))?;
-        self.stdin
-            .write_all(b"\n")
-            .map_err(|error| ToolError::fatal(format!("failed to write Hostrun eval: {error}")))?;
-        self.stdin
-            .flush()
-            .map_err(|error| ToolError::fatal(format!("failed to flush Hostrun eval: {error}")))?;
-
-        let mut output = String::new();
-        let bytes_read = self.stdout.read_line(&mut output).map_err(|error| {
-            ToolError::fatal(format!("failed to read Hostrun runner output: {error}"))
-        })?;
-        if bytes_read == 0 {
-            return Err(ToolError::fatal("Hostrun runner exited without output"));
-        }
-
-        serde_json::from_str(output.trim_end()).map_err(|error| {
-            ToolError::fatal(format!("Hostrun runner returned invalid JSON: {error}"))
-        })
-    }
-}
-
-fn runner_command(runner: &Path) -> Command {
-    if runner
-        .extension()
-        .is_some_and(|extension| extension == "js")
-    {
-        let mut command = Command::new("node");
-        command.arg(runner).arg("--serve");
-        return command;
-    }
-
-    let mut command = Command::new(runner);
-    command.arg("--serve");
-    command
+    serde_json::from_str(arguments)
+        .map_err(|error| ToolError::respond_to_model(format!("invalid Hostrun arguments: {error}")))
 }
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-    use std::os::unix::fs::PermissionsExt;
-    use std::path::Path;
-
     use codex_tool_api::ToolCall;
     use codex_tool_api::ToolError;
     use serde_json::json;
-    use tempfile::TempDir;
 
     use super::HostrunToolConfig;
+    use super::embedded_hostrun_tool_bundle;
     use super::hostrun_tool_bundle;
 
     #[test]
     fn hostrun_eval_tool_spec_accepts_session_id_and_code() {
-        let bundle = hostrun_tool_bundle(HostrunToolConfig::new("/bin/hostrun-runner"));
+        let bundle = embedded_hostrun_tool_bundle();
 
         assert_eq!(bundle.tool_name(), "hostrun_eval");
         assert!(bundle.spec().strict);
@@ -205,32 +122,31 @@ mod tests {
             json!({
                 "type": "object",
                 "properties": {
-                    "session_id": { "type": "string" },
                     "code": { "type": "string" }
                 },
-                "required": ["session_id", "code"],
+                "required": ["code"],
                 "additionalProperties": false
             })
         );
     }
 
     #[tokio::test(flavor = "current_thread")]
-    async fn invalid_arguments_return_model_visible_error() {
-        let bundle = hostrun_tool_bundle(HostrunToolConfig::new("/bin/hostrun-runner"));
+    async fn missing_code_returns_model_visible_error() {
+        let bundle = embedded_hostrun_tool_bundle();
         let call = ToolCall {
             call_id: "call-1".to_string(),
-            arguments: json!({ "code": "1 + 1" }).to_string(),
+            arguments: json!({ "session_id": "session-1" }).to_string(),
         };
 
         let error = bundle
             .executor()
             .execute(call)
             .await
-            .expect_err("missing session id should fail");
+            .expect_err("missing code should fail");
 
         match error {
             ToolError::RespondToModel(message) => {
-                assert!(message.contains("missing field `session_id`"));
+                assert!(message.contains("missing field `code`"));
             }
             ToolError::Fatal(message) => {
                 panic!("expected model-visible error, got fatal error: {message}");
@@ -239,36 +155,66 @@ mod tests {
     }
 
     #[tokio::test(flavor = "current_thread")]
-    async fn executor_returns_structured_runner_json() {
-        let temp_dir = TempDir::new().expect("temp dir");
-        let runner = temp_dir.path().join("hostrun-runner");
-        write_runner(
-            &runner,
-            r#"#!/bin/sh
-read input
-printf '%s\n' '{"type":"needs_approval","approval":{"id":"approval-1","tool":"rclone.deletefile","summary":"Delete probe","args":{"target":"spaces:bucket/probe.txt"}}}'
-"#,
-        );
-        let bundle = hostrun_tool_bundle(HostrunToolConfig::new(&runner));
-        let call = ToolCall {
+    async fn executor_returns_quickjs_eval_json() {
+        let bundle = embedded_hostrun_tool_bundle();
+
+        let output = bundle
+            .executor()
+            .execute(call("session-1", "ctx.count = 41; ctx.count + 1;"))
+            .await
+            .expect("tool output");
+
+        assert_eq!(output["type"], json!("completed"));
+        assert_eq!(output["executed"], json!("ctx.count = 41; ctx.count + 1;"));
+        assert_eq!(output["value"], json!(42));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn executor_defaults_missing_session_id_to_thread_session() {
+        let bundle = embedded_hostrun_tool_bundle();
+        let first = ToolCall {
             call_id: "call-1".to_string(),
-            arguments: json!({
-                "session_id": "session-1",
-                "code": "tools.rclone.deletefile({ target: 'spaces:bucket/probe.txt' })"
-            })
-            .to_string(),
+            arguments: json!({ "code": "ctx.count = 7; ctx.count;" }).to_string(),
+        };
+        let second = ToolCall {
+            call_id: "call-2".to_string(),
+            arguments: json!({ "code": "ctx.count += 1; ctx.count;" }).to_string(),
         };
 
-        let output = bundle.executor().execute(call).await.expect("tool output");
+        let first_output = bundle.executor().execute(first).await.expect("first eval");
+        let second_output = bundle
+            .executor()
+            .execute(second)
+            .await
+            .expect("second eval");
+
+        assert_eq!(first_output["value"], json!(7));
+        assert_eq!(second_output["value"], json!(8));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn executor_returns_structured_approval_json() {
+        let bundle = embedded_hostrun_tool_bundle();
+
+        let output = bundle
+            .executor()
+            .execute(call(
+                "session-1",
+                "tools.rclone.deletefile({ target: 'spaces:bucket/probe.txt' })",
+            ))
+            .await
+            .expect("tool output");
 
         assert_eq!(
             output,
             json!({
                 "type": "needs_approval",
+                "executed": "",
+                "value": null,
                 "approval": {
-                    "id": "approval-1",
+                    "id": "rclone.deletefile:spaces:bucket/probe.txt",
                     "tool": "rclone.deletefile",
-                    "summary": "Delete probe",
+                    "summary": "Delete spaces:bucket/probe.txt",
                     "args": {
                         "target": "spaces:bucket/probe.txt"
                     }
@@ -278,81 +224,35 @@ printf '%s\n' '{"type":"needs_approval","approval":{"id":"approval-1","tool":"rc
     }
 
     #[tokio::test(flavor = "current_thread")]
-    async fn executor_reuses_one_runner_process_across_calls() {
-        let temp_dir = TempDir::new().expect("temp dir");
-        let runner = temp_dir.path().join("hostrun-runner");
-        write_runner(
-            &runner,
-            r#"#!/bin/sh
-count=0
-while read input; do
-  count=$((count + 1))
-  printf '{"type":"completed","value":%s}\n' "$count"
-done
-"#,
-        );
-        let bundle = hostrun_tool_bundle(HostrunToolConfig::new(&runner));
+    async fn executor_reuses_one_quickjs_session_across_calls() {
+        let bundle = embedded_hostrun_tool_bundle();
 
         let first = bundle
             .executor()
-            .execute(call("session-1", "ctx.count = 1"))
+            .execute(call("session-1", "ctx.count = 1; ctx.count;"))
             .await
             .expect("first eval");
         let second = bundle
             .executor()
-            .execute(call("session-1", "ctx.count += 1"))
+            .execute(call("session-1", "ctx.count += 1; ctx.count;"))
             .await
             .expect("second eval");
 
-        assert_eq!(first, json!({ "type": "completed", "value": 1 }));
-        assert_eq!(second, json!({ "type": "completed", "value": 2 }));
+        assert_eq!(first["value"], json!(1));
+        assert_eq!(second["value"], json!(2));
     }
 
     #[tokio::test(flavor = "current_thread")]
-    async fn executor_starts_non_executable_js_runner_with_node() {
-        let temp_dir = TempDir::new().expect("temp dir");
-        let runner = temp_dir.path().join("hostrun-runner.js");
-        fs::write(
-            &runner,
-            r#"import process from "node:process";
-
-for await (const _chunk of process.stdin) {
-  process.stdout.write('{"type":"completed","value":"node"}\n');
-}
-"#,
-        )
-        .expect("write js runner");
-        let bundle = hostrun_tool_bundle(HostrunToolConfig::new(&runner));
+    async fn legacy_runner_config_is_ignored_by_embedded_runtime() {
+        let bundle = hostrun_tool_bundle(HostrunToolConfig::new("/missing/runner.js"));
 
         let output = bundle
             .executor()
-            .execute(call("session-1", "ctx.value = 'node'"))
+            .execute(call("session-1", "1 + 1"))
             .await
-            .expect("js runner output");
+            .expect("embedded runtime does not spawn runner");
 
-        assert_eq!(output, json!({ "type": "completed", "value": "node" }));
-    }
-
-    #[tokio::test(flavor = "current_thread")]
-    async fn runner_spawn_errors_are_model_visible() {
-        let temp_dir = TempDir::new().expect("temp dir");
-        let runner = temp_dir.path().join("missing-runner");
-        let bundle = hostrun_tool_bundle(HostrunToolConfig::new(&runner));
-
-        let error = bundle
-            .executor()
-            .execute(call("session-1", "ctx.value = 'node'"))
-            .await
-            .expect_err("missing runner should fail");
-
-        match error {
-            ToolError::RespondToModel(message) => {
-                assert!(message.contains("failed to start Hostrun runner"));
-            }
-            ToolError::Fatal(message) => {
-                panic!("expected model-visible error, got fatal error: {message}");
-            }
-        }
+        assert_eq!(output["value"], json!(2));
     }
 
     fn call(session_id: &str, code: &str) -> ToolCall {
@@ -364,12 +264,5 @@ for await (const _chunk of process.stdin) {
             })
             .to_string(),
         }
-    }
-
-    fn write_runner(path: &Path, content: &str) {
-        fs::write(path, content).expect("write runner");
-        let mut permissions = fs::metadata(path).expect("runner metadata").permissions();
-        permissions.set_mode(0o755);
-        fs::set_permissions(path, permissions).expect("runner executable");
     }
 }

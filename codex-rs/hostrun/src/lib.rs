@@ -1,5 +1,6 @@
 //! Hostrun will provide a stateful, approval-readable host execution runtime.
 
+mod session;
 mod tool_bundle;
 mod tool_contributor;
 
@@ -8,7 +9,13 @@ use std::collections::BTreeMap;
 use serde::Deserialize;
 use serde::Serialize;
 
+pub use session::HostrunApprovalRequest;
+pub use session::HostrunEvalResult;
+pub use session::HostrunSession;
+pub use session::HostrunSessionError;
+pub use session::HostrunSessionStore;
 pub use tool_bundle::HostrunToolConfig;
+pub use tool_bundle::embedded_hostrun_tool_bundle;
 pub use tool_bundle::hostrun_tool_bundle;
 pub use tool_contributor::HOSTRUN_RUNNER_ENV;
 pub use tool_contributor::HostrunRunnerLifecycle;

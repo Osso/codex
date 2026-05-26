@@ -12,6 +12,7 @@ use codex_extension_api::ToolBundle;
 use codex_extension_api::ToolContributor;
 
 use crate::HostrunToolConfig;
+use crate::embedded_hostrun_tool_bundle;
 use crate::hostrun_tool_bundle;
 
 pub const HOSTRUN_RUNNER_ENV: &str = "CODEX_HOSTRUN_RUNNER";
@@ -86,11 +87,7 @@ where
             return;
         }
 
-        let state = match HostrunRunnerLifecycle::managed_package().ensure_runner() {
-            Ok(runner) => HostrunFeatureState::enabled(runner),
-            Err(_error) => HostrunFeatureState::disabled(),
-        };
-        thread_store.insert(state);
+        thread_store.insert(HostrunFeatureState::enabled());
     }
 }
 
@@ -106,28 +103,26 @@ where
         let Some(state) = thread_store.get::<HostrunFeatureState>() else {
             return Vec::new();
         };
-        let Some(runner) = state.runner.as_ref() else {
+        if !state.enabled {
             return Vec::new();
-        };
+        }
 
-        vec![hostrun_tool_bundle(HostrunToolConfig::new(runner))]
+        vec![embedded_hostrun_tool_bundle()]
     }
 }
 
 #[derive(Clone, Debug)]
 struct HostrunFeatureState {
-    runner: Option<PathBuf>,
+    enabled: bool,
 }
 
 impl HostrunFeatureState {
     fn disabled() -> Self {
-        Self { runner: None }
+        Self { enabled: false }
     }
 
-    fn enabled(runner: PathBuf) -> Self {
-        Self {
-            runner: Some(runner),
-        }
+    fn enabled() -> Self {
+        Self { enabled: true }
     }
 }
 
