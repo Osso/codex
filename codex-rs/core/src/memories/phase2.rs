@@ -1,5 +1,5 @@
 use crate::agent::AgentStatus;
-use crate::agent::status::is_final as is_final_agent_status;
+use crate::agent::status::agent_status_is_terminal;
 use crate::config::Config;
 use crate::memories::extensions::PendingExtensionResourceRemoval;
 use crate::memories::extensions::find_old_extension_resources;
@@ -440,7 +440,7 @@ mod agent {
 
         loop {
             let status = rx.borrow().clone();
-            if is_final_agent_status(&status) {
+            if agent_status_is_terminal(&status) {
                 break status;
             }
 

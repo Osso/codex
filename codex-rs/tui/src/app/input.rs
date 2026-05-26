@@ -100,6 +100,17 @@ impl App {
         // editing behavior for moving across words inside a draft.
         let allow_agent_word_motion_fallback = !self.enhanced_keys_supported
             && self.chat_widget.composer_text_with_pending().is_empty();
+        if self
+            .handle_agent_slot_shortcut(tui, app_server, key_event)
+            .await
+        {
+            return;
+        }
+        if close_agent_shortcut_matches(key_event)
+            && self.maybe_close_active_agent_thread(tui, app_server).await
+        {
+            return;
+        }
         if self.overlay.is_none()
             && self.chat_widget.no_modal_or_popup_active()
             // Alt+Left/Right are also natural word-motion keys in the composer. Keep agent
@@ -249,6 +260,28 @@ impl App {
                 self.chat_widget.handle_key_event(key_event);
             }
         };
+    }
+
+    async fn handle_agent_slot_shortcut(
+        &mut self,
+        tui: &mut tui::Tui,
+        app_server: &mut AppServerSession,
+        key_event: KeyEvent,
+    ) -> bool {
+        if self.overlay.is_some() || !self.chat_widget.no_modal_or_popup_active() {
+            return false;
+        }
+
+        let Some(slot) = agent_slot_shortcut(key_event) else {
+            return false;
+        };
+
+        if let Some(thread_id) = self.slot_thread_id_with_backfill(app_server, slot).await {
+            let _ = self
+                .select_agent_thread_and_discard_side(tui, app_server, thread_id)
+                .await;
+        }
+        true
     }
 
     pub(super) fn should_handle_backtrack_esc(&self, key_event: KeyEvent) -> bool {

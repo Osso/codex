@@ -49,6 +49,7 @@ use crate::model_migration::ModelMigrationOutcome;
 use crate::model_migration::migration_copy_for_models;
 use crate::model_migration::run_model_migration_prompt;
 use crate::multi_agents::agent_picker_status_dot_spans;
+use crate::multi_agents::agent_slot_shortcut;
 use crate::multi_agents::format_agent_picker_item_name;
 use crate::multi_agents::next_agent_shortcut_matches;
 use crate::multi_agents::previous_agent_shortcut_matches;
@@ -151,6 +152,7 @@ use ratatui::widgets::Paragraph;
 use ratatui::widgets::Wrap;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::io::Write;
 use std::path::Path;
@@ -238,17 +240,17 @@ fn collab_receiver_thread_ids(notification: &ServerNotification) -> Option<&[Str
     }
 }
 
-fn collab_receiver_is_not_found(
-    notification: &ServerNotification,
-    receiver_thread_id: &str,
-) -> bool {
+fn collab_receiver_is_final(notification: &ServerNotification, receiver_thread_id: &str) -> bool {
     match notification {
         ServerNotification::ItemCompleted(notification) => match &notification.item {
             ThreadItem::CollabAgentToolCall { agents_states, .. } => {
                 agents_states.get(receiver_thread_id).is_some_and(|state| {
                     matches!(
                         &state.status,
-                        codex_app_server_protocol::CollabAgentStatus::NotFound
+                        codex_app_server_protocol::CollabAgentStatus::Completed
+                            | codex_app_server_protocol::CollabAgentStatus::Errored
+                            | codex_app_server_protocol::CollabAgentStatus::Shutdown
+                            | codex_app_server_protocol::CollabAgentStatus::NotFound
                     )
                 })
             }

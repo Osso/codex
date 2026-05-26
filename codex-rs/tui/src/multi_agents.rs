@@ -16,9 +16,7 @@ use codex_protocol::ThreadId;
 use codex_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
-#[cfg(target_os = "macos")]
 use crossterm::event::KeyEventKind;
-#[cfg(target_os = "macos")]
 use crossterm::event::KeyModifiers;
 use ratatui::style::Stylize;
 use ratatui::text::Line;
@@ -116,6 +114,31 @@ pub(crate) fn next_agent_shortcut_matches(
 ) -> bool {
     next_agent_shortcut().is_press(key_event)
         || next_agent_word_motion_fallback(key_event, allow_word_motion_fallback)
+}
+
+/// Returns the direct agent navigation slot for Alt+1 through Alt+9.
+pub(crate) fn agent_slot_shortcut(key_event: KeyEvent) -> Option<usize> {
+    if !matches!(key_event.kind, KeyEventKind::Press | KeyEventKind::Repeat) {
+        return None;
+    }
+
+    let (key, modifiers) = crate::key_hint::KeyBinding::from_event(key_event).parts();
+    if modifiers != KeyModifiers::ALT {
+        return None;
+    }
+
+    match key {
+        KeyCode::Char('1') => Some(1),
+        KeyCode::Char('2') => Some(2),
+        KeyCode::Char('3') => Some(3),
+        KeyCode::Char('4') => Some(4),
+        KeyCode::Char('5') => Some(5),
+        KeyCode::Char('6') => Some(6),
+        KeyCode::Char('7') => Some(7),
+        KeyCode::Char('8') => Some(8),
+        KeyCode::Char('9') => Some(9),
+        _ => None,
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -516,7 +539,7 @@ fn wait_complete_lines(
                 .then(|| (parsed_thread_id, agent_metadata(parsed_thread_id), status))
         })
         .collect::<Vec<_>>();
-    extras.sort_by(|left, right| left.0.to_string().cmp(&right.0.to_string()));
+    extras.sort_by_key(|left| left.0.to_string());
     entries.extend(extras);
 
     if entries.is_empty() {
@@ -780,6 +803,37 @@ mod tests {
             KeyEvent::new(KeyCode::Char('f'), crossterm::event::KeyModifiers::ALT,),
             /*allow_word_motion_fallback*/ false
         ));
+    }
+
+    #[test]
+    fn agent_slot_shortcut_matches_alt_digits_only() {
+        assert_eq!(
+            agent_slot_shortcut(KeyEvent::new(KeyCode::Char('1'), KeyModifiers::ALT)),
+            Some(1)
+        );
+        assert_eq!(
+            agent_slot_shortcut(KeyEvent::new(KeyCode::Char('9'), KeyModifiers::ALT)),
+            Some(9)
+        );
+        assert_eq!(
+            agent_slot_shortcut(KeyEvent::new(KeyCode::Char('1'), KeyModifiers::NONE)),
+            None
+        );
+        assert_eq!(
+            agent_slot_shortcut(KeyEvent::new(
+                KeyCode::Char('1'),
+                KeyModifiers::ALT | KeyModifiers::CONTROL,
+            )),
+            None
+        );
+        assert_eq!(
+            agent_slot_shortcut(KeyEvent::new_with_kind(
+                KeyCode::Char('1'),
+                KeyModifiers::ALT,
+                KeyEventKind::Release,
+            )),
+            None
+        );
     }
 
     #[test]

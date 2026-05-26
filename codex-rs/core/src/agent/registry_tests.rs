@@ -14,26 +14,31 @@ fn agent_metadata(thread_id: ThreadId) -> AgentMetadata {
     }
 }
 
+fn agent_metadata_with_nickname(thread_id: ThreadId, agent_nickname: &str) -> AgentMetadata {
+    AgentMetadata {
+        agent_id: Some(thread_id),
+        agent_nickname: Some(agent_nickname.to_string()),
+        ..Default::default()
+    }
+}
+
 #[test]
-fn format_agent_nickname_adds_ordinals_after_reset() {
+fn format_agent_nickname_adds_ordinal_suffixes() {
+    assert_eq!(format_agent_nickname("Plato", /*suffix_index*/ 0), "Plato");
     assert_eq!(
-        format_agent_nickname("Plato", /*nickname_reset_count*/ 0),
-        "Plato"
-    );
-    assert_eq!(
-        format_agent_nickname("Plato", /*nickname_reset_count*/ 1),
+        format_agent_nickname("Plato", /*suffix_index*/ 1),
         "Plato the 2nd"
     );
     assert_eq!(
-        format_agent_nickname("Plato", /*nickname_reset_count*/ 2),
+        format_agent_nickname("Plato", /*suffix_index*/ 2),
         "Plato the 3rd"
     );
     assert_eq!(
-        format_agent_nickname("Plato", /*nickname_reset_count*/ 10),
+        format_agent_nickname("Plato", /*suffix_index*/ 10),
         "Plato the 11th"
     );
     assert_eq!(
-        format_agent_nickname("Plato", /*nickname_reset_count*/ 20),
+        format_agent_nickname("Plato", /*suffix_index*/ 20),
         "Plato the 21st"
     );
 }
@@ -71,23 +76,15 @@ fn non_thread_spawn_subagents_default_to_depth_zero() {
 }
 
 #[test]
-fn reservation_drop_releases_slot() {
-    let registry = Arc::new(AgentRegistry::default());
-    let reservation = registry.reserve_spawn_slot(Some(1)).expect("reserve slot");
-    drop(reservation);
-
-    let reservation = registry.reserve_spawn_slot(Some(1)).expect("slot released");
-    drop(reservation);
-}
-
-#[test]
 fn commit_holds_slot_until_release() {
     let registry = Arc::new(AgentRegistry::default());
-    let reservation = registry.reserve_spawn_slot(Some(1)).expect("reserve slot");
+    registry
+        .ensure_spawn_limit(Some(1))
+        .expect("slot available");
     let thread_id = ThreadId::new();
-    reservation.commit(agent_metadata(thread_id));
+    registry.register_spawned_thread(agent_metadata(thread_id));
 
-    let err = match registry.reserve_spawn_slot(Some(1)) {
+    let err = match registry.ensure_spawn_limit(Some(1)) {
         Ok(_) => panic!("limit should be enforced"),
         Err(err) => err,
     };
@@ -97,22 +94,23 @@ fn commit_holds_slot_until_release() {
     assert_eq!(max_threads, 1);
 
     registry.release_spawned_thread(thread_id);
-    let reservation = registry
-        .reserve_spawn_slot(Some(1))
+    registry
+        .ensure_spawn_limit(Some(1))
         .expect("slot released after thread removal");
-    drop(reservation);
 }
 
 #[test]
 fn release_ignores_unknown_thread_id() {
     let registry = Arc::new(AgentRegistry::default());
-    let reservation = registry.reserve_spawn_slot(Some(1)).expect("reserve slot");
+    registry
+        .ensure_spawn_limit(Some(1))
+        .expect("slot available");
     let thread_id = ThreadId::new();
-    reservation.commit(agent_metadata(thread_id));
+    registry.register_spawned_thread(agent_metadata(thread_id));
 
     registry.release_spawned_thread(ThreadId::new());
 
-    let err = match registry.reserve_spawn_slot(Some(1)) {
+    let err = match registry.ensure_spawn_limit(Some(1)) {
         Ok(_) => panic!("limit should still be enforced"),
         Err(err) => err,
     };
@@ -122,28 +120,29 @@ fn release_ignores_unknown_thread_id() {
     assert_eq!(max_threads, 1);
 
     registry.release_spawned_thread(thread_id);
-    let reservation = registry
-        .reserve_spawn_slot(Some(1))
+    registry
+        .ensure_spawn_limit(Some(1))
         .expect("slot released after real thread removal");
-    drop(reservation);
 }
 
 #[test]
 fn release_is_idempotent_for_registered_threads() {
     let registry = Arc::new(AgentRegistry::default());
-    let reservation = registry.reserve_spawn_slot(Some(1)).expect("reserve slot");
+    registry
+        .ensure_spawn_limit(Some(1))
+        .expect("slot available");
     let first_id = ThreadId::new();
-    reservation.commit(agent_metadata(first_id));
+    registry.register_spawned_thread(agent_metadata(first_id));
 
     registry.release_spawned_thread(first_id);
 
-    let reservation = registry.reserve_spawn_slot(Some(1)).expect("slot reused");
+    registry.ensure_spawn_limit(Some(1)).expect("slot reused");
     let second_id = ThreadId::new();
-    reservation.commit(agent_metadata(second_id));
+    registry.register_spawned_thread(agent_metadata(second_id));
 
     registry.release_spawned_thread(first_id);
 
-    let err = match registry.reserve_spawn_slot(Some(1)) {
+    let err = match registry.ensure_spawn_limit(Some(1)) {
         Ok(_) => panic!("limit should still be enforced"),
         Err(err) => err,
     };
@@ -153,155 +152,99 @@ fn release_is_idempotent_for_registered_threads() {
     assert_eq!(max_threads, 1);
 
     registry.release_spawned_thread(second_id);
-    let reservation = registry
-        .reserve_spawn_slot(Some(1))
+    registry
+        .ensure_spawn_limit(Some(1))
         .expect("slot released after second thread removal");
-    drop(reservation);
 }
 
 #[test]
 fn release_threads_missing_from_drops_stale_counted_agents() {
     let registry = Arc::new(AgentRegistry::default());
     let stale_thread_id = ThreadId::new();
-    let reservation = registry.reserve_spawn_slot(Some(1)).expect("reserve slot");
-    reservation.commit(agent_metadata(stale_thread_id));
+    registry
+        .ensure_spawn_limit(Some(1))
+        .expect("slot available");
+    registry.register_spawned_thread(agent_metadata(stale_thread_id));
 
     registry.release_threads_missing_from(&HashSet::new());
 
-    let reservation = registry
-        .reserve_spawn_slot(Some(1))
+    registry
+        .ensure_spawn_limit(Some(1))
         .expect("stale counted agent should be released");
-    drop(reservation);
 }
 
 #[test]
-fn failed_spawn_keeps_nickname_marked_used() {
+fn unregistered_nickname_does_not_mark_name_used() {
     let registry = Arc::new(AgentRegistry::default());
-    let mut reservation = registry
-        .reserve_spawn_slot(/*max_threads*/ None)
-        .expect("reserve slot");
-    let agent_nickname = reservation
-        .reserve_agent_nickname_with_preference(&["alpha"], /*preferred*/ None)
+    let agent_nickname = registry
+        .reserve_agent_nickname(&["alpha"], /*preferred*/ None)
         .expect("reserve agent name");
     assert_eq!(agent_nickname, "alpha");
-    drop(reservation);
 
-    let mut reservation = registry
-        .reserve_spawn_slot(/*max_threads*/ None)
-        .expect("reserve slot");
-    let agent_nickname = reservation
-        .reserve_agent_nickname_with_preference(&["alpha", "beta"], /*preferred*/ None)
-        .expect("unused name should still be preferred");
-    assert_eq!(agent_nickname, "beta");
+    let agent_nickname = registry
+        .reserve_agent_nickname(&["alpha"], /*preferred*/ None)
+        .expect("unregistered name should remain available");
+    assert_eq!(agent_nickname, "alpha");
 }
 
 #[test]
-fn agent_nickname_resets_used_pool_when_exhausted() {
+fn active_duplicate_nickname_gets_next_suffix() {
     let registry = Arc::new(AgentRegistry::default());
-    let mut first = registry
-        .reserve_spawn_slot(/*max_threads*/ None)
-        .expect("reserve first slot");
-    let first_name = first
-        .reserve_agent_nickname_with_preference(&["alpha"], /*preferred*/ None)
+    let first_name = registry
+        .reserve_agent_nickname(&["alpha"], /*preferred*/ None)
         .expect("reserve first agent name");
     let first_id = ThreadId::new();
-    first.commit(agent_metadata(first_id));
     assert_eq!(first_name, "alpha");
+    registry.register_spawned_thread(agent_metadata_with_nickname(first_id, &first_name));
 
-    let mut second = registry
-        .reserve_spawn_slot(/*max_threads*/ None)
-        .expect("reserve second slot");
-    let second_name = second
-        .reserve_agent_nickname_with_preference(&["alpha"], /*preferred*/ None)
-        .expect("name should be reused after pool reset");
+    let second_name = registry
+        .reserve_agent_nickname(&["alpha"], /*preferred*/ None)
+        .expect("active duplicate should get a suffix");
     assert_eq!(second_name, "alpha the 2nd");
-    let active_agents = registry
-        .active_agents
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    assert_eq!(active_agents.nickname_reset_count, 1);
 }
 
 #[test]
-fn released_nickname_stays_used_until_pool_reset() {
+fn released_nickname_is_available_again() {
     let registry = Arc::new(AgentRegistry::default());
 
-    let mut first = registry
-        .reserve_spawn_slot(/*max_threads*/ None)
-        .expect("reserve first slot");
-    let first_name = first
-        .reserve_agent_nickname_with_preference(&["alpha"], /*preferred*/ None)
+    let first_name = registry
+        .reserve_agent_nickname(&["alpha"], /*preferred*/ None)
         .expect("reserve first agent name");
     let first_id = ThreadId::new();
-    first.commit(agent_metadata(first_id));
     assert_eq!(first_name, "alpha");
+    registry.register_spawned_thread(agent_metadata_with_nickname(first_id, &first_name));
 
     registry.release_spawned_thread(first_id);
 
-    let mut second = registry
-        .reserve_spawn_slot(/*max_threads*/ None)
-        .expect("reserve second slot");
-    let second_name = second
-        .reserve_agent_nickname_with_preference(&["alpha", "beta"], /*preferred*/ None)
-        .expect("released name should still be marked used");
-    assert_eq!(second_name, "beta");
-    let second_id = ThreadId::new();
-    second.commit(agent_metadata(second_id));
-    registry.release_spawned_thread(second_id);
-
-    let mut third = registry
-        .reserve_spawn_slot(/*max_threads*/ None)
-        .expect("reserve third slot");
-    let third_name = third
-        .reserve_agent_nickname_with_preference(&["alpha", "beta"], /*preferred*/ None)
-        .expect("pool reset should permit a duplicate");
-    let expected_names = HashSet::from(["alpha the 2nd".to_string(), "beta the 2nd".to_string()]);
-    assert!(expected_names.contains(&third_name));
-    let active_agents = registry
-        .active_agents
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    assert_eq!(active_agents.nickname_reset_count, 1);
+    let second_name = registry
+        .reserve_agent_nickname(&["alpha"], /*preferred*/ None)
+        .expect("released name should be available");
+    assert_eq!(second_name, "alpha");
 }
 
 #[test]
-fn repeated_resets_advance_the_ordinal_suffix() {
+fn released_suffix_nickname_is_available_again_while_base_is_active() {
     let registry = Arc::new(AgentRegistry::default());
 
-    let mut first = registry
-        .reserve_spawn_slot(/*max_threads*/ None)
-        .expect("reserve first slot");
-    let first_name = first
-        .reserve_agent_nickname_with_preference(&["Plato"], /*preferred*/ None)
+    let first_name = registry
+        .reserve_agent_nickname(&["Plato"], /*preferred*/ None)
         .expect("reserve first agent name");
     let first_id = ThreadId::new();
-    first.commit(agent_metadata(first_id));
     assert_eq!(first_name, "Plato");
-    registry.release_spawned_thread(first_id);
+    registry.register_spawned_thread(agent_metadata_with_nickname(first_id, &first_name));
 
-    let mut second = registry
-        .reserve_spawn_slot(/*max_threads*/ None)
-        .expect("reserve second slot");
-    let second_name = second
-        .reserve_agent_nickname_with_preference(&["Plato"], /*preferred*/ None)
+    let second_name = registry
+        .reserve_agent_nickname(&["Plato"], /*preferred*/ None)
         .expect("reserve second agent name");
     let second_id = ThreadId::new();
-    second.commit(agent_metadata(second_id));
     assert_eq!(second_name, "Plato the 2nd");
+    registry.register_spawned_thread(agent_metadata_with_nickname(second_id, &second_name));
     registry.release_spawned_thread(second_id);
 
-    let mut third = registry
-        .reserve_spawn_slot(/*max_threads*/ None)
-        .expect("reserve third slot");
-    let third_name = third
-        .reserve_agent_nickname_with_preference(&["Plato"], /*preferred*/ None)
+    let third_name = registry
+        .reserve_agent_nickname(&["Plato"], /*preferred*/ None)
         .expect("reserve third agent name");
-    assert_eq!(third_name, "Plato the 3rd");
-    let active_agents = registry
-        .active_agents
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    assert_eq!(active_agents.nickname_reset_count, 2);
+    assert_eq!(third_name, "Plato the 2nd");
 }
 
 #[test]
@@ -320,46 +263,31 @@ fn register_root_thread_indexes_root_path() {
 #[test]
 fn reserved_agent_path_is_released_when_spawn_fails() {
     let registry = Arc::new(AgentRegistry::default());
-    let mut first = registry
-        .reserve_spawn_slot(/*max_threads*/ None)
-        .expect("reserve first slot");
-    first
-        .reserve_agent_path(&agent_path("/root/researcher"))
+    let path = agent_path("/root/researcher");
+    registry
+        .reserve_agent_path(&path)
         .expect("reserve first path");
-    drop(first);
+    registry.release_reserved_agent_path(&path);
 
-    let mut second = registry
-        .reserve_spawn_slot(/*max_threads*/ None)
-        .expect("reserve second slot");
-    second
-        .reserve_agent_path(&agent_path("/root/researcher"))
-        .expect("dropped reservation should free the path");
+    registry
+        .reserve_agent_path(&path)
+        .expect("released reservation should free the path");
 }
 
 #[test]
 fn committed_agent_path_is_indexed_until_release() {
     let registry = Arc::new(AgentRegistry::default());
     let thread_id = ThreadId::new();
-    let mut reservation = registry
-        .reserve_spawn_slot(/*max_threads*/ None)
-        .expect("reserve slot");
-    reservation
-        .reserve_agent_path(&agent_path("/root/researcher"))
-        .expect("reserve path");
-    reservation.commit(AgentMetadata {
+    let path = agent_path("/root/researcher");
+    registry.reserve_agent_path(&path).expect("reserve path");
+    registry.register_spawned_thread(AgentMetadata {
         agent_id: Some(thread_id),
-        agent_path: Some(agent_path("/root/researcher")),
+        agent_path: Some(path.clone()),
         ..Default::default()
     });
 
-    assert_eq!(
-        registry.agent_id_for_path(&agent_path("/root/researcher")),
-        Some(thread_id)
-    );
+    assert_eq!(registry.agent_id_for_path(&path), Some(thread_id));
 
     registry.release_spawned_thread(thread_id);
-    assert_eq!(
-        registry.agent_id_for_path(&agent_path("/root/researcher")),
-        None
-    );
+    assert_eq!(registry.agent_id_for_path(&path), None);
 }

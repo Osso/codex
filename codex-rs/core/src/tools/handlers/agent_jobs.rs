@@ -1,7 +1,7 @@
 use crate::agent::control::SpawnAgentOptions;
 use crate::agent::exceeds_thread_spawn_depth_limit;
 use crate::agent::next_thread_spawn_depth;
-use crate::agent::status::is_final;
+use crate::agent::status::agent_status_is_terminal;
 use crate::config::Config;
 use crate::function_tool::FunctionCallError;
 use crate::session::session::Session;
@@ -398,7 +398,7 @@ async fn recover_running_items(
                 continue;
             }
         };
-        if is_final(&session.services.agent_control.get_status(thread_id).await) {
+        if agent_status_is_terminal(&session.services.agent_control.get_status(thread_id).await) {
             finalize_finished_item(
                 session.clone(),
                 db.clone(),
@@ -433,7 +433,7 @@ async fn find_finished_threads(
     let mut finished = Vec::new();
     for (thread_id, item) in active_items {
         let status = active_item_status(session.as_ref(), *thread_id, item).await;
-        if is_final(&status) {
+        if agent_status_is_terminal(&status) {
             finished.push((*thread_id, item.item_id.clone()));
         }
     }

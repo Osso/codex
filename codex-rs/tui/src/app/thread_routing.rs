@@ -848,10 +848,6 @@ impl App {
         };
 
         for receiver_thread_id in receiver_thread_ids {
-            if collab_receiver_is_not_found(notification, receiver_thread_id) {
-                continue;
-            }
-
             let Ok(thread_id) = ThreadId::from_string(receiver_thread_id) else {
                 tracing::warn!(
                     thread_id = receiver_thread_id,
@@ -859,6 +855,11 @@ impl App {
                 );
                 continue;
             };
+
+            if collab_receiver_is_final(notification, receiver_thread_id) {
+                self.mark_agent_picker_thread_closed(thread_id);
+                continue;
+            }
 
             if self.agent_navigation.get(&thread_id).is_some() {
                 continue;
@@ -1331,6 +1332,11 @@ impl App {
         );
         match event {
             ThreadBufferedEvent::Notification(notification) => {
+                if let ServerNotification::ThreadClosed(closed) = &notification
+                    && let Ok(thread_id) = ThreadId::from_string(closed.thread_id.as_str())
+                {
+                    self.mark_agent_picker_thread_closed(thread_id);
+                }
                 self.cache_collab_receiver_threads_for_notification(&notification);
                 self.chat_widget
                     .handle_server_notification(notification, /*replay_kind*/ None);

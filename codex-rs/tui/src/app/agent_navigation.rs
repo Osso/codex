@@ -33,7 +33,7 @@ use std::collections::HashMap;
 ///
 /// The core invariant is that `order` records first-seen thread ids exactly once, while `threads`
 /// stores the latest metadata for those ids. Mutation is intentionally funneled through `upsert`,
-/// `mark_closed`, and `clear` so those two collections do not drift semantically even if they are
+/// `remove`, and `clear` so those two collections do not drift semantically even if they are
 /// temporarily out of sync during teardown races.
 #[derive(Debug, Default)]
 pub(crate) struct AgentNavigationState {
@@ -94,23 +94,6 @@ impl AgentNavigationState {
                 is_closed,
             },
         );
-    }
-
-    /// Marks a thread as closed without removing it from the traversal cache.
-    ///
-    /// Closed threads stay in the picker and in spawn order so users can still review them and so
-    /// next/previous navigation does not reshuffle around disappearing entries. If a caller "cleans
-    /// this up" by deleting the entry instead, wraparound navigation will silently change shape
-    /// mid-session.
-    pub(crate) fn mark_closed(&mut self, thread_id: ThreadId) {
-        if let Some(entry) = self.threads.get_mut(&thread_id) {
-            entry.is_closed = true;
-        } else {
-            self.upsert(
-                thread_id, /*agent_nickname*/ None, /*agent_role*/ None,
-                /*is_closed*/ true,
-            );
-        }
     }
 
     /// Drops all cached picker state.
@@ -194,6 +177,28 @@ impl AgentNavigationState {
             }
         };
         Some(ordered_threads[next_idx].0)
+    }
+
+    /// Returns the thread bound to a direct navigation slot.
+    ///
+    /// Slot 1 is reserved for the primary thread. Slots 2-9 map to non-primary agent threads in
+    /// first-seen spawn order, matching the picker and next/previous traversal order.
+    pub(crate) fn slot_thread_id(
+        &self,
+        slot: usize,
+        primary_thread_id: Option<ThreadId>,
+    ) -> Option<ThreadId> {
+        match slot {
+            0 => None,
+            1 => primary_thread_id,
+            _ => self
+                .ordered_threads()
+                .into_iter()
+                .filter_map(|(thread_id, _)| {
+                    (Some(thread_id) != primary_thread_id).then_some(thread_id)
+                })
+                .nth(slot - 2),
+        }
     }
 
     /// Derives the contextual footer label for the currently displayed thread.
@@ -350,5 +355,43 @@ mod tests {
             state.active_agent_label(Some(main_thread_id), Some(main_thread_id)),
             Some("Main [default]".to_string())
         );
+    }
+
+    #[test]
+    fn slot_thread_id_maps_slot_one_to_primary_thread() {
+        let (state, main_thread_id, _, _) = populated_state();
+
+        assert_eq!(
+            state.slot_thread_id(1, Some(main_thread_id)),
+            Some(main_thread_id)
+        );
+    }
+
+    #[test]
+    fn slot_thread_id_maps_later_slots_to_agents_in_spawn_order() {
+        let (state, main_thread_id, first_agent_id, second_agent_id) = populated_state();
+
+        assert_eq!(
+            state.slot_thread_id(2, Some(main_thread_id)),
+            Some(first_agent_id)
+        );
+        assert_eq!(
+            state.slot_thread_id(3, Some(main_thread_id)),
+            Some(second_agent_id)
+        );
+        assert_eq!(state.slot_thread_id(4, Some(main_thread_id)), None);
+    }
+
+    #[test]
+    fn remove_drops_thread_from_direct_slots() {
+        let (mut state, main_thread_id, first_agent_id, second_agent_id) = populated_state();
+
+        state.remove(first_agent_id);
+
+        assert_eq!(
+            state.slot_thread_id(2, Some(main_thread_id)),
+            Some(second_agent_id)
+        );
+        assert_eq!(state.slot_thread_id(3, Some(main_thread_id)), None);
     }
 }

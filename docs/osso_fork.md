@@ -222,7 +222,7 @@ list back to the three current names.
 
 ## 9. Subagent / inter-agent communication polish
 
-**Purpose.** Five related improvements to v2 multi-agent UX:
+**Purpose.** Related improvements to v2 multi-agent UX:
 
 1. **Inter-agent message pretty-printing.** Subagent notifications and
    inter-agent messages arrive as JSON `InterAgentCommunication` blobs embedded
@@ -238,10 +238,24 @@ list back to the three current names.
    plumbing rather than an already-running agent loop.
 5. **Descendant-aware wait status.** `wait_agent` reports active descendant
    status across nested agents instead of only looking at direct children.
+6. **Direct agent navigation.** `Alt+1` switches back to the main thread and
+   `Alt+2..9` switch to live agents in spawn order, reusing the same
+   `AgentNavigationState` ordering as `/agent`.
+7. **Closed agents are removed from navigation.** Closed or `NotLoaded` agent
+   threads are pruned from `/agent`, adjacent navigation, and direct slot
+   shortcuts instead of lingering as replay-only ghost entries.
+8. **Agent-local `Ctrl+D`.** Pressing `Ctrl+D` while focused on an agent closes
+   that agent and returns to its parent/main thread; `Ctrl+D` on main keeps the
+   normal Codex quit behavior.
 
 **Key files.**
 - `codex-rs/tui/src/inter_agent_message.rs` (new module, self-contained)
 - `codex-rs/tui/src/chatwidget.rs`
+- `codex-rs/tui/src/app/agent_navigation.rs`
+- `codex-rs/tui/src/app/input.rs`
+- `codex-rs/tui/src/app/platform_actions.rs`
+- `codex-rs/tui/src/app/session_lifecycle.rs`
+- `codex-rs/tui/src/app/side.rs`
 - `codex-rs/core/src/tools/handlers/multi_agents_v2/wait.rs`
 - `codex-rs/core/src/tools/handlers/multi_agents_v2/spawn.rs`
 - `codex-rs/core/src/tools/handlers/multi_agents_v2/message_tool.rs`
@@ -252,6 +266,7 @@ list back to the three current names.
 - `cargo test -p codex-tui inter_agent_message`
 - `cargo test -p codex-core tools::handlers::multi_agents_v2`
 - `cargo test -p codex-core suite::subagent_notifications`
+- `cargo check -p codex-tui`
 - Snapshot: `collab_agent_transcript.snap` (currently a `.snap.new` on this
   branch — review and accept before rebase).
 

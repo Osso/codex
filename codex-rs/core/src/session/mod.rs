@@ -13,7 +13,7 @@ use crate::agent::AgentStatus;
 use crate::agent::Mailbox;
 use crate::agent::MailboxReceiver;
 use crate::agent::agent_status_from_event;
-use crate::agent::status::is_final;
+use crate::agent::status::agent_status_is_terminal;
 use crate::attestation::AttestationProvider;
 use crate::build_available_skills;
 use crate::compact;
@@ -1584,7 +1584,7 @@ impl Session {
         let Some(status) = agent_status_from_event(msg) else {
             return;
         };
-        if !is_final(&status) {
+        if !agent_status_is_terminal(&status) {
             return;
         }
 

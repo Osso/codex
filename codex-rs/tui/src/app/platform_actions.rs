@@ -53,6 +53,10 @@ fn send_world_writable_scan_failed(tx: &AppEventSender) {
     });
 }
 
+pub(super) fn close_agent_shortcut_matches(key_event: KeyEvent) -> bool {
+    crate::key_hint::ctrl(KeyCode::Char('d')).is_press(key_event)
+}
+
 pub(super) fn side_return_shortcut_matches(key_event: KeyEvent) -> bool {
     match key_event {
         KeyEvent {
@@ -65,11 +69,7 @@ pub(super) fn side_return_shortcut_matches(key_event: KeyEvent) -> bool {
             modifiers,
             kind: KeyEventKind::Press,
             ..
-        } if modifiers.contains(KeyModifiers::CONTROL)
-            && (c.eq_ignore_ascii_case(&'c') || c.eq_ignore_ascii_case(&'d')) =>
-        {
-            true
-        }
+        } if modifiers.contains(KeyModifiers::CONTROL) && c.eq_ignore_ascii_case(&'c') => true,
         _ => false,
     }
 }
@@ -79,7 +79,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn side_return_shortcuts_match_esc_ctrl_c_and_ctrl_d() {
+    fn side_return_shortcuts_match_esc_and_ctrl_c() {
         assert!(side_return_shortcut_matches(KeyEvent::new(
             KeyCode::Esc,
             KeyModifiers::NONE,
@@ -97,11 +97,11 @@ mod tests {
             KeyCode::Char('C'),
             KeyModifiers::CONTROL,
         )));
-        assert!(side_return_shortcut_matches(KeyEvent::new(
+        assert!(!side_return_shortcut_matches(KeyEvent::new(
             KeyCode::Char('d'),
             KeyModifiers::CONTROL,
         )));
-        assert!(side_return_shortcut_matches(KeyEvent::new(
+        assert!(!side_return_shortcut_matches(KeyEvent::new(
             KeyCode::Char('D'),
             KeyModifiers::CONTROL,
         )));
@@ -109,6 +109,22 @@ mod tests {
             KeyCode::Esc,
             KeyModifiers::NONE,
             KeyEventKind::Release,
+        )));
+    }
+
+    #[test]
+    fn close_agent_shortcut_matches_ctrl_d() {
+        assert!(close_agent_shortcut_matches(KeyEvent::new(
+            KeyCode::Char('d'),
+            KeyModifiers::CONTROL,
+        )));
+        assert!(close_agent_shortcut_matches(KeyEvent::new(
+            KeyCode::Char('D'),
+            KeyModifiers::CONTROL,
+        )));
+        assert!(!close_agent_shortcut_matches(KeyEvent::new(
+            KeyCode::Char('d'),
+            KeyModifiers::NONE,
         )));
     }
 }

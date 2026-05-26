@@ -168,7 +168,7 @@ struct ListAgentsResult {
     agents: Vec<ListedAgentResult>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 struct ListedAgentResult {
     agent_name: String,
     agent_status: serde_json::Value,
@@ -769,7 +769,7 @@ async fn multi_agent_v2_followup_task_rejects_root_target_from_child() {
 }
 
 #[tokio::test]
-async fn multi_agent_v2_list_agents_returns_completed_status_and_last_task_message() {
+async fn multi_agent_v2_list_agents_reaps_completed_agents() {
     let (mut session, mut turn) = make_session_and_context().await;
     let manager = thread_manager();
     let root = manager
@@ -837,27 +837,13 @@ async fn multi_agent_v2_list_agents_returns_completed_status_and_last_task_messa
     let result: ListAgentsResult =
         serde_json::from_str(&content).expect("list_agents result should be json");
 
-    let agent_names = result
-        .agents
-        .iter()
-        .map(|agent| agent.agent_name.as_str())
-        .collect::<Vec<_>>();
-    assert_eq!(agent_names, vec!["/root", "/root/worker"]);
-    let root_agent = result
-        .agents
-        .iter()
-        .find(|agent| agent.agent_name == "/root")
-        .expect("root agent should be listed");
-    assert_eq!(root_agent.last_task_message.as_deref(), Some("Main thread"));
-    let worker = result
-        .agents
-        .iter()
-        .find(|agent| agent.agent_name == "/root/worker")
-        .expect("worker agent should be listed");
-    assert_eq!(worker.agent_status, json!({"completed": "done"}));
     assert_eq!(
-        worker.last_task_message.as_deref(),
-        Some("inspect this repo")
+        result.agents,
+        vec![ListedAgentResult {
+            agent_name: "/root".to_string(),
+            agent_status: json!("pending_init"),
+            last_task_message: Some("Main thread".to_string()),
+        }]
     );
     assert_eq!(success, Some(true));
 }
@@ -1849,6 +1835,21 @@ async fn multi_agent_v2_wait_agent_reports_completed_descendant_statuses() {
             status: AgentStatus::Completed(Some("done".to_string())),
         }]
     );
+
+    let output = ListAgentsHandlerV2
+        .handle(invocation(
+            session,
+            turn,
+            "list_agents",
+            function_payload(json!({})),
+        ))
+        .await
+        .expect("list_agents should succeed after wait_agent reaps completed agents");
+    let (content, _) = expect_text_output(output);
+    let result: ListAgentsResult =
+        serde_json::from_str(&content).expect("list_agents result should be json");
+    assert_eq!(result.agents.len(), 1);
+    assert_eq!(result.agents[0].agent_name, "/root");
 }
 
 #[tokio::test]
@@ -1915,6 +1916,90 @@ async fn multi_agent_v2_wait_agent_returns_for_already_queued_mail() {
     )
     .await
     .expect("already queued mail should complete wait_agent immediately")
+    .expect("wait_agent should succeed");
+    let (content, success) = expect_text_output(output);
+    let result: crate::tools::handlers::multi_agents_v2::wait::WaitAgentResult =
+        serde_json::from_str(&content).expect("wait_agent result should be json");
+    assert_eq!(
+        result,
+        crate::tools::handlers::multi_agents_v2::wait::WaitAgentResult {
+            message: "Wait completed.".to_string(),
+            timed_out: false,
+        }
+    );
+    assert_eq!(success, None);
+}
+
+#[tokio::test]
+async fn multi_agent_v2_wait_agent_returns_for_queued_mail_after_child_reaped() {
+    let (mut session, mut turn) = make_session_and_context().await;
+    let manager = thread_manager();
+    let root = manager
+        .start_thread((*turn.config).clone())
+        .await
+        .expect("root thread should start");
+    session.services.agent_control = manager.agent_control();
+    session.conversation_id = root.thread_id;
+    let mut config = (*turn.config).clone();
+    config
+        .features
+        .enable(Feature::MultiAgentV2)
+        .expect("test config should allow feature update");
+    turn.config = Arc::new(config);
+    let session = Arc::new(session);
+    let turn = Arc::new(turn);
+
+    SpawnAgentHandlerV2::default()
+        .handle(invocation(
+            session.clone(),
+            turn.clone(),
+            "spawn_agent",
+            function_payload(json!({
+                "message": "boot worker",
+                "task_name": "worker"
+            })),
+        ))
+        .await
+        .expect("spawn worker");
+    let agent_id = session
+        .services
+        .agent_control
+        .resolve_agent_reference(session.conversation_id, &turn.session_source, "worker")
+        .await
+        .expect("worker should resolve");
+    let worker_path = session
+        .services
+        .agent_control
+        .get_agent_metadata(agent_id)
+        .expect("worker metadata")
+        .agent_path
+        .expect("worker path");
+
+    session
+        .services
+        .agent_control
+        .shutdown_live_agent(agent_id)
+        .await
+        .expect("worker should be reaped before wait_agent");
+    session.enqueue_mailbox_communication(InterAgentCommunication::new(
+        worker_path,
+        AgentPath::root(),
+        Vec::new(),
+        "already queued".to_string(),
+        /*trigger_turn*/ false,
+    ));
+
+    let output = timeout(
+        Duration::from_millis(500),
+        WaitAgentHandlerV2::default().handle(invocation(
+            session,
+            turn,
+            "wait_agent",
+            function_payload(json!({"timeout_ms": 1000})),
+        )),
+    )
+    .await
+    .expect("queued mail should complete wait_agent even after child reaping")
     .expect("wait_agent should succeed");
     let (content, success) = expect_text_output(output);
     let result: crate::tools::handlers::multi_agents_v2::wait::WaitAgentResult =

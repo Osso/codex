@@ -9,8 +9,9 @@ use super::*;
 impl App {
     pub(super) async fn open_agent_picker(&mut self, app_server: &mut AppServerSession) {
         let mut thread_ids = self.agent_navigation.tracked_thread_ids();
+        let mut seen_thread_ids = thread_ids.iter().copied().collect::<HashSet<_>>();
         for thread_id in self.thread_event_channels.keys().copied() {
-            if !thread_ids.contains(&thread_id) {
+            if seen_thread_ids.insert(thread_id) {
                 thread_ids.push(thread_id);
             }
         }
@@ -124,12 +125,9 @@ impl App {
         self.sync_active_agent_label();
     }
 
-    /// Marks a cached picker thread closed and recomputes the contextual footer label.
-    ///
-    /// Closing a thread is not the same as removing it: users can still inspect finished agent
-    /// transcripts, and the stable next/previous traversal order should not collapse around them.
+    /// Removes a closed picker thread and recomputes the contextual footer label.
     pub(super) fn mark_agent_picker_thread_closed(&mut self, thread_id: ThreadId) {
-        self.agent_navigation.mark_closed(thread_id);
+        self.agent_navigation.remove(thread_id);
         self.sync_active_agent_label();
     }
 
@@ -139,12 +137,20 @@ impl App {
         thread_id: ThreadId,
     ) -> bool {
         let existing_entry = self.agent_navigation.get(&thread_id).cloned();
-        let has_replay_channel = self.thread_event_channels.contains_key(&thread_id);
         match app_server
             .thread_read(thread_id, /*include_turns*/ false)
             .await
         {
             Ok(thread) => {
+                if matches!(
+                    thread.status,
+                    codex_app_server_protocol::ThreadStatus::NotLoaded
+                ) {
+                    self.agent_navigation.remove(thread_id);
+                    self.sync_active_agent_label();
+                    return false;
+                }
+
                 self.upsert_agent_picker_thread(
                     thread_id,
                     thread.agent_nickname.or_else(|| {
@@ -157,16 +163,14 @@ impl App {
                             .as_ref()
                             .and_then(|entry| entry.agent_role.clone())
                     }),
-                    matches!(
-                        thread.status,
-                        codex_app_server_protocol::ThreadStatus::NotLoaded
-                    ),
+                    /*is_closed*/ false,
                 );
                 true
             }
             Err(err) => {
-                if Self::is_terminal_thread_read_error(&err) && !has_replay_channel {
+                if Self::is_terminal_thread_read_error(&err) {
                     self.agent_navigation.remove(thread_id);
+                    self.sync_active_agent_label();
                     return false;
                 }
                 let is_closed = Self::closed_state_for_thread_read_error(
@@ -613,6 +617,31 @@ impl App {
         }
         self.agent_navigation
             .adjacent_thread_id(self.current_displayed_thread_id(), direction)
+    }
+
+    /// Returns the thread id for a direct navigation slot, backfilling loaded agents on demand.
+    pub(super) async fn slot_thread_id_with_backfill(
+        &mut self,
+        app_server: &mut AppServerSession,
+        slot: usize,
+    ) -> Option<ThreadId> {
+        if let Some(thread_id) = self
+            .agent_navigation
+            .slot_thread_id(slot, self.primary_thread_id)
+        {
+            return Some(thread_id);
+        }
+
+        let primary_thread_id = self.primary_thread_id?;
+        if self.last_subagent_backfill_attempt == Some(primary_thread_id) {
+            return None;
+        }
+
+        if self.backfill_loaded_subagent_threads(app_server).await {
+            self.last_subagent_backfill_attempt = Some(primary_thread_id);
+        }
+        self.agent_navigation
+            .slot_thread_id(slot, self.primary_thread_id)
     }
 
     pub(super) fn fresh_session_config(&self) -> Config {

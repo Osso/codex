@@ -133,7 +133,7 @@ pub fn create_followup_task_tool() -> ToolSpec {
 pub fn create_wait_agent_tool_v2(options: WaitAgentTimeoutOptions) -> ToolSpec {
     ToolSpec::Function(ResponsesApiTool {
         name: "wait_agent".to_string(),
-        description: "Wait for a mailbox update from any live agent, including queued messages and final-status notifications. Does not return the content; returns either a summary of which agents have updates (if any), or a timeout summary if no mailbox update arrives before the deadline."
+        description: "Wait for a mailbox update from any live agent, including queued messages and final-status notifications. Does not return the content; returns either a summary of which agents have updates (if any), or a timeout summary if no mailbox update arrives before the deadline. After reporting final statuses, completed descendants are reaped from the live-agent set."
             .to_string(),
         strict: false,
         defer_loading: None,
@@ -154,7 +154,7 @@ pub fn create_list_agents_tool() -> ToolSpec {
     ToolSpec::Function(ResponsesApiTool {
         name: "list_agents".to_string(),
         description:
-            "List live agents in the current root thread tree. Optionally filter by task-path prefix."
+            "List live agents in the current root thread tree. Final/exited agents are omitted from this live view. Optionally filter by task-path prefix."
                 .to_string(),
         strict: false,
         defer_loading: None,
@@ -173,7 +173,7 @@ pub fn create_close_agent_tool_v2() -> ToolSpec {
 
     ToolSpec::Function(ResponsesApiTool {
         name: "close_agent".to_string(),
-        description: "Close an agent and any open descendants when they are no longer needed, and return the target agent's previous status before shutdown was requested. Don't keep agents open for too long if they are not needed anymore.".to_string(),
+        description: "Cancel and dispose of a live agent and any open descendants before normal completion, then return the target agent's previous status before shutdown was requested.".to_string(),
         strict: false,
         defer_loading: None,
         parameters: JsonSchema::object(properties, Some(vec!["target".to_string()]), Some(false.into())),

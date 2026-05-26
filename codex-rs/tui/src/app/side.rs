@@ -340,6 +340,51 @@ impl App {
         }
     }
 
+    pub(super) async fn maybe_close_active_agent_thread(
+        &mut self,
+        tui: &mut tui::Tui,
+        app_server: &mut AppServerSession,
+    ) -> bool {
+        if self.overlay.is_some()
+            || !self.chat_widget.no_modal_or_popup_active()
+            || !self.chat_widget.composer_is_empty()
+        {
+            return false;
+        }
+
+        let Some(agent_thread_id) = self.current_displayed_thread_id() else {
+            return false;
+        };
+        if Some(agent_thread_id) == self.primary_thread_id {
+            return false;
+        }
+
+        let return_thread_id = self
+            .active_side_parent_thread_id()
+            .or(self.primary_thread_id)
+            .unwrap_or(agent_thread_id);
+
+        if let Err(message) = self.close_agent_thread(app_server, agent_thread_id).await {
+            tracing::warn!("{message}");
+            self.chat_widget.add_error_message(message);
+            return true;
+        }
+
+        self.discard_side_thread_local(agent_thread_id).await;
+        if return_thread_id != agent_thread_id
+            && let Err(err) = self
+                .select_agent_thread(tui, app_server, return_thread_id)
+                .await
+        {
+            let message = format!(
+                "Closed agent thread {agent_thread_id}, but failed to switch back to {return_thread_id}: {err}"
+            );
+            tracing::warn!("{message}");
+            self.chat_widget.add_error_message(message);
+        }
+        true
+    }
+
     pub(super) fn side_thread_to_discard_after_switch(
         &self,
         target_thread_id: ThreadId,
@@ -373,6 +418,21 @@ impl App {
         true
     }
 
+    async fn close_agent_thread(
+        &self,
+        app_server: &mut AppServerSession,
+        thread_id: ThreadId,
+    ) -> std::result::Result<(), String> {
+        self.interrupt_thread_for_close(app_server, thread_id, "agent thread")
+            .await?;
+        app_server
+            .thread_unsubscribe(thread_id)
+            .await
+            .map_err(|err| {
+                format!("Failed to close agent thread {thread_id}; it is still open: {err}")
+            })
+    }
+
     pub(super) async fn discard_closed_side_thread(&mut self, thread_id: ThreadId) {
         self.discard_side_thread_local(thread_id).await;
     }
@@ -395,15 +455,24 @@ impl App {
         app_server: &mut AppServerSession,
         thread_id: ThreadId,
     ) -> std::result::Result<(), String> {
+        self.interrupt_thread_for_close(app_server, thread_id, "side conversation")
+            .await
+    }
+
+    async fn interrupt_thread_for_close(
+        &self,
+        app_server: &mut AppServerSession,
+        thread_id: ThreadId,
+        label: &str,
+    ) -> std::result::Result<(), String> {
         let interrupt_result =
             if let Some(turn_id) = self.active_turn_id_for_thread(thread_id).await {
                 app_server.turn_interrupt(thread_id, turn_id).await
             } else {
                 app_server.startup_interrupt(thread_id).await
             };
-        interrupt_result.map_err(|err| {
-            format!("Failed to close side conversation {thread_id}; it is still open: {err}")
-        })
+        interrupt_result
+            .map_err(|err| format!("Failed to close {label} {thread_id}; it is still open: {err}"))
     }
 
     async fn keep_side_thread_visible_after_cleanup_failure(

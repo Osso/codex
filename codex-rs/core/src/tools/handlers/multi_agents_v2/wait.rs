@@ -64,7 +64,11 @@ impl ToolHandler for Handler {
         let descendant_statuses =
             list_descendant_agent_statuses(&session, &turn, &descendant_prefix).await?;
         if descendant_statuses.is_empty() {
-            return Ok(WaitAgentResult::no_agents());
+            return if session.has_pending_mailbox_items().await {
+                Ok(WaitAgentResult::from_timed_out(/*timed_out*/ false))
+            } else {
+                Ok(WaitAgentResult::no_agents())
+            };
         }
         send_waiting_begin(&session, &turn, call_id.clone(), &descendant_statuses).await;
 
@@ -76,7 +80,8 @@ impl ToolHandler for Handler {
         };
         let result = WaitAgentResult::from_timed_out(timed_out);
         let statuses = list_descendant_agent_statuses(&session, &turn, &descendant_prefix).await?;
-        send_waiting_end(&session, &turn, call_id, statuses).await;
+        send_waiting_end(&session, &turn, call_id, statuses.clone()).await;
+        reap_final_descendant_agents(&session, statuses).await;
 
         Ok(result)
     }
@@ -237,4 +242,24 @@ async fn send_waiting_end(
             .into(),
         )
         .await;
+}
+
+async fn reap_final_descendant_agents(session: &Session, statuses: HashMap<ThreadId, AgentStatus>) {
+    for (thread_id, status) in statuses {
+        match session
+            .services
+            .agent_control
+            .reap_terminal_agent(thread_id, &status)
+            .await
+        {
+            Ok(_) => {}
+            Err(err) => {
+                tracing::warn!(
+                    thread_id = %thread_id,
+                    error = %err,
+                    "failed to reap final descendant agent after wait_agent"
+                );
+            }
+        }
+    }
 }

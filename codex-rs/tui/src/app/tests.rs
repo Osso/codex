@@ -1318,6 +1318,65 @@ async fn collab_receiver_notification_does_not_cache_not_found_thread() {
 }
 
 #[tokio::test]
+async fn collab_receiver_notification_removes_completed_thread_from_navigation() {
+    let mut app = make_test_app().await;
+    let receiver_thread_id =
+        ThreadId::from_string("00000000-0000-0000-0000-000000000125").expect("valid thread id");
+    app.agent_navigation.upsert(
+        receiver_thread_id,
+        Some("Robie".to_string()),
+        Some("explorer".to_string()),
+        /*is_closed*/ false,
+    );
+
+    app.handle_thread_event_now(ThreadBufferedEvent::Notification(
+        ServerNotification::ItemCompleted(codex_app_server_protocol::ItemCompletedNotification {
+            thread_id: ThreadId::new().to_string(),
+            turn_id: "turn-1".to_string(),
+            completed_at_ms: 0,
+            item: ThreadItem::CollabAgentToolCall {
+                id: "wait-1".to_string(),
+                tool: codex_app_server_protocol::CollabAgentTool::Wait,
+                status: codex_app_server_protocol::CollabAgentToolCallStatus::Completed,
+                sender_thread_id: ThreadId::new().to_string(),
+                receiver_thread_ids: vec![receiver_thread_id.to_string()],
+                prompt: None,
+                model: None,
+                reasoning_effort: None,
+                agents_states: HashMap::from([(
+                    receiver_thread_id.to_string(),
+                    codex_app_server_protocol::CollabAgentState {
+                        status: codex_app_server_protocol::CollabAgentStatus::Completed,
+                        message: Some("done".to_string()),
+                    },
+                )]),
+            },
+        }),
+    ));
+
+    assert_eq!(app.agent_navigation.get(&receiver_thread_id), None);
+}
+
+#[tokio::test]
+async fn thread_closed_notification_removes_thread_from_agent_navigation() {
+    let mut app = make_test_app().await;
+    let agent_thread_id =
+        ThreadId::from_string("00000000-0000-0000-0000-000000000126").expect("valid thread id");
+    app.agent_navigation.upsert(
+        agent_thread_id,
+        Some("Robie".to_string()),
+        Some("explorer".to_string()),
+        /*is_closed*/ false,
+    );
+
+    app.handle_thread_event_now(ThreadBufferedEvent::Notification(
+        thread_closed_notification(agent_thread_id),
+    ));
+
+    assert_eq!(app.agent_navigation.get(&agent_thread_id), None);
+}
+
+#[tokio::test]
 async fn open_agent_picker_keeps_missing_threads_for_replay() -> Result<()> {
     let mut app = Box::pin(make_test_app()).await;
     let mut app_server = Box::pin(crate::start_embedded_app_server_for_picker(
