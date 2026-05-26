@@ -350,6 +350,53 @@ globalThis.path = {
   parse: globalThis.__hostrun_pathParse
 };
 
+globalThis.__hostrun_csvCell = function (value) {
+  const text = value === null || value === undefined ? "" : String(value);
+  return /[",\n\r]/.test(text) ? '"' + text.replaceAll('"', '""') + '"' : text;
+};
+
+globalThis.__hostrun_toCsv = function (rows) {
+  return rows.map((row) => Array.from(row).map(globalThis.__hostrun_csvCell).join(",")).join("\n") + "\n";
+};
+
+globalThis.__hostrun_toYamlScalar = function (value) {
+  if (value === null || value === undefined) {
+    return "null";
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return JSON.stringify(String(value));
+};
+
+globalThis.__hostrun_toYaml = function (value, indent = 0) {
+  const prefix = " ".repeat(indent);
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return "[]";
+    }
+    return value.map((item) => {
+      if (item !== null && typeof item === "object") {
+        return prefix + "-\n" + globalThis.__hostrun_toYaml(item, indent + 2);
+      }
+      return prefix + "- " + globalThis.__hostrun_toYamlScalar(item);
+    }).join("\n");
+  }
+  if (value !== null && typeof value === "object") {
+    const entries = Object.entries(value);
+    if (entries.length === 0) {
+      return "{}";
+    }
+    return entries.map(([key, item]) => {
+      if (item !== null && typeof item === "object") {
+        return prefix + key + ":\n" + globalThis.__hostrun_toYaml(item, indent + 2);
+      }
+      return prefix + key + ": " + globalThis.__hostrun_toYamlScalar(item);
+    }).join("\n");
+  }
+  return prefix + globalThis.__hostrun_toYamlScalar(value);
+};
+
 globalThis.__hostrun_regex = function (pattern) {
   return pattern instanceof RegExp ? pattern : new RegExp(String(pattern));
 };
@@ -738,6 +785,15 @@ globalThis.tools = globalThis.__hostrun_toolProxy("");
 globalThis.fs = {
   write: function (path, content) {
     return globalThis.__hostrun_invokeCapability("fs.write", { path, content });
+  },
+  writeJson: function (path, value, space = 2) {
+    return globalThis.fs.write(path, JSON.stringify(value, null, space) + "\n");
+  },
+  writeYaml: function (path, value) {
+    return globalThis.fs.write(path, globalThis.__hostrun_toYaml(value) + "\n");
+  },
+  writeCsv: function (path, rows) {
+    return globalThis.fs.write(path, globalThis.__hostrun_toCsv(rows));
   },
   read: function (path) {
     return globalThis.__hostrun_invokeCapability("fs.read", { path });

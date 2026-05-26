@@ -370,3 +370,7 @@ mod path_tests;
 #[cfg(test)]
 #[path = "byte_tests.rs"]
 mod byte_tests;
+
+#[cfg(test)]
+#[path = "structured_write_tests.rs"]
+mod structured_write_tests;
