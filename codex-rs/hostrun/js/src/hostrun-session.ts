@@ -172,6 +172,15 @@ function initializeContext(
         writable: false,
         configurable: false
       });
+      Object.defineProperty(Array.prototype, 'containing', {
+        value: function containing(needle) {
+          return this.filter(function(value) {
+            return typeof value === 'string' && value.indexOf(String(needle)) !== -1;
+          });
+        },
+        writable: false,
+        configurable: false
+      });
     }`,
     "hostrun-bootstrap.js",
   );

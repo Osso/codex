@@ -37,6 +37,8 @@ task("Delete leftover SFTPGo probe files", () => {
 
 Semantic collection helpers such as `containing`, `nameContains`, `endsWith`, and `matching` are preferred over arbitrary predicates when they make the code and approval summary clearer.
 
+The current sandbox installs `Array.prototype.containing(needle)` as the first helper. It returns string entries that contain `needle`, keeping examples like `ctx.files.containing("codex-sftpgo-current-probe")` readable while the fuller collection API is still forming.
+
 ## Approval Model
 
 The runtime should collect intent from library calls and render it before execution. For the second example above, approval should be closer to:
