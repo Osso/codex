@@ -1490,17 +1490,23 @@ impl ChatWidget {
         agent_role: Option<String>,
         is_running: bool,
     ) {
-        if is_running {
-            self.running_collab_agents.insert(
-                thread_id,
-                AgentMetadata {
-                    agent_nickname,
-                    agent_role,
-                },
-            );
-        } else {
-            self.running_collab_agents.remove(&thread_id);
+        if !is_running {
+            self.remove_running_collab_agent(thread_id);
+            return;
         }
+
+        self.running_collab_agents.insert(
+            thread_id,
+            AgentMetadata {
+                agent_nickname,
+                agent_role,
+            },
+        );
+        self.sync_footer_agent_label();
+    }
+
+    pub(crate) fn remove_running_collab_agent(&mut self, thread_id: ThreadId) {
+        self.running_collab_agents.remove(&thread_id);
         self.sync_footer_agent_label();
     }
 
@@ -6502,44 +6508,22 @@ impl ChatWidget {
             }
             EventMsg::CollabWaitingEnd(ev) => {
                 for status_entry in &ev.agent_statuses {
-                    self.set_running_collab_agent(
-                        status_entry.thread_id,
-                        status_entry.agent_nickname.clone(),
-                        status_entry.agent_role.clone(),
-                        matches!(
-                            status_entry.status,
-                            codex_protocol::protocol::AgentStatus::PendingInit
-                                | codex_protocol::protocol::AgentStatus::Running
-                                | codex_protocol::protocol::AgentStatus::Interrupted
-                        ),
-                    );
+                    self.remove_running_collab_agent(status_entry.thread_id);
                 }
-                for (thread_id, status) in &ev.statuses {
+                for (thread_id, _) in &ev.statuses {
                     if !ev
                         .agent_statuses
                         .iter()
                         .any(|entry| entry.thread_id == *thread_id)
                     {
-                        let metadata = self.collab_agent_metadata(*thread_id);
-                        self.set_running_collab_agent(
-                            *thread_id,
-                            metadata.agent_nickname,
-                            metadata.agent_role,
-                            matches!(
-                                status,
-                                codex_protocol::protocol::AgentStatus::PendingInit
-                                    | codex_protocol::protocol::AgentStatus::Running
-                                    | codex_protocol::protocol::AgentStatus::Interrupted
-                            ),
-                        );
+                        self.remove_running_collab_agent(*thread_id);
                     }
                 }
                 self.on_collab_event(multi_agents::waiting_end(ev))
             }
             EventMsg::CollabCloseBegin(_) => {}
             EventMsg::CollabCloseEnd(ev) => {
-                self.running_collab_agents.remove(&ev.receiver_thread_id);
-                self.sync_footer_agent_label();
+                self.remove_running_collab_agent(ev.receiver_thread_id);
                 self.on_collab_event(multi_agents::close_end(ev))
             }
             EventMsg::CollabResumeBegin(ev) => self.on_collab_event(multi_agents::resume_begin(ev)),

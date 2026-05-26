@@ -1,5 +1,3 @@
-#[cfg(test)]
-use crate::legacy_core::append_message_history_entry;
 use crate::legacy_core::config::Config;
 use crate::permission_compat::legacy_compatible_permission_profile;
 use crate::session_state::MessageHistoryMetadata;

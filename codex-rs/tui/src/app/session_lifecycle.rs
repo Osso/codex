@@ -128,6 +128,7 @@ impl App {
     /// Removes a closed picker thread and recomputes the contextual footer label.
     pub(super) fn mark_agent_picker_thread_closed(&mut self, thread_id: ThreadId) {
         self.agent_navigation.remove(thread_id);
+        self.chat_widget.remove_running_collab_agent(thread_id);
         self.sync_active_agent_label();
     }
 
