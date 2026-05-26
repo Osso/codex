@@ -112,6 +112,7 @@ impl HostCapabilityInvoker {
         match tool_path {
             "fs.write" => pending_approval(fs_write_approval(args)),
             "rclone.deletefile" => pending_approval(rclone_deletefile_approval(args)),
+            tool if tool.starts_with("cli.") => pending_approval(cli_command_approval(tool, args)),
             _ => json!({
                 "type": "denied",
                 "reason": format!("Hostrun capability is unavailable: {tool_path}")
@@ -165,6 +166,38 @@ fn rclone_deletefile_approval(args: Value) -> HostrunApprovalRequest {
         tool: "rclone.deletefile".to_string(),
         summary: format!("Delete {target}"),
         args,
+    }
+}
+
+fn cli_command_approval(tool_path: &str, args: Value) -> HostrunApprovalRequest {
+    let program = tool_path.trim_start_matches("cli.");
+    let cli_args = match args {
+        Value::Array(args) => args,
+        Value::Null => Vec::new(),
+        other => vec![other],
+    };
+    let command = cli_command_summary(program, &cli_args);
+    HostrunApprovalRequest {
+        id: format!("cli.{program}:{command}"),
+        tool: format!("cli.{program}"),
+        summary: format!("Run {command}"),
+        args: json!({
+            "program": program,
+            "args": cli_args,
+        }),
+    }
+}
+
+fn cli_command_summary(program: &str, args: &[Value]) -> String {
+    let mut parts = vec![program.to_string()];
+    parts.extend(args.iter().map(cli_arg_summary));
+    parts.join(" ")
+}
+
+fn cli_arg_summary(arg: &Value) -> String {
+    match arg {
+        Value::String(value) => value.clone(),
+        other => other.to_string(),
     }
 }
 
@@ -266,6 +299,26 @@ globalThis.__hostrun_toolProxy = function (path) {
 
 globalThis.tools = globalThis.__hostrun_toolProxy("");
 
+globalThis.__hostrun_cliProxy = function (path) {
+  return new Proxy(function () {}, {
+    get(_target, property) {
+      return globalThis.__hostrun_cliProxy(path ? path + "." + String(property) : String(property));
+    },
+    apply(_target, _thisArg, args) {
+      const response = JSON.parse(globalThis.__hostrun_invokeTool("cli." + path, JSON.stringify(args)));
+      if (response.type === "needs_approval") {
+        throw new Error("__HOSTRUN_APPROVAL_REQUIRED__:" + JSON.stringify(response.approval));
+      }
+      if (response.type === "denied") {
+        throw new Error(response.reason);
+      }
+      return response.value;
+    }
+  });
+};
+
+globalThis.cli = globalThis.__hostrun_cliProxy("");
+
 globalThis.__hostrun_run = function (code) {
   globalThis.__hostrun_console = [];
   try {
@@ -340,6 +393,45 @@ mod tests {
         assert_eq!(
             approval.args,
             json!({ "path": "/tmp/hostrun.txt", "content": "hello" })
+        );
+    }
+
+    #[test]
+    fn cli_program_proxy_returns_command_approval() {
+        let session = HostrunSession::new().expect("session");
+
+        let result = session.eval("cli.dmidecode();").expect("approval");
+
+        assert_eq!(result.result_type, "needs_approval");
+        let approval = result.approval.expect("approval");
+        assert_eq!(approval.id, "cli.dmidecode:dmidecode");
+        assert_eq!(approval.tool, "cli.dmidecode");
+        assert_eq!(approval.summary, "Run dmidecode");
+        assert_eq!(
+            approval.args,
+            json!({
+                "program": "dmidecode",
+                "args": []
+            })
+        );
+    }
+
+    #[test]
+    fn cli_program_proxy_preserves_arguments() {
+        let session = HostrunSession::new().expect("session");
+
+        let result = session
+            .eval("cli.rg('needle', 'src', { '--json': true });")
+            .expect("approval");
+
+        let approval = result.approval.expect("approval");
+        assert_eq!(approval.tool, "cli.rg");
+        assert_eq!(
+            approval.args,
+            json!({
+                "program": "rg",
+                "args": ["needle", "src", { "--json": true }]
+            })
         );
     }
 
