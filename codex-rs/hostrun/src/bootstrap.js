@@ -106,6 +106,24 @@ globalThis.__hostrun_byteRange = function (values, start, end = start) {
   return Array.from(values).slice(first, last + 1);
 };
 
+globalThis.__hostrun_uintFromBytes = function (values, offset, length, littleEndian) {
+  const bytes = Array.from(values);
+  const start = Number(offset) || 0;
+  let value = 0;
+  for (let index = 0; index < Number(length); index += 1) {
+    const byte = Number(bytes[start + index] ?? 0) & 0xff;
+    const shift = littleEndian ? index * 8 : (Number(length) - index - 1) * 8;
+    value += byte * (2 ** shift);
+  }
+  return value;
+};
+
+globalThis.__hostrun_intFromBytes = function (values, offset, length, littleEndian) {
+  const unsigned = globalThis.__hostrun_uintFromBytes(values, offset, length, littleEndian);
+  const sign = 2 ** (Number(length) * 8 - 1);
+  return unsigned >= sign ? unsigned - (sign * 2) : unsigned;
+};
+
 globalThis.__hostrun_lineRange = function (values, start, end = start) {
   if (start === undefined || start === null) {
     return values;
@@ -258,6 +276,41 @@ globalThis.__hostrun_recordColumns = function (record) {
   return Object.keys(Object(record));
 };
 
+globalThis.__hostrun_collectionSelector = function (selector) {
+  if (typeof selector === "function") {
+    return selector;
+  }
+  if (selector === undefined || selector === null) {
+    return function (item) {
+      return item;
+    };
+  }
+  return function (item) {
+    if (Array.isArray(item)) {
+      return globalThis.__hostrun_formatTemplate(selector, item);
+    }
+    const value = globalThis.__hostrun_pathValue(item, selector);
+    return value === undefined ? "" : value;
+  };
+};
+
+globalThis.__hostrun_groupValues = function (values, selector) {
+  const select = globalThis.__hostrun_collectionSelector(selector);
+  const groups = [];
+  const byKey = new Map();
+  for (const item of values) {
+    const key = String(select(item));
+    let group = byKey.get(key);
+    if (!group) {
+      group = { key, rows: [] };
+      byKey.set(key, group);
+      groups.push(group);
+    }
+    group.rows.push(item);
+  }
+  return groups;
+};
+
 globalThis.__hostrun_tableColumns = function (rows) {
   const columns = [];
   const seen = new Set();
@@ -352,6 +405,103 @@ globalThis.path = {
   basename: globalThis.__hostrun_pathBasename,
   dirname: globalThis.__hostrun_pathDirname,
   parse: globalThis.__hostrun_pathParse
+};
+
+globalThis.__hostrun_formatFromPath = function (path) {
+  switch (globalThis.path.parse(path).ext.toLowerCase()) {
+    case ".json":
+      return "json";
+    case ".jsonl":
+    case ".ndjson":
+      return "jsonl";
+    case ".yaml":
+    case ".yml":
+      return "yaml";
+    case ".csv":
+      return "csv";
+    case ".tsv":
+      return "tsv";
+    default:
+      return "text";
+  }
+};
+
+globalThis.__hostrun_parseTextFormat = function (text, format) {
+  switch (String(format ?? "text").toLowerCase()) {
+    case "json":
+      return String(text).json();
+    case "jsonl":
+    case "jsonlines":
+    case "ndjson":
+      return String(text).jsonLines();
+    case "yaml":
+    case "yml":
+      return String(text).yaml();
+    case "csv":
+      return String(text).csv();
+    case "tsv":
+      return String(text).tsv();
+    case "text":
+    case "raw":
+      return String(text);
+    default:
+      throw new Error("unknown Hostrun file format: " + format);
+  }
+};
+
+globalThis.__hostrun_padDate = function (value, width = 2) {
+  return String(value).padStart(width, "0");
+};
+
+globalThis.__hostrun_formatDate = function (value, template = "YYYY-MM-DDTHH:mm:ssZ") {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("invalid Hostrun date: " + value);
+  }
+  return String(template)
+    .replaceAll("YYYY", globalThis.__hostrun_padDate(date.getUTCFullYear(), 4))
+    .replaceAll("MM", globalThis.__hostrun_padDate(date.getUTCMonth() + 1))
+    .replaceAll("DD", globalThis.__hostrun_padDate(date.getUTCDate()))
+    .replaceAll("HH", globalThis.__hostrun_padDate(date.getUTCHours()))
+    .replaceAll("mm", globalThis.__hostrun_padDate(date.getUTCMinutes()))
+    .replaceAll("ss", globalThis.__hostrun_padDate(date.getUTCSeconds()))
+    .replaceAll("Z", "Z");
+};
+
+globalThis.__hostrun_humanizeDuration = function (milliseconds) {
+  const seconds = Math.round(Math.abs(Number(milliseconds)) / 1000);
+  const units = [
+    ["day", 86400],
+    ["hour", 3600],
+    ["minute", 60],
+    ["second", 1]
+  ];
+  for (const [name, size] of units) {
+    if (seconds >= size || name === "second") {
+      const count = Math.floor(seconds / size);
+      return `${count} ${name}${count === 1 ? "" : "s"}`;
+    }
+  }
+};
+
+globalThis.date = {
+  now: function () {
+    return new Date().toISOString();
+  },
+  parse: function (value) {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new Error("invalid Hostrun date: " + value);
+    }
+    return parsed;
+  },
+  format: globalThis.__hostrun_formatDate,
+  humanize: function (value, base = new Date()) {
+    const target = value instanceof Date ? value : new Date(value);
+    const origin = base instanceof Date ? base : new Date(base);
+    const suffix = target.getTime() >= origin.getTime() ? "from now" : "ago";
+    return `${globalThis.__hostrun_humanizeDuration(target.getTime() - origin.getTime())} ${suffix}`;
+  }
 };
 
 globalThis.__hostrun_csvCell = function (value) {
@@ -848,6 +998,26 @@ globalThis.__hostrun_defineArrayHelper("unique", function () {
   return Array.from(new Set(this));
 });
 
+globalThis.__hostrun_defineArrayHelper("groupBy", function (selector) {
+  return globalThis.__hostrun_groupValues(this, selector);
+});
+
+globalThis.__hostrun_defineArrayHelper("countBy", function (selector) {
+  return globalThis.__hostrun_groupValues(this, selector).map((group) => ({
+    key: group.key,
+    count: group.rows.length
+  }));
+});
+
+globalThis.__hostrun_defineArrayHelper("uniqueBy", function (selector) {
+  return globalThis.__hostrun_groupValues(this, selector).map((group) => group.rows[0]);
+});
+
+globalThis.__hostrun_defineArrayHelper("sortBy", function (selector) {
+  const select = globalThis.__hostrun_collectionSelector(selector);
+  return Array.from(this).sort((left, right) => String(select(left)).localeCompare(String(select(right))));
+});
+
 globalThis.__hostrun_defineArrayHelper("flatten", function (depth = 1) {
   return Array.from(this).flat(Number(depth));
 });
@@ -937,6 +1107,30 @@ globalThis.__hostrun_defineArrayHelper("bytes", function () {
 
 globalThis.__hostrun_defineArrayHelper("byteRange", function (start, end = start) {
   return globalThis.__hostrun_byteRange(this, start, end);
+});
+
+globalThis.__hostrun_defineArrayHelper("u16le", function (offset = 0) {
+  return globalThis.__hostrun_uintFromBytes(this, offset, 2, true);
+});
+
+globalThis.__hostrun_defineArrayHelper("u16be", function (offset = 0) {
+  return globalThis.__hostrun_uintFromBytes(this, offset, 2, false);
+});
+
+globalThis.__hostrun_defineArrayHelper("u32le", function (offset = 0) {
+  return globalThis.__hostrun_uintFromBytes(this, offset, 4, true);
+});
+
+globalThis.__hostrun_defineArrayHelper("u32be", function (offset = 0) {
+  return globalThis.__hostrun_uintFromBytes(this, offset, 4, false);
+});
+
+globalThis.__hostrun_defineArrayHelper("i32le", function (offset = 0) {
+  return globalThis.__hostrun_intFromBytes(this, offset, 4, true);
+});
+
+globalThis.__hostrun_defineArrayHelper("i32be", function (offset = 0) {
+  return globalThis.__hostrun_intFromBytes(this, offset, 4, false);
 });
 
 globalThis.__hostrun_defineArrayHelper("lower", function () {
@@ -1055,6 +1249,13 @@ globalThis.fs = {
   },
   read: function (path) {
     return globalThis.__hostrun_invokeCapability("fs.read", { path });
+  },
+  open: function (path, options = {}) {
+    const text = globalThis.fs.read(path);
+    return globalThis.__hostrun_parseTextFormat(text, options.format ?? globalThis.__hostrun_formatFromPath(path));
+  },
+  glob: function (pattern, options = {}) {
+    return globalThis.__hostrun_invokeCapability("fs.glob", { pattern, options });
   },
   exists: function (path) {
     return globalThis.__hostrun_invokeCapability("fs.exists", { path });

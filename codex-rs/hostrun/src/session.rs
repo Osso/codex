@@ -159,7 +159,7 @@ impl HostCapabilityInvoker {
     fn invoke_tool(&self, tool_path: &str, args_json: &str) -> String {
         let args = serde_json::from_str(args_json).unwrap_or(Value::Null);
         match tool_path {
-            "fs.write" | "fs.read" | "fs.exists" | "fs.remove" => {
+            "fs.write" | "fs.read" | "fs.exists" | "fs.remove" | "fs.glob" => {
                 self.invoke_fs_operation(tool_path, args)
             }
             "rclone.deletefile" => pending_approval(rclone_deletefile_approval(args)),
@@ -699,6 +699,10 @@ mod path_tests;
 #[cfg(test)]
 #[path = "byte_tests.rs"]
 mod byte_tests;
+
+#[cfg(test)]
+#[path = "date_tests.rs"]
+mod date_tests;
 
 #[cfg(test)]
 #[path = "structured_write_tests.rs"]

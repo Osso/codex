@@ -40,6 +40,8 @@ thread start. How the runtime is wired internally belongs in
 - [x] Expose `fs.write(path, content)`, `fs.read(path)`, `fs.exists(path)`, and `fs.remove(path)` as approval-gated file helpers.
 - [x] `hostrun_eval` executes approved `fs.write`, `fs.read`, `fs.exists`, and `fs.remove` operations after the tool invocation has passed its pre-tool approval layer.
 - [x] Expose `fs.write(path, content)` as an approval-gated file-write helper.
+- [x] Expose `fs.glob(pattern, options)` as an approval-gated filesystem glob helper with optional file/directory filtering.
+- [x] Expose `fs.open(path, options)` as a readable `fs.read` wrapper that parses JSON, JSONL, YAML, CSV, and TSV by extension or explicit format.
 - [x] Expose `fs.writeJson(path, value)`, `fs.writeYaml(path, value)`, and `fs.writeCsv(path, rows)` for structured file writes.
 - [x] Expose `tmp.file(prefix)` and `tmp.dir(prefix)` with automatic cleanup and explicit `.cleanup()` support.
 - [x] Expose `tmp.file(prefix, options)` and `tmp.dir(prefix)` handles with deterministic `/tmp/hostrun-*` paths and approval-gated explicit `.cleanup()`.
@@ -119,14 +121,17 @@ thread start. How the runtime is wired internally belongs in
 - [x] Provide collection cleanup/shape helpers: `flatten`, `compact`, `default`, `wrap`, `transpose`, and `enumerate`.
 - [x] Provide predicates and reducers: `isEmpty`, `isNotEmpty`, `any`, `all`, `sum`, `avg`, `min`, `max`, and `round`.
 - [x] Array `any` and `all` support truthiness, exact-value matching, and callback predicates.
+- [x] Arrays provide generic `groupBy`, `countBy`, `uniqueBy`, and `sortBy` helpers for object rows and projected values.
 - [x] Provide text helpers for common shell replacements: `splitRow`, `splitColumn`, `splitWords`, `joinText`, `trimmed`, `replaceText`, `lineCount`, `head`, and `tail`.
 - [x] Arrays provide `head`, `tail`, and `joinText` helpers for line-list workflows.
 - [x] Provide path helpers for common filesystem text transforms: `path.join`, `path.basename`, `path.dirname`, and `path.parse`.
 - [x] Provide byte helpers for binary inspection: UTF-8 byte arrays, byte length, and byte ranges over strings and byte arrays.
-- [ ] Provide non-mutating string-array helpers: `containing`, `notContaining`, `startsWith`, `endsWith`, `matching`, `notMatching`, `glob`, `notGlob`, `first`, `last`, `take`, `unique`, `sort`, `reverse`, `lengths`, `bytes`, `lower`, and `upper`.
+- [x] Provide numeric byte decoding helpers for common binary inspection: `u16le`, `u16be`, `u32le`, `u32be`, `i32le`, and `i32be`.
+- [x] Provide date helpers for common shell replacements: `date.now`, `date.parse`, `date.format`, and `date.humanize`.
+- [x] Provide non-mutating string-array helpers: `containing`, `notContaining`, `startsWith`, `endsWith`, `matching`, `notMatching`, `glob`, `notGlob`, `first`, `last`, `take`, `unique`, `sorted`, `reversed`, `lengths`, `bytes`, `lower`, and `upper`.
 - [x] Provide string-array helpers for `containing`, `notContaining`, `startsWith`, `endsWith`, `matching`, `notMatching`, `glob`, `notGlob`, `first`, `last`, `take`, `unique`, `lengths`, `bytes`, `lower`, `upper`, `sorted`, and `reversed`.
 - [x] `glob` and `notGlob` use case-sensitive path-glob matching with `*`, `?`, and `**`, without shell expansion.
-- [ ] Provide scalar helpers where they improve agent readability: `lines`, `bytes`, `lower`, `upper`, `length`, and `chars`.
+- [x] Provide scalar helpers where they improve agent readability: `lines`, `bytes`, `lower`, `upper`, and `chars`; use JavaScript's native `.length` property for string length.
 - [x] Provide scalar helpers for `lines`, `bytes`, `lower`, `upper`, and `chars`.
 - [x] `str.lines(start, end)` returns 1-based inclusive line ranges for sed-style line selection.
 - [x] Arrays provide `.lineRange(start, end)` for 1-based inclusive ranges over existing line arrays.

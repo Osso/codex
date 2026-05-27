@@ -15,6 +15,11 @@ fn byte_helpers_expose_utf8_bytes_and_ranges() {
               stringRange: "AéB".byteRange(1, 2),
               singleByte: "AéB".byteRange(3),
               arrayRange: [0x10, 0x20, 0x30, 0x40].byteRange(1, 2),
+              u16le: [0x34, 0x12].u16le(),
+              u16be: [0x12, 0x34].u16be(),
+              u32le: [0x78, 0x56, 0x34, 0x12].u32le(),
+              u32be: [0x12, 0x34, 0x56, 0x78].u32be(),
+              i32le: [0xff, 0xff, 0xff, 0xff].i32le(),
               byteLengths: ["A", "é", "𝄞"].bytes()
             });
             "#,
@@ -29,6 +34,11 @@ fn byte_helpers_expose_utf8_bytes_and_ranges() {
             "stringRange": [195, 169],
             "singleByte": [66],
             "arrayRange": [32, 48],
+            "u16le": 4660,
+            "u16be": 4660,
+            "u32le": 305419896,
+            "u32be": 305419896,
+            "i32le": -1,
             "byteLengths": [1, 2, 4]
         }))
     );

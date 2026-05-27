@@ -97,3 +97,45 @@ fn collection_reducer_helpers_ignore_non_numeric_values() {
         }))
     );
 }
+
+#[test]
+fn collection_group_count_unique_and_sort_helpers_project_records() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval(
+            r#"
+            const rows = [
+              { user: "bob", status: "active", age: 41 },
+              { user: "alice", status: "active", age: 32 },
+              { user: "bob", status: "inactive", age: 39 }
+            ];
+            ({
+              counts: rows.countBy("status"),
+              groups: rows.groupBy("user").map((group) => ({
+                key: group.key,
+                names: group.rows.get("status")
+              })),
+              unique: rows.uniqueBy("user").get("user"),
+              sorted: rows.sortBy("age").get("user")
+            });
+            "#,
+        )
+        .expect("eval");
+
+    assert_eq!(
+        result.value,
+        Some(json!({
+            "counts": [
+                { "key": "active", "count": 2 },
+                { "key": "inactive", "count": 1 }
+            ],
+            "groups": [
+                { "key": "bob", "names": ["active", "inactive"] },
+                { "key": "alice", "names": ["active"] }
+            ],
+            "unique": ["bob", "alice"],
+            "sorted": ["alice", "bob", "bob"]
+        }))
+    );
+}
