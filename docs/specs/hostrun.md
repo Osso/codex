@@ -80,6 +80,7 @@ thread start. How the runtime is wired internally belongs in
 ### Command builder library contract
 
 - [x] `cli.<program>(...args)` returns a lazy command builder rather than eagerly requesting approval.
+- [x] `run.<program>(...args)` executes a host command without stdout/stderr capture by default.
 - [x] Command builder `.run()` preserves the existing approval request shape for `cli.<program>`.
 - [x] Command builders include requested stdout/stderr/stdin/combined handling in approval metadata.
 - [x] `.run()` executes a command builder and returns structured status for each command in the execution graph.
@@ -97,6 +98,7 @@ thread start. How the runtime is wired internally belongs in
 - [x] `stdout.lines()` returns captured stdout split into lines.
 - [x] Output terminal selectors such as `stdout.text()`, `stdout.lines()`, and `stdout.json()` execute directly; callers must not chain `.run()` after them.
 - [x] Builder-level terminal selectors default to stdout, so `cli.ls().text()` is equivalent to `cli.ls().stdout.text()`.
+- [x] Use `run.<program>()` as the preferred no-capture command form; keep `cli.<program>()` for builder workflows.
 - [x] `stdin.text(str)`, `stdin.file(path)`, `stdin.json(value)`, `stdin.yaml(value)`, `stdin.csv(rows)`, and `stdin.lines(values)` provide explicit stdin sources.
 - [x] The approved `cli.*` execution path supports stdout text, stdout lines, stdout file redirects, stderr text, combined capture, stderr-to-stdout composition, line-based stdin, and structured JSON/YAML/CSV/JSONL stdin.
 - [x] Command builders preserve explicit `stdin.yaml`, `stdin.csv`, `stdin.tsv`, `stdin.jsonLines`, and `stdin.jsonl` metadata in approval requests.

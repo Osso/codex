@@ -35,8 +35,11 @@ executed after the outer tool invocation has passed Codex's approval layer.
 
 ## Command Builders
 
-`cli.<program>(...args)` returns a lazy command builder. Arguments stay as argv
-values rather than shell text. Output handling is explicit:
+`run.<program>(...args)` executes a host command without stdout/stderr capture
+by default. `cli.<program>(...args)` returns a lazy command builder for
+workflows that need output capture, stdin, redirects, spawn, or piping.
+Arguments stay as argv values rather than shell text. Output handling is
+explicit:
 
 - `stdout.text()`, `stdout.lines()`, `stdout.json()`, `stdout.jsonl()`,
 `stdout.csv()`, `stdout.tsv()`, `stdout.yaml()`, and `stdout.toml()` execute

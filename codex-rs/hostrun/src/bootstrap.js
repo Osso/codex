@@ -1602,6 +1602,19 @@ globalThis.__hostrun_cliProxy = function (path) {
 
 globalThis.cli = globalThis.__hostrun_cliProxy("");
 
+globalThis.__hostrun_runProxy = function (path) {
+  return new Proxy(function () {}, {
+    get(_target, property) {
+      return globalThis.__hostrun_runProxy(path ? path + "." + String(property) : String(property));
+    },
+    apply(_target, _thisArg, args) {
+      return globalThis.__hostrun_commandBuilder(path, args).run();
+    }
+  });
+};
+
+globalThis.run = globalThis.__hostrun_runProxy("");
+
 globalThis.which = function (program) {
   return globalThis.cli.which(String(program));
 };

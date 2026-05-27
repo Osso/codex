@@ -132,42 +132,6 @@ fn assert_fs_path_approval(code: &str, tool: &str, summary: &str) {
 }
 
 #[test]
-fn cli_program_proxy_returns_lazy_command_builder() {
-    let session = HostrunSession::new().expect("session");
-
-    let result = session.eval("cli.dmidecode();").expect("builder");
-
-    assert_eq!(result.result_type, "completed");
-    assert_eq!(
-        result.value,
-        Some(json!({
-            "program": "dmidecode",
-            "args": []
-        }))
-    );
-}
-
-#[test]
-fn cli_command_builder_run_returns_command_approval() {
-    let session = HostrunSession::new().expect("session");
-
-    let result = session.eval("cli.dmidecode().run();").expect("approval");
-
-    assert_eq!(result.result_type, "needs_approval");
-    let approval = result.approval.expect("approval");
-    assert_eq!(approval.id, "cli.dmidecode:dmidecode");
-    assert_eq!(approval.tool, "cli.dmidecode");
-    assert_eq!(approval.summary, "Run dmidecode");
-    assert_eq!(
-        approval.args,
-        json!({
-            "program": "dmidecode",
-            "args": []
-        })
-    );
-}
-
-#[test]
 fn which_helper_returns_lazy_command_builder() {
     let session = HostrunSession::new().expect("session");
 

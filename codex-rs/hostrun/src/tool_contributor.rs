@@ -25,7 +25,8 @@ Hostrun evaluates JavaScript in a persistent QuickJS session:
 - Arrays have `.containing(needle)` plus non-mutating helpers such as `.notContaining()`, `.startsWith()`, `.endsWith()`, `.matching()`, `.glob()`, `.unique()`, `.sorted()`, `.reversed()`, `.groupBy()`, `.countBy()`, `.uniqueBy()`, and `.sortBy()`.
 - Strings expose shell-style helpers such as `.lines(start, end)`, `.head()`, `.tail()`, `.splitWords()`, `.splitColumn()`, `.cut(separator, fields)`, `.json()`, `.jsonl()`, `.yaml()`, `.toml()`, `.csv()`, `.tsv()`, `.lineCount()`, `.wordCount()`, `.byteCount()`, `.bytes()`, `.byteArray()`, and `.chars()`.
 - `path.*` and `date.*` provide small readable helpers for path transforms and UTC date parse/format/humanize workflows.
-- `cli.<program>(...args)` creates a lazy host command builder. Call `.run()` to request approval and execute it when no output selector is needed, e.g. `cli.dmidecode().run()`. Use `.complete()` for command probes that should capture stdout, stderr, and exit status. Terminal output selectors execute directly and default to stdout: `cli.ls().text()`, `cli.rclone('lsf', remote).lines()`, or `cli.sh('-c', 'echo err >&2').stderr.text()`, never `.text().run()` or `.stdout.text().run()`. Config-only helpers such as `.stdout.toFile(path)`, `.stdout.tee(path)`, `.stderr.toStdout()`, and `.combined.toFile(path)` return the builder so another terminal call can execute it.
+- `run.<program>(...args)` executes a host command without stdout/stderr capture by default, e.g. `run.dmidecode()` or `run.git('status', '--short')`.
+- `cli.<program>(...args)` creates a lazy host command builder for workflows that need output capture, stdin, redirects, spawn, or piping. Use `.complete()` for command probes that should capture stdout, stderr, and exit status. Terminal output selectors execute directly and default to stdout: `cli.ls().text()`, `cli.rclone('lsf', remote).lines()`, or `cli.sh('-c', 'echo err >&2').stderr.text()`, never `.text().run()` or `.stdout.text().run()`. Config-only helpers such as `.stdout.toFile(path)`, `.stdout.tee(path)`, `.stderr.toStdout()`, and `.combined.toFile(path)` return the builder so another terminal call can execute it. `.run()` remains available as the low-level builder execution method when a command builder has no terminal output selector.
 - `.spawn()` starts a command and returns a managed process handle with `id`, `pid`, `stdout`, `stderr`, `.wait()`, and `.kill()`. Store it in `ctx` if a later Hostrun call should wait or kill it.
 - Stream piping is explicit: `const source = cli.rclone('cat', remote); cli.cat().stdin(source.stdout).stdout.text()` returns downstream output plus `commands` status entries for the upstream and downstream commands.
 - `fs.write(path, content)`, `fs.read(path)`, `fs.open(path, options)`, `fs.glob(pattern, options)`, `fs.exists(path)`, and `fs.remove(path)` request approval-gated host file operations. `fs.open` parses JSON, JSONL, YAML, TOML, CSV, and TSV from the filename extension unless `options.format` is supplied.
@@ -335,7 +336,7 @@ mod tests {
         assert_eq!(tools[0].tool_name(), "hostrun_eval");
         assert_eq!(fragments.len(), 1);
         assert!(fragments[0].text().contains("ctx"));
-        assert!(fragments[0].text().contains("cli.dmidecode().run()"));
+        assert!(fragments[0].text().contains("run.dmidecode()"));
         assert!(fragments[0].text().contains("fs.read(path)"));
         assert!(fragments[0].text().contains("rclone.lsf(target"));
         assert!(fragments[0].text().contains("fd.find(pattern"));
