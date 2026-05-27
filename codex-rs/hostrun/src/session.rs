@@ -526,6 +526,10 @@ mod structured_data_tests;
 mod command_execution_tests;
 
 #[cfg(test)]
+#[path = "cli_wrapper_tests.rs"]
+mod cli_wrapper_tests;
+
+#[cfg(test)]
 #[path = "spawn_tests.rs"]
 mod spawn_tests;
 

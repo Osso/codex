@@ -15,8 +15,8 @@ by the tool executor.
 
 The JavaScript standard library is bootstrapped from
 `codex-rs/hostrun/src/bootstrap.js`. It defines public helpers such as `fs`,
-`tmp`, `cli`, `rclone`, `fd`, `rg`, `http`, `path`, string helpers, array
-helpers, table/field helpers, and structured data helpers.
+`tmp`, `cli`, `rclone`, `fd`, `rg`, `sqlite`, `kubectl`, `http`, `path`, string
+helpers, array helpers, table/field helpers, and structured data helpers.
 
 ## Approval Boundary
 
@@ -39,7 +39,8 @@ executed after the outer tool invocation has passed Codex's approval layer.
 values rather than shell text. Output handling is explicit:
 
 - `stdout.text()`, `stdout.lines()`, `stdout.json()`, `stdout.jsonl()`,
-  `stdout.csv()`, and `stdout.tsv()` capture and parse bounded stdout.
+  `stdout.csv()`, `stdout.tsv()`, `stdout.yaml()`, and `stdout.toml()` capture
+  and parse bounded stdout.
 - `stdout.toFile(path)` writes full output to a file.
 - `stdout.tee(path)` writes full output and keeps bounded captured text visible.
 - Matching helpers exist for `stderr` and `combined` where applicable.
@@ -53,9 +54,10 @@ const source = cli.rclone("cat", "spaces:bucket/file.txt");
 cli.cat().stdin(source.stdout).stdout.text().run();
 ```
 
-The current implementation executes upstream commands before downstream
-commands, then includes a `commands` array with per-command status in graph
-results. True concurrent process piping and `.spawn()` handles are still open.
+The current implementation starts producer and consumer commands concurrently,
+then includes a `commands` array with per-command status in graph results.
+`.spawn()` returns a managed process handle with `id`, `pid`, stdout/stderr
+stream handles, `.wait()`, and `.kill()`.
 
 ## HTTP
 

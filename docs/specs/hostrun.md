@@ -117,14 +117,14 @@ thread start. How the runtime is wired internally belongs in
 - [x] Support `str.jsonl()` as an alias for JSONL parsing.
 - [x] Support CSV and TSV parsing from strings with `str.csv()` and `str.tsv()`.
 - [x] Support TSV and JSONL serialization to files with `fs.writeTsv`, `fs.writeJsonLines`, and `fs.writeJsonl`.
-- [x] Support conversion helpers between JSON-compatible values, YAML, CSV, JSONL, arrays, and table objects.
+- [x] Support conversion helpers between JSON-compatible values, YAML, TOML, CSV, JSONL, arrays, Markdown tables, and table objects.
 - [x] Provide object/table projection helpers for common `nu`/`jq` workflows: `get`, `select`, `reject`, `rename`, `insert`, `update`, `merge`, `columns`, `values`, and entry iteration.
 - [x] Object/table projection helpers are non-mutating and support dotted paths for nested field access.
 - [x] Provide collection cleanup/shape helpers: `flatten`, `compact`, `default`, `wrap`, `transpose`, and `enumerate`.
 - [x] Provide predicates and reducers: `isEmpty`, `isNotEmpty`, `any`, `all`, `sum`, `avg`, `min`, `max`, and `round`.
 - [x] Array `any` and `all` support truthiness, exact-value matching, and callback predicates.
 - [x] Arrays provide generic `groupBy`, `countBy`, `uniqueBy`, and `sortBy` helpers for object rows and projected values.
-- [x] Provide text helpers for common shell replacements: `splitRow`, `splitColumn`, `splitWords`, `joinText`, `trimmed`, `replaceText`, `lineCount`, `head`, and `tail`.
+- [x] Provide text helpers for common shell replacements: `splitRow`, `splitColumn`, `splitWords`, `cut`, `joinText`, `trimmed`, `replaceText`, `lineCount`, `wordCount`, `byteCount`, `head`, and `tail`.
 - [x] Arrays provide `head`, `tail`, and `joinText` helpers for line-list workflows.
 - [x] Provide path helpers for common filesystem text transforms: `path.join`, `path.basename`, `path.dirname`, and `path.parse`.
 - [x] Provide byte helpers for binary inspection: UTF-8 byte arrays, byte length, and byte ranges over strings and byte arrays.
@@ -134,6 +134,7 @@ thread start. How the runtime is wired internally belongs in
 - [x] Provide string-array helpers for `containing`, `notContaining`, `startsWith`, `endsWith`, `matching`, `notMatching`, `glob`, `notGlob`, `first`, `last`, `take`, `unique`, `lengths`, `bytes`, `lower`, `upper`, `sorted`, and `reversed`.
 - [x] `glob` and `notGlob` use case-sensitive path-glob matching with `*`, `?`, and `**`, without shell expansion.
 - [x] Provide scalar helpers where they improve agent readability: `lines`, `bytes`, `lower`, `upper`, and `chars`; use JavaScript's native `.length` property for string length.
+- [x] Provide `sqlite.query(database, sql)` and `kubectl.get(resource, options)` lazy command wrappers for common JSON-output CLI inspection workflows.
 - [x] Provide scalar helpers for `lines`, `bytes`, `lower`, `upper`, and `chars`.
 - [x] `str.lines(start, end)` returns 1-based inclusive line ranges for sed-style line selection.
 - [x] Arrays provide `.lineRange(start, end)` for 1-based inclusive ranges over existing line arrays.

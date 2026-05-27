@@ -12,6 +12,7 @@ fn string_helpers_parse_csv_tsv_and_jsonl() {
             ({
               csv: 'name,note\nalpha,"hello, world"\nbeta,"uses ""quotes"""\n'.csv(),
               tsv: 'name\tnote\nalpha\thello\\tthere\nbeta\tline\\nbreak\n'.tsv(),
+              toml: 'name = "alpha"\nactive = true\ncount = 3\npaths = ["one", "two"]\n[owner]\nname = "alessio"\n'.toml(),
               jsonl: '{"name":"alpha"}\n{"name":"beta","ok":true}\n'.jsonl(),
               yaml: 'name: alpha\nports:\n  - 80\n  - 443\nactive: true\n'.yaml()
             });
@@ -32,6 +33,15 @@ fn string_helpers_parse_csv_tsv_and_jsonl() {
                 ["alpha", "hello\tthere"],
                 ["beta", "line\nbreak"]
             ],
+            "toml": {
+                "name": "alpha",
+                "active": true,
+                "count": 3,
+                "paths": ["one", "two"],
+                "owner": {
+                    "name": "alessio"
+                }
+            },
             "jsonl": [
                 { "name": "alpha" },
                 { "name": "beta", "ok": true }
@@ -132,8 +142,10 @@ fn conversion_helpers_serialize_json_yaml_csv_tsv_and_jsonl() {
             ({
               json: ({ ok: true, count: 2 }).toJson(),
               yaml: ({ ok: true, count: 2 }).toYaml(),
+              toml: ({ ok: true, count: 2, name: 'alpha' }).toToml(),
               csv: rows.toCsv(),
               tsv: rows.toTsv(),
+              md: [{ name: 'alpha', count: 2 }, { name: 'beta', count: 5 }].toMarkdown(),
               jsonl: [{ name: 'alpha' }, { ok: true }].toJsonl()
             });
             "#,
@@ -145,8 +157,10 @@ fn conversion_helpers_serialize_json_yaml_csv_tsv_and_jsonl() {
         Some(json!({
             "json": "{\"ok\":true,\"count\":2}",
             "yaml": "ok: true\ncount: 2\n",
+            "toml": "ok = true\ncount = 2\nname = \"alpha\"\n",
             "csv": "name,note\nalpha,\"hello, world\"\n",
             "tsv": "name\tnote\nalpha\thello, world\n",
+            "md": "| name | count |\n| --- | --- |\n| alpha | 2 |\n| beta | 5 |\n",
             "jsonl": "{\"name\":\"alpha\"}\n{\"ok\":true}\n"
         }))
     );

@@ -146,6 +146,14 @@ globalThis.__hostrun_defineStringHelper("lineCount", function () {
   return String(this).lines().length;
 });
 
+globalThis.__hostrun_defineStringHelper("wordCount", function () {
+  return String(this).splitWords().length;
+});
+
+globalThis.__hostrun_defineStringHelper("byteCount", function () {
+  return String(this).bytes();
+});
+
 globalThis.__hostrun_defineStringHelper("head", function (count = 10) {
   return String(this).lines().slice(0, Number(count));
 });
@@ -177,6 +185,11 @@ globalThis.__hostrun_defineStringHelper("splitColumn", function (separator = /\s
     });
     return output;
   });
+});
+
+globalThis.__hostrun_defineStringHelper("cut", function (separator = /\s+/, fields = []) {
+  const indexes = Array.from(fields).map((field) => Number(field) - 1);
+  return String(this).splitColumn(separator).map((row) => indexes.map((index) => row[index] ?? ""));
 });
 
 globalThis.__hostrun_defineStringHelper("trimmed", function () {
@@ -417,6 +430,8 @@ globalThis.__hostrun_formatFromPath = function (path) {
     case ".yaml":
     case ".yml":
       return "yaml";
+    case ".toml":
+      return "toml";
     case ".csv":
       return "csv";
     case ".tsv":
@@ -437,6 +452,8 @@ globalThis.__hostrun_parseTextFormat = function (text, format) {
     case "yaml":
     case "yml":
       return String(text).yaml();
+    case "toml":
+      return String(text).toml();
     case "csv":
       return String(text).csv();
     case "tsv":
@@ -721,6 +738,56 @@ globalThis.__hostrun_defineStringHelper("yaml", function () {
   return globalThis.__hostrun_parseYaml(this);
 });
 
+globalThis.__hostrun_parseTomlValue = function (value) {
+  const text = String(value).trim();
+  if (text === "true") {
+    return true;
+  }
+  if (text === "false") {
+    return false;
+  }
+  if (/^-?\d+(\.\d+)?$/.test(text)) {
+    return Number(text);
+  }
+  if (text.startsWith("[") && text.endsWith("]")) {
+    const jsonText = "[" + text.slice(1, -1).split(",").map((item) => item.trim()).join(",") + "]";
+    return JSON.parse(jsonText);
+  }
+  if (text.startsWith('"') && text.endsWith('"')) {
+    return JSON.parse(text);
+  }
+  return text;
+};
+
+globalThis.__hostrun_parseToml = function (text) {
+  const root = {};
+  let current = root;
+  for (const rawLine of String(text).lines()) {
+    const line = rawLine.trim();
+    if (line.length === 0 || line.startsWith("#")) {
+      continue;
+    }
+    if (line.startsWith("[") && line.endsWith("]")) {
+      current = root;
+      for (const part of line.slice(1, -1).split(".")) {
+        current[part] = current[part] ?? {};
+        current = current[part];
+      }
+      continue;
+    }
+    const match = line.match(/^([A-Za-z0-9_.-]+)\s*=\s*(.*)$/);
+    if (!match) {
+      throw new Error("unsupported Hostrun TOML line: " + line);
+    }
+    current[match[1]] = globalThis.__hostrun_parseTomlValue(match[2]);
+  }
+  return root;
+};
+
+globalThis.__hostrun_defineStringHelper("toml", function () {
+  return globalThis.__hostrun_parseToml(this);
+});
+
 globalThis.__hostrun_defineObjectHelper("toJson", function (space = 0) {
   return JSON.stringify(this, null, Number(space));
 });
@@ -728,6 +795,51 @@ globalThis.__hostrun_defineObjectHelper("toJson", function (space = 0) {
 globalThis.__hostrun_defineObjectHelper("toYaml", function () {
   return globalThis.__hostrun_toYaml(this) + "\n";
 });
+
+globalThis.__hostrun_toTomlValue = function (value) {
+  if (typeof value === "string") {
+    return JSON.stringify(value);
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return "[" + value.map(globalThis.__hostrun_toTomlValue).join(", ") + "]";
+  }
+  if (value === null || value === undefined) {
+    return '""';
+  }
+  return JSON.stringify(value);
+};
+
+globalThis.__hostrun_toToml = function (record) {
+  return Object.entries(Object(record))
+    .map(([key, value]) => key + " = " + globalThis.__hostrun_toTomlValue(value))
+    .join("\n") + "\n";
+};
+
+globalThis.__hostrun_defineObjectHelper("toToml", function () {
+  return globalThis.__hostrun_toToml(this);
+});
+
+globalThis.__hostrun_markdownCell = function (value) {
+  return String(value ?? "").replaceAll("|", "\\|").replace(/\r?\n/g, "<br>");
+};
+
+globalThis.__hostrun_toMarkdown = function (rows) {
+  const values = Array.from(rows);
+  if (values.length === 0) {
+    return "";
+  }
+  const columns = globalThis.__hostrun_tableColumns(values);
+  const header = "| " + columns.map(globalThis.__hostrun_markdownCell).join(" | ") + " |";
+  const separator = "| " + columns.map(() => "---").join(" | ") + " |";
+  const body = values.map((row) => {
+    const cells = columns.map((column) => globalThis.__hostrun_markdownCell(row[column]));
+    return "| " + cells.join(" | ") + " |";
+  });
+  return [header, separator, ...body].join("\n") + "\n";
+};
 
 globalThis.__hostrun_regex = function (pattern) {
   return pattern instanceof RegExp ? pattern : new RegExp(String(pattern));
@@ -924,6 +1036,14 @@ globalThis.__hostrun_defineArrayHelper("toCsv", function () {
 
 globalThis.__hostrun_defineArrayHelper("toTsv", function () {
   return globalThis.__hostrun_toTsv(this);
+});
+
+globalThis.__hostrun_defineArrayHelper("toMarkdown", function () {
+  return globalThis.__hostrun_toMarkdown(this);
+});
+
+globalThis.__hostrun_defineArrayHelper("toMd", function () {
+  return globalThis.__hostrun_toMarkdown(this);
 });
 
 globalThis.__hostrun_defineArrayHelper("toJsonLines", function () {
@@ -1195,6 +1315,9 @@ globalThis.__hostrun_tmpHandle = function (kind, path) {
     handle.writeYaml = function (value) {
       return globalThis.fs.writeYaml(path, value);
     };
+    handle.writeToml = function (value) {
+      return globalThis.fs.writeToml(path, value);
+    };
     handle.writeCsv = function (rows) {
       return globalThis.fs.writeCsv(path, rows);
     };
@@ -1234,6 +1357,9 @@ globalThis.fs = {
   },
   writeYaml: function (path, value) {
     return globalThis.fs.write(path, globalThis.__hostrun_toYaml(value) + "\n");
+  },
+  writeToml: function (path, value) {
+    return globalThis.fs.write(path, globalThis.__hostrun_toToml(value));
   },
   writeCsv: function (path, rows) {
     return globalThis.fs.write(path, globalThis.__hostrun_toCsv(rows));
@@ -1365,6 +1491,13 @@ globalThis.__hostrun_commandBuilder = function (program, args) {
           (result) => globalThis.__hostrun_parseCommandOutput(result, name, (text) => text.yaml())
         );
       },
+      toml: function () {
+        state[name] = { type: "text" };
+        return globalThis.__hostrun_withParsedRun(
+          builder,
+          (result) => globalThis.__hostrun_parseCommandOutput(result, name, (text) => text.toml())
+        );
+      },
       toFile: function (path) {
         state[name] = { type: "file", path };
         return builder;
@@ -1416,6 +1549,10 @@ globalThis.__hostrun_commandBuilder = function (program, args) {
   };
   stdin.yaml = function (value) {
     state.stdin = { type: "yaml", value };
+    return builder;
+  };
+  stdin.toml = function (value) {
+    state.stdin = { type: "text", text: globalThis.__hostrun_toToml(value) };
     return builder;
   };
   stdin.csv = function (rows) {
@@ -1606,6 +1743,39 @@ globalThis.rg = {
       globalThis.rg.search(pattern, paths, { ...options, json: true }).stdout.text(),
       globalThis.__hostrun_parseRgMatches
     );
+  }
+};
+
+globalThis.sqlite = {
+  query: function (database, sql, options = {}) {
+    const args = [];
+    if (options.json !== false) {
+      args.push("-json");
+    }
+    if (options.header) {
+      args.push("-header");
+    }
+    if (options.mode) {
+      args.push("-" + String(options.mode));
+    }
+    args.push(String(database), String(sql));
+    return globalThis.__hostrun_commandBuilder("sqlite3", args);
+  }
+};
+
+globalThis.kubectl = {
+  get: function (resource, options = {}) {
+    const args = ["get", String(resource)];
+    if (options.name) {
+      args.push(String(options.name));
+    }
+    globalThis.__hostrun_addOption(args, "--namespace", options.namespace);
+    globalThis.__hostrun_addOption(args, "--all-namespaces", options.allNamespaces);
+    if (options.selector) {
+      args.push("--selector", String(options.selector));
+    }
+    args.push("-o", String(options.output ?? "json"));
+    return globalThis.__hostrun_commandBuilder("kubectl", args);
   }
 };
 
