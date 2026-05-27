@@ -177,6 +177,80 @@ fn approved_cli_command_complete_captures_stdout_stderr_and_exit_status() {
 }
 
 #[test]
+fn approved_cli_command_spawn_returns_handle_and_waits_for_output() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+
+    let result = session
+        .eval(
+            r#"
+            const process = cli.printf('spawned').stdout.text().spawn();
+            ({
+              handle: {
+                id: process.id,
+                pidType: typeof process.pid,
+                program: process.program,
+                args: process.args,
+                stdout: process.stdout,
+                stderr: process.stderr
+              },
+              waited: process.wait()
+            });
+            "#,
+        )
+        .expect("eval");
+    let value = result.value.expect("value");
+
+    assert_eq!(value["handle"]["id"], "process-1");
+    assert_eq!(value["handle"]["pidType"], "number");
+    assert_eq!(value["handle"]["program"], "printf");
+    assert_eq!(value["handle"]["args"], json!(["spawned"]));
+    assert_eq!(
+        value["handle"]["stdout"],
+        json!({ "process": "process-1", "stream": "stdout" })
+    );
+    assert_eq!(
+        value["handle"]["stderr"],
+        json!({ "process": "process-1", "stream": "stderr" })
+    );
+    assert_eq!(
+        value["waited"],
+        json!({
+            "program": "printf",
+            "args": ["spawned"],
+            "exitCode": 0,
+            "success": true,
+            "stdout": "spawned",
+            "stdoutMeta": {
+                "bytes": 7,
+                "capturedBytes": 7,
+                "truncated": false
+            }
+        })
+    );
+}
+
+#[test]
+fn approved_cli_command_spawn_can_kill_process_handle() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+
+    let result = session
+        .eval(
+            r#"
+            const process = cli.sleep('5').spawn();
+            process.kill();
+            "#,
+        )
+        .expect("eval");
+    let value = result.value.expect("value");
+
+    assert_eq!(value["id"], "process-1");
+    assert_eq!(value["program"], "sleep");
+    assert_eq!(value["args"], json!(["5"]));
+    assert_eq!(value["success"], false);
+    assert_eq!(value["killed"], true);
+}
+
+#[test]
 fn approved_cli_command_tees_stdout_to_file_and_captures_text() {
     let session = HostrunSession::new_auto_approve().expect("session");
     let dir = tempfile::tempdir().expect("tempdir");

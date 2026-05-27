@@ -1,8 +1,8 @@
 use serde_json::Value;
 use serde_json::json;
 
-use crate::session::CliCommandStatus;
-use crate::session::CliProcessOutput;
+use crate::cli_execution::CliCommandStatus;
+use crate::cli_execution::CliProcessOutput;
 
 pub(crate) fn insert_command_graph(
     result: &mut serde_json::Map<String, Value>,

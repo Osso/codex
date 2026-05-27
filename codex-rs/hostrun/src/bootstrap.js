@@ -1303,6 +1303,10 @@ globalThis.__hostrun_commandBuilder = function (program, args) {
       state.stderr = { type: "text" };
       return globalThis.__hostrun_invokeCapability("cli." + state.program, state);
     },
+    spawn: function () {
+      state.action = "spawn";
+      return globalThis.__hostrun_processHandle(globalThis.__hostrun_invokeCapability("cli." + state.program, state));
+    },
     toJSON: function () {
       return { ...state };
     }
@@ -1436,6 +1440,26 @@ globalThis.__hostrun_commandBuilder = function (program, args) {
   };
   builder.stdin = stdin;
   return builder;
+};
+
+globalThis.__hostrun_processHandle = function (process) {
+  return {
+    id: process.id,
+    pid: process.pid,
+    program: process.program,
+    args: process.args ?? [],
+    stdout: process.stdout,
+    stderr: process.stderr,
+    wait: function () {
+      return globalThis.__hostrun_invokeCapability("process.wait", { id: process.id });
+    },
+    kill: function () {
+      return globalThis.__hostrun_invokeCapability("process.kill", { id: process.id });
+    },
+    toJSON: function () {
+      return process;
+    }
+  };
 };
 
 globalThis.__hostrun_cliProxy = function (path) {

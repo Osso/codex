@@ -86,7 +86,9 @@ thread start. How the runtime is wired internally belongs in
 - [x] `.complete()` runs a single command and captures stdout, stderr, exit code, and success status without hiding nonzero exits.
 - [x] The internal approved execution path can run scalar-argv commands and return `{ program, args, exitCode, success }`.
 - [x] `hostrun_eval` uses the approved execution path for `cli.*` after the tool invocation has passed its pre-tool approval layer.
-- [ ] `.spawn()` starts a command and returns process/stream handles.
+- [x] `.spawn()` starts a command and returns process/stream handles.
+- [x] Spawned process handles expose `id`, `pid`, `stdout`, `stderr`, `.wait()`, and `.kill()`.
+- [x] Spawned processes are tracked per Hostrun session and cleaned up when the session drops.
 - [x] `stdout.capture()` and `stderr.capture()` capture bounded text for model-visible results.
 - [x] `stdout.toFile(path)` and `stderr.toFile(path)` redirect output to host files.
 - [x] `stdout.tee(path)`, `stderr.tee(path)`, and `combined.tee(path)` write full output to a file while keeping bounded captured text visible in the result.
