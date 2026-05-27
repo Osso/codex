@@ -13,7 +13,7 @@ fn approved_rg_files_returns_matching_paths() {
     let root = dir.path().to_string_lossy().to_string();
 
     let result = session
-        .eval(&format!("rg.files('needle', {}).run();", json!(root)))
+        .eval(&format!("rg.files('needle', {});", json!(root)))
         .expect("rg files");
 
     let files = result.value.expect("files");
@@ -30,7 +30,7 @@ fn approved_rg_matches_returns_structured_match_objects() {
     let root = dir.path().to_string_lossy().to_string();
 
     let result = session
-        .eval(&format!("rg.matches('needle', {}).run();", json!(root)))
+        .eval(&format!("rg.matches('needle', {});", json!(root)))
         .expect("rg matches");
 
     let matches = result.value.expect("matches");

@@ -7,7 +7,7 @@ fn sqlite_query_wrapper_builds_json_sqlite_command() {
     let session = HostrunSession::new().expect("session");
 
     let result = session
-        .eval("sqlite.query('/tmp/app.db', 'select * from users').stdout.json().run();")
+        .eval("sqlite.query('/tmp/app.db', 'select * from users').stdout.json();")
         .expect("approval");
 
     assert_eq!(
@@ -27,8 +27,7 @@ fn kubectl_get_wrapper_builds_json_get_command() {
     let result = session
         .eval(
             "kubectl.get('pods', { namespace: 'default', allNamespaces: true })
-                .stdout.json()
-                .run();",
+                .stdout.json();",
         )
         .expect("approval");
 

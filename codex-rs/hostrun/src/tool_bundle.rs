@@ -225,10 +225,7 @@ mod tests {
 
         let output = bundle
             .executor()
-            .execute(call(
-                "session-1",
-                "cli.printf('hello').stdout.text().run();",
-            ))
+            .execute(call("session-1", "cli.printf('hello').stdout.text();"))
             .await
             .expect("tool output");
 

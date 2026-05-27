@@ -1438,6 +1438,9 @@ globalThis.__hostrun_commandBuilder = function (program, args) {
     }
   };
   const streamHandle = function (name) {
+    const runWithParsedOutput = function (parser) {
+      return globalThis.__hostrun_parseCommandOutput(builder.run(), name, parser);
+    };
     return {
       stream: name,
       command: state,
@@ -1447,56 +1450,38 @@ globalThis.__hostrun_commandBuilder = function (program, args) {
       },
       text: function () {
         state[name] = { type: "text" };
-        return builder;
+        return builder.run();
       },
       lines: function () {
         state[name] = { type: "lines" };
-        return builder;
+        return builder.run();
       },
       json: function () {
         state[name] = { type: "text" };
-        return globalThis.__hostrun_withParsedRun(
-          builder,
-          (result) => globalThis.__hostrun_parseCommandOutput(result, name, (text) => JSON.parse(text))
-        );
+        return runWithParsedOutput((text) => JSON.parse(text));
       },
       jsonLines: function () {
         state[name] = { type: "text" };
-        return globalThis.__hostrun_withParsedRun(
-          builder,
-          (result) => globalThis.__hostrun_parseCommandOutput(result, name, (text) => text.jsonLines())
-        );
+        return runWithParsedOutput((text) => text.jsonLines());
       },
       jsonl: function () {
         return this.jsonLines();
       },
       csv: function () {
         state[name] = { type: "text" };
-        return globalThis.__hostrun_withParsedRun(
-          builder,
-          (result) => globalThis.__hostrun_parseCommandOutput(result, name, (text) => text.csv())
-        );
+        return runWithParsedOutput((text) => text.csv());
       },
       tsv: function () {
         state[name] = { type: "text" };
-        return globalThis.__hostrun_withParsedRun(
-          builder,
-          (result) => globalThis.__hostrun_parseCommandOutput(result, name, (text) => text.tsv())
-        );
+        return runWithParsedOutput((text) => text.tsv());
       },
       yaml: function () {
         state[name] = { type: "text" };
-        return globalThis.__hostrun_withParsedRun(
-          builder,
-          (result) => globalThis.__hostrun_parseCommandOutput(result, name, (text) => text.yaml())
-        );
+        return runWithParsedOutput((text) => text.yaml());
       },
       toml: function () {
         state[name] = { type: "text" };
-        return globalThis.__hostrun_withParsedRun(
-          builder,
-          (result) => globalThis.__hostrun_parseCommandOutput(result, name, (text) => text.toml())
-        );
+        return runWithParsedOutput((text) => text.toml());
       },
       toFile: function (path) {
         state[name] = { type: "file", path };
@@ -1513,6 +1498,11 @@ globalThis.__hostrun_commandBuilder = function (program, args) {
   };
   builder.stdout = streamHandle("stdout");
   builder.stderr = streamHandle("stderr");
+  for (const method of ["text", "lines", "json", "jsonLines", "jsonl", "csv", "tsv", "yaml", "toml"]) {
+    builder[method] = function (...args) {
+      return builder.stdout[method](...args);
+    };
+  }
   builder.stderr.toStdout = function () {
     state.stderr = { type: "stdout" };
     return builder;
@@ -1701,14 +1691,6 @@ globalThis.__hostrun_parseRgMatches = function (result) {
     });
 };
 
-globalThis.__hostrun_withParsedRun = function (builder, parser) {
-  const run = builder.run;
-  builder.run = function () {
-    return parser(run.call(builder));
-  };
-  return builder;
-};
-
 globalThis.rg = {
   search: function (pattern, paths = [], options = {}) {
     const args = [];
@@ -1733,16 +1715,12 @@ globalThis.rg = {
     return globalThis.__hostrun_commandBuilder("rg", args);
   },
   files: function (pattern, paths = [], options = {}) {
-    return globalThis.__hostrun_withParsedRun(
-      globalThis.rg.search(pattern, paths, { ...options, filesWithMatches: true }).stdout.lines(),
-      globalThis.__hostrun_parseRgFiles
-    );
+    const result = globalThis.rg.search(pattern, paths, { ...options, filesWithMatches: true }).stdout.lines();
+    return globalThis.__hostrun_parseRgFiles(result);
   },
   matches: function (pattern, paths = [], options = {}) {
-    return globalThis.__hostrun_withParsedRun(
-      globalThis.rg.search(pattern, paths, { ...options, json: true }).stdout.text(),
-      globalThis.__hostrun_parseRgMatches
-    );
+    const result = globalThis.rg.search(pattern, paths, { ...options, json: true }).stdout.text();
+    return globalThis.__hostrun_parseRgMatches(result);
   }
 };
 

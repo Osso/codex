@@ -9,8 +9,31 @@ fn approved_cli_command_captures_stdout_text() {
     let session = HostrunSession::new_auto_approve().expect("session");
 
     let result = session
-        .eval("cli.printf('hello').stdout.text().run();")
+        .eval("cli.printf('hello').stdout.text();")
         .expect("eval");
+
+    assert_eq!(
+        result.value,
+        Some(json!({
+            "program": "printf",
+            "args": ["hello"],
+            "exitCode": 0,
+            "success": true,
+            "stdout": "hello",
+            "stdoutMeta": {
+                "bytes": 5,
+                "capturedBytes": 5,
+                "truncated": false
+            }
+        }))
+    );
+}
+
+#[test]
+fn command_builder_text_shortcut_executes_stdout_without_run() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+
+    let result = session.eval("cli.printf('hello').text();").expect("eval");
 
     assert_eq!(
         result.value,
@@ -34,7 +57,7 @@ fn approved_cli_command_pipes_structured_stdin_to_process() {
     let session = HostrunSession::new_auto_approve().expect("session");
 
     let result = session
-        .eval("cli.cat().stdin.lines(['alpha', 'beta']).stdout.lines().run();")
+        .eval("cli.cat().stdin.lines(['alpha', 'beta']).stdout.lines();")
         .expect("eval");
 
     assert_eq!(
@@ -88,7 +111,7 @@ fn approved_cli_command_captures_stderr_and_combined_output() {
     let session = HostrunSession::new_auto_approve().expect("session");
 
     let stderr = session
-        .eval("cli.sh('-c', 'printf err >&2').stderr.text().run();")
+        .eval("cli.sh('-c', 'printf err >&2').stderr.text();")
         .expect("stderr eval");
     assert_eq!(
         stderr.value,
@@ -123,8 +146,7 @@ fn approved_cli_command_can_redirect_stderr_to_stdout() {
         .eval(
             "cli.sh('-c', 'printf out; printf err >&2')
               .stderr.toStdout()
-              .stdout.text()
-              .run();",
+              .stdout.text();",
         )
         .expect("eval");
 
@@ -183,7 +205,7 @@ fn approved_cli_command_spawn_returns_handle_and_waits_for_output() {
     let result = session
         .eval(
             r#"
-            const process = cli.printf('spawned').stdout.text().spawn();
+            const process = cli.printf('spawned').stdout.capture().spawn();
             ({
               handle: {
                 id: process.id,
@@ -290,7 +312,7 @@ fn approved_cli_command_bounds_captured_output() {
     let session = HostrunSession::new_auto_approve().expect("session");
 
     let result = session
-        .eval("cli.sh('-c', 'printf %070000d 0').stdout.text().run();")
+        .eval("cli.sh('-c', 'printf %070000d 0').stdout.text();")
         .expect("eval");
     let value = result.value.expect("value");
 
@@ -310,7 +332,7 @@ fn approved_cli_command_serializes_structured_stdin_sources() {
     let session = HostrunSession::new_auto_approve().expect("session");
 
     let json_result = session
-        .eval("cli.cat().stdin.json({ ok: true }).stdout.text().run();")
+        .eval("cli.cat().stdin.json({ ok: true }).stdout.text();")
         .expect("json stdin");
     assert_eq!(
         json_result.value.expect("json value")["stdout"],
@@ -318,7 +340,7 @@ fn approved_cli_command_serializes_structured_stdin_sources() {
     );
 
     let yaml_result = session
-        .eval("cli.cat().stdin.yaml({ ok: true }).stdout.text().run();")
+        .eval("cli.cat().stdin.yaml({ ok: true }).stdout.text();")
         .expect("yaml stdin");
     assert_eq!(
         yaml_result.value.expect("yaml value")["stdout"],
@@ -326,7 +348,7 @@ fn approved_cli_command_serializes_structured_stdin_sources() {
     );
 
     let csv_result = session
-        .eval("cli.cat().stdin.csv([['name', 'ok'], ['alpha', true]]).stdout.text().run();")
+        .eval("cli.cat().stdin.csv([['name', 'ok'], ['alpha', true]]).stdout.text();")
         .expect("csv stdin");
     assert_eq!(
         csv_result.value.expect("csv value")["stdout"],
@@ -334,7 +356,7 @@ fn approved_cli_command_serializes_structured_stdin_sources() {
     );
 
     let jsonl_result = session
-        .eval("cli.cat().stdin.jsonl([{ name: 'alpha' }, { ok: true }]).stdout.text().run();")
+        .eval("cli.cat().stdin.jsonl([{ name: 'alpha' }, { ok: true }]).stdout.text();")
         .expect("jsonl stdin");
     assert_eq!(
         jsonl_result.value.expect("jsonl value")["stdout"],
@@ -347,7 +369,7 @@ fn approved_cli_command_parses_structured_stdout() {
     let session = HostrunSession::new_auto_approve().expect("session");
 
     let json_result = session
-        .eval(r#"cli.printf('{"ok":true,"count":2}').stdout.json().run();"#)
+        .eval(r#"cli.printf('{"ok":true,"count":2}').stdout.json();"#)
         .expect("json stdout");
     assert_eq!(
         json_result.value.expect("json value")["stdout"],
@@ -355,7 +377,7 @@ fn approved_cli_command_parses_structured_stdout() {
     );
 
     let jsonl_result = session
-        .eval(r#"cli.printf('{"name":"alpha"}\n{"name":"beta"}\n').stdout.jsonl().run();"#)
+        .eval(r#"cli.printf('{"name":"alpha"}\n{"name":"beta"}\n').stdout.jsonl();"#)
         .expect("jsonl stdout");
     assert_eq!(
         jsonl_result.value.expect("jsonl value")["stdout"],
@@ -363,7 +385,7 @@ fn approved_cli_command_parses_structured_stdout() {
     );
 
     let csv_result = session
-        .eval(r#"cli.printf('name,note\nalpha,"hello, world"\n').stdout.csv().run();"#)
+        .eval(r#"cli.printf('name,note\nalpha,"hello, world"\n').stdout.csv();"#)
         .expect("csv stdout");
     assert_eq!(
         csv_result.value.expect("csv value")["stdout"],
@@ -371,7 +393,7 @@ fn approved_cli_command_parses_structured_stdout() {
     );
 
     let tsv_result = session
-        .eval(r#"cli.printf('%s', 'name\tnote\nalpha\thello\\tthere\n').stdout.tsv().run();"#)
+        .eval(r#"cli.printf('%s', 'name\tnote\nalpha\thello\\tthere\n').stdout.tsv();"#)
         .expect("tsv stdout");
     assert_eq!(
         tsv_result.value.expect("tsv value")["stdout"],
@@ -379,7 +401,7 @@ fn approved_cli_command_parses_structured_stdout() {
     );
 
     let yaml_result = session
-        .eval("cli.printf('%s', 'name: alpha\\nactive: true\\n').stdout.yaml().run();")
+        .eval("cli.printf('%s', 'name: alpha\\nactive: true\\n').stdout.yaml();")
         .expect("yaml stdout");
     assert_eq!(
         yaml_result.value.expect("yaml value")["stdout"],
@@ -394,7 +416,7 @@ fn approved_cli_command_pipes_from_upstream_stdout_and_stderr() {
     let stdout = session
         .eval(
             "const source = cli.printf('from stdout');
-             cli.cat().stdin(source.stdout).stdout.text().run();",
+             cli.cat().stdin(source.stdout).stdout.text();",
         )
         .expect("stdout pipe");
     assert_eq!(
@@ -422,7 +444,7 @@ fn approved_cli_command_pipes_from_upstream_stdout_and_stderr() {
     let stderr = session
         .eval(
             "const source = cli.sh('-c', 'printf from-stderr >&2');
-             cli.cat().stdin(source.stderr).stdout.text().run();",
+             cli.cat().stdin(source.stderr).stdout.text();",
         )
         .expect("stderr pipe");
     assert_eq!(
@@ -438,7 +460,7 @@ fn approved_cli_command_graph_reports_upstream_failures() {
     let result = session
         .eval(
             "const source = cli.sh('-c', 'printf partial; exit 9');
-             cli.cat().stdin(source.stdout).stdout.text().run();",
+             cli.cat().stdin(source.stdout).stdout.text();",
         )
         .expect("graph eval");
     let value = result.value.expect("value");

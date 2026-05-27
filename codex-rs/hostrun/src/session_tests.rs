@@ -171,16 +171,13 @@ fn cli_command_builder_run_returns_command_approval() {
 fn which_helper_returns_lazy_command_builder() {
     let session = HostrunSession::new().expect("session");
 
-    let result = session
-        .eval("which('rg').stdout.lines();")
-        .expect("builder");
+    let result = session.eval("which('rg')").expect("builder");
 
     assert_eq!(
         result.value,
         Some(json!({
             "program": "which",
-            "args": ["rg"],
-            "stdout": { "type": "lines" }
+            "args": ["rg"]
         }))
     );
 }
@@ -274,7 +271,7 @@ fn rclone_lsf_wrapper_builds_rclone_command() {
     let session = HostrunSession::new().expect("session");
 
     let result = session
-        .eval("rclone.lsf('spaces:bucket', { recursive: true }).stdout.lines().run();")
+        .eval("rclone.lsf('spaces:bucket', { recursive: true }).stdout.lines();")
         .expect("approval");
 
     let approval = result.approval.expect("approval");

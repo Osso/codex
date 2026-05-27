@@ -54,7 +54,7 @@ thread start. How the runtime is wired internally belongs in
 - [x] Expose `fd.find`, `fd.files`, and `fd.dirs` as lazy command-builder wrappers.
 - [x] Expose `rg.search`, `rg.files`, and `rg.matches` as readable wrappers around ripgrep, including structured match parsing where possible.
 - [x] Expose `rg.search`, `rg.files`, and `rg.matches` as lazy command-builder wrappers.
-- [x] `rg.files(...).run()` returns matching path strings after approved execution, and `rg.matches(...).run()` parses `rg --json` output into structured match objects.
+- [x] `rg.files(...)` returns matching path strings after approved execution, and `rg.matches(...)` parses `rg --json` output into structured match objects.
 - [x] Execute approved `cli.<program>` requests on the host and return exit status plus stdout/stderr handles or captured text.
 
 ### HTTP client
@@ -95,6 +95,8 @@ thread start. How the runtime is wired internally belongs in
 - [x] `stderr.toStdout()`, `combined.capture()`, and `combined.toFile(path)` support common stderr/stdout composition.
 - [x] `stdout.text()` returns captured stdout text.
 - [x] `stdout.lines()` returns captured stdout split into lines.
+- [x] Output terminal selectors such as `stdout.text()`, `stdout.lines()`, and `stdout.json()` execute directly; callers must not chain `.run()` after them.
+- [x] Builder-level terminal selectors default to stdout, so `cli.ls().text()` is equivalent to `cli.ls().stdout.text()`.
 - [x] `stdin.text(str)`, `stdin.file(path)`, `stdin.json(value)`, `stdin.yaml(value)`, `stdin.csv(rows)`, and `stdin.lines(values)` provide explicit stdin sources.
 - [x] The approved `cli.*` execution path supports stdout text, stdout lines, stdout file redirects, stderr text, combined capture, stderr-to-stdout composition, line-based stdin, and structured JSON/YAML/CSV/JSONL stdin.
 - [x] Command builders preserve explicit `stdin.yaml`, `stdin.csv`, `stdin.tsv`, `stdin.jsonLines`, and `stdin.jsonl` metadata in approval requests.

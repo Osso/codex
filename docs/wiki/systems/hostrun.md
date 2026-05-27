@@ -39,8 +39,11 @@ executed after the outer tool invocation has passed Codex's approval layer.
 values rather than shell text. Output handling is explicit:
 
 - `stdout.text()`, `stdout.lines()`, `stdout.json()`, `stdout.jsonl()`,
-  `stdout.csv()`, `stdout.tsv()`, `stdout.yaml()`, and `stdout.toml()` capture
-  and parse bounded stdout.
+`stdout.csv()`, `stdout.tsv()`, `stdout.yaml()`, and `stdout.toml()` execute
+the command, then capture and parse bounded stdout. Do not chain `.run()`
+after these terminal selectors.
+- Builder-level shortcuts such as `text()`, `lines()`, and `json()` default to
+  stdout, so `cli.ls().text()` is the preferred form for stdout text.
 - `stdout.toFile(path)` writes full output to a file.
 - `stdout.tee(path)` writes full output and keeps bounded captured text visible.
 - Matching helpers exist for `stderr` and `combined` where applicable.
@@ -51,7 +54,7 @@ Stream piping is represented through command-builder stream handles:
 
 ```js
 const source = cli.rclone("cat", "spaces:bucket/file.txt");
-cli.cat().stdin(source.stdout).stdout.text().run();
+cli.cat().stdin(source.stdout).stdout.text();
 ```
 
 The current implementation starts producer and consumer commands concurrently,
