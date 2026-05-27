@@ -22,6 +22,7 @@ thread start. How the runtime is wired internally belongs in
 
 - [x] Evaluate JavaScript in a persistent QuickJS session.
 - [x] Keep `globalThis.ctx` live across evaluations in the same session.
+- [x] Contributed instructions explicitly tell the model that `ctx` survives across later `hostrun_eval` calls and later assistant turns in the same Codex thread.
 - [x] Keep separate `ctx` state per session id.
 - [x] Preserve `ctx` after normal JavaScript exceptions.
 - [x] Return the executed code in the result for transcript visibility.

@@ -21,7 +21,7 @@ const HOSTRUN_INSTRUCTIONS: &str = "\
 Hostrun is available through the `hostrun_eval` tool.
 
 Hostrun evaluates JavaScript in a persistent QuickJS session:
-- `ctx` persists across calls in the same session. Store scratch results there when a later tool call should reuse them.
+- `ctx` persists across later `hostrun_eval` calls and across later assistant turns in the same Codex thread. Store scratch results there when later work should reuse them instead of recomputing.
 - `console.log`, `console.info`, `console.warn`, `console.error`, and `console.debug` are captured in the tool result.
 - Arrays have `.containing(needle)` plus non-mutating helpers such as `.notContaining()`, `.startsWith()`, `.endsWith()`, `.matching()`, `.glob()`, `.unique()`, `.sorted()`, `.reversed()`, `.groupBy()`, `.countBy()`, `.uniqueBy()`, and `.sortBy()`.
 - Strings expose shell-style helpers such as `.lines(start, end)`, `.head()`, `.tail()`, `.splitWords()`, `.splitColumn()`, `.cut(separator, fields)`, `.json()`, `.jsonl()`, `.yaml()`, `.toml()`, `.csv()`, `.tsv()`, `.lineCount()`, `.wordCount()`, `.byteCount()`, `.bytes()`, `.byteArray()`, and `.chars()`.
@@ -341,6 +341,7 @@ mod tests {
         assert_eq!(tools[0].tool_name(), "hostrun_eval");
         assert_eq!(fragments.len(), 1);
         assert!(fragments[0].text().contains("ctx"));
+        assert!(fragments[0].text().contains("across later assistant turns"));
         assert!(fragments[0].text().contains("run.dmidecode()"));
         assert!(fragments[0].text().contains("fs.read(path)"));
         assert!(fragments[0].text().contains("rclone.lsf(target"));

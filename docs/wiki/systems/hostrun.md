@@ -9,7 +9,8 @@ standard library.
 
 Hostrun embeds QuickJS through `codex-rs/hostrun/src/session.rs`. A
 `HostrunSessionStore` keeps one persistent JavaScript context per Hostrun
-session id, so `globalThis.ctx` survives across tool calls in the same thread.
+session id, so `globalThis.ctx` survives across later `hostrun_eval` calls and
+later assistant turns in the same Codex thread.
 The public tool schema exposes only `code`; the default session id is supplied
 by the tool executor.
 
