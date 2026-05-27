@@ -120,3 +120,34 @@ fn tmp_file_forwards_tsv_and_jsonl_writes_to_file_path() {
         })
     );
 }
+
+#[test]
+fn conversion_helpers_serialize_json_yaml_csv_tsv_and_jsonl() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval(
+            r#"
+            const rows = [['name', 'note'], ['alpha', 'hello, world']];
+            ({
+              json: ({ ok: true, count: 2 }).toJson(),
+              yaml: ({ ok: true, count: 2 }).toYaml(),
+              csv: rows.toCsv(),
+              tsv: rows.toTsv(),
+              jsonl: [{ name: 'alpha' }, { ok: true }].toJsonl()
+            });
+            "#,
+        )
+        .expect("eval");
+
+    assert_eq!(
+        result.value,
+        Some(json!({
+            "json": "{\"ok\":true,\"count\":2}",
+            "yaml": "ok: true\ncount: 2\n",
+            "csv": "name,note\nalpha,\"hello, world\"\n",
+            "tsv": "name\tnote\nalpha\thello, world\n",
+            "jsonl": "{\"name\":\"alpha\"}\n{\"ok\":true}\n"
+        }))
+    );
+}

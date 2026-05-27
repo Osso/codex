@@ -571,6 +571,14 @@ globalThis.__hostrun_defineStringHelper("yaml", function () {
   return globalThis.__hostrun_parseYaml(this);
 });
 
+globalThis.__hostrun_defineObjectHelper("toJson", function (space = 0) {
+  return JSON.stringify(this, null, Number(space));
+});
+
+globalThis.__hostrun_defineObjectHelper("toYaml", function () {
+  return globalThis.__hostrun_toYaml(this) + "\n";
+});
+
 globalThis.__hostrun_regex = function (pattern) {
   return pattern instanceof RegExp ? pattern : new RegExp(String(pattern));
 };
@@ -758,6 +766,22 @@ globalThis.__hostrun_defineArrayHelper("where", function (predicateOrObject) {
 
 globalThis.__hostrun_defineArrayHelper("columns", function () {
   return globalThis.__hostrun_tableColumns(this);
+});
+
+globalThis.__hostrun_defineArrayHelper("toCsv", function () {
+  return globalThis.__hostrun_toCsv(this);
+});
+
+globalThis.__hostrun_defineArrayHelper("toTsv", function () {
+  return globalThis.__hostrun_toTsv(this);
+});
+
+globalThis.__hostrun_defineArrayHelper("toJsonLines", function () {
+  return globalThis.__hostrun_toJsonLines(this);
+});
+
+globalThis.__hostrun_defineArrayHelper("toJsonl", function () {
+  return globalThis.__hostrun_toJsonLines(this);
 });
 
 globalThis.__hostrun_defineArrayHelper("notContaining", function (needle) {

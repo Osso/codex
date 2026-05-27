@@ -113,7 +113,7 @@ thread start. How the runtime is wired internally belongs in
 - [x] Support `str.jsonl()` as an alias for JSONL parsing.
 - [x] Support CSV and TSV parsing from strings with `str.csv()` and `str.tsv()`.
 - [x] Support TSV and JSONL serialization to files with `fs.writeTsv`, `fs.writeJsonLines`, and `fs.writeJsonl`.
-- [ ] Support conversion helpers between JSON-compatible values, YAML, CSV, JSONL, arrays, and table objects.
+- [x] Support conversion helpers between JSON-compatible values, YAML, CSV, JSONL, arrays, and table objects.
 - [x] Provide object/table projection helpers for common `nu`/`jq` workflows: `get`, `select`, `reject`, `rename`, `insert`, `update`, `merge`, `columns`, `values`, and entry iteration.
 - [x] Object/table projection helpers are non-mutating and support dotted paths for nested field access.
 - [x] Provide collection cleanup/shape helpers: `flatten`, `compact`, `default`, `wrap`, `transpose`, and `enumerate`.
