@@ -104,9 +104,10 @@ thread start. How the runtime is wired internally belongs in
 
 ### Structured data and collections
 
-- [ ] Keep JSON manipulation deliberately small: native `JSON.parse` / `JSON.stringify`, `.stdout.json()`, `str.json()`, HTTP response `.json()`, and JSON stdin/file serialization.
+- [x] Keep JSON manipulation deliberately small: native `JSON.parse` / `JSON.stringify`, `.stdout.json()`, `str.json()`, HTTP response `.json()`, and JSON stdin/file serialization.
 - [x] Provide string helpers for `str.json()` and `str.jsonLines()`.
 - [ ] Support JSONL, YAML, and CSV parsing from command output and strings.
+- [x] Support JSON, JSONL, CSV, and TSV parsing from command stdout/stderr/combined output.
 - [ ] Support JSONL, YAML, and CSV serialization to stdin and files.
 - [x] Support `str.jsonl()` as an alias for JSONL parsing.
 - [x] Support CSV and TSV parsing from strings with `str.csv()` and `str.tsv()`.
@@ -198,7 +199,7 @@ thread start. How the runtime is wired internally belongs in
 - [ ] Implement the command builder API for `cli.<program>` so stdout/stderr redirects and stdin piping are real runtime behavior.
 - [ ] Add tests for stdout/stderr capture, redirects, stderr/stdout composition, stdin sources, stream-handle piping, and command graph approval text.
 - [ ] Add tests for HTTP query params, headers, auth redaction, JSON/form/raw/file bodies, response save-to-file, timeouts, retries, non-2xx handling, and multipart metadata/execution.
-- [ ] Add tests for JSON/YAML/CSV/JSONL parse/serialize helpers.
+- [ ] Add tests for JSON/YAML/CSV/JSONL parse/serialize helpers; JSON/JSONL/CSV/TSV string and command-output parsing now have focused tests, while YAML parsing remains open.
 - [ ] Add tests for remaining collection and table helpers, including reverse aliases, fd/rg structured output parsing, and error behavior.
 - [ ] Add tests for temp resource cleanup on success and failure.
 - [ ] Update contributed Hostrun instructions after the command builder API is implemented, keeping instructions aligned with tested behavior.

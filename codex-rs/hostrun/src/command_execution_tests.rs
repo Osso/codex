@@ -269,6 +269,43 @@ fn approved_cli_command_serializes_structured_stdin_sources() {
 }
 
 #[test]
+fn approved_cli_command_parses_structured_stdout() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+
+    let json_result = session
+        .eval(r#"cli.printf('{"ok":true,"count":2}').stdout.json().run();"#)
+        .expect("json stdout");
+    assert_eq!(
+        json_result.value.expect("json value")["stdout"],
+        json!({ "ok": true, "count": 2 })
+    );
+
+    let jsonl_result = session
+        .eval(r#"cli.printf('{"name":"alpha"}\n{"name":"beta"}\n').stdout.jsonl().run();"#)
+        .expect("jsonl stdout");
+    assert_eq!(
+        jsonl_result.value.expect("jsonl value")["stdout"],
+        json!([{ "name": "alpha" }, { "name": "beta" }])
+    );
+
+    let csv_result = session
+        .eval(r#"cli.printf('name,note\nalpha,"hello, world"\n').stdout.csv().run();"#)
+        .expect("csv stdout");
+    assert_eq!(
+        csv_result.value.expect("csv value")["stdout"],
+        json!([["name", "note"], ["alpha", "hello, world"]])
+    );
+
+    let tsv_result = session
+        .eval(r#"cli.printf('%s', 'name\tnote\nalpha\thello\\tthere\n').stdout.tsv().run();"#)
+        .expect("tsv stdout");
+    assert_eq!(
+        tsv_result.value.expect("tsv value")["stdout"],
+        json!([["name", "note"], ["alpha", "hello\tthere"]])
+    );
+}
+
+#[test]
 fn approved_cli_command_pipes_from_upstream_stdout_and_stderr() {
     let session = HostrunSession::new_auto_approve().expect("session");
 

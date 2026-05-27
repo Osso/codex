@@ -23,7 +23,7 @@ Hostrun evaluates JavaScript in a persistent QuickJS session:
 - `ctx` persists across calls in the same session. Store scratch results there when a later tool call should reuse them.
 - `console.log`, `console.info`, `console.warn`, `console.error`, and `console.debug` are captured in the tool result.
 - Arrays have `.containing(needle)` for substring filtering.
-- `cli.<program>(...args)` creates a lazy host command builder. Call `.run()` to request approval and execute it, e.g. `cli.dmidecode().run()` or `cli.rg('needle', 'path').run()`. Use `.complete()` for command probes that should capture stdout, stderr, and exit status. Use `.stdout.text()`, `.stdout.lines()`, `.stdout.toFile(path)`, `.stdout.tee(path)`, and matching `.stderr.*`/`.combined.*` helpers for output handling.
+- `cli.<program>(...args)` creates a lazy host command builder. Call `.run()` to request approval and execute it, e.g. `cli.dmidecode().run()` or `cli.rg('needle', 'path').run()`. Use `.complete()` for command probes that should capture stdout, stderr, and exit status. Use `.stdout.text()`, `.stdout.lines()`, `.stdout.json()`, `.stdout.jsonl()`, `.stdout.csv()`, `.stdout.tsv()`, `.stdout.toFile(path)`, `.stdout.tee(path)`, and matching `.stderr.*`/`.combined.*` helpers for output handling.
 - `fs.write(path, content)`, `fs.read(path)`, `fs.exists(path)`, and `fs.remove(path)` request approval-gated host file operations.
 - `rclone.deletefile(target)` requests an approval-gated `rclone deletefile`; `rclone.lsf(target, { recursive: true })` builds a lazy `rclone lsf` command.
 - `fd.find(pattern, options)`, `fd.files(root, options)`, and `fd.dirs(root, options)` build lazy `fdfind` commands.

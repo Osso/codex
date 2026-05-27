@@ -1001,6 +1001,37 @@ globalThis.__hostrun_commandBuilder = function (program, args) {
         state[name] = { type: "lines" };
         return builder;
       },
+      json: function () {
+        state[name] = { type: "text" };
+        return globalThis.__hostrun_withParsedRun(
+          builder,
+          (result) => globalThis.__hostrun_parseCommandOutput(result, name, (text) => JSON.parse(text))
+        );
+      },
+      jsonLines: function () {
+        state[name] = { type: "text" };
+        return globalThis.__hostrun_withParsedRun(
+          builder,
+          (result) => globalThis.__hostrun_parseCommandOutput(result, name, (text) => text.jsonLines())
+        );
+      },
+      jsonl: function () {
+        return this.jsonLines();
+      },
+      csv: function () {
+        state[name] = { type: "text" };
+        return globalThis.__hostrun_withParsedRun(
+          builder,
+          (result) => globalThis.__hostrun_parseCommandOutput(result, name, (text) => text.csv())
+        );
+      },
+      tsv: function () {
+        state[name] = { type: "text" };
+        return globalThis.__hostrun_withParsedRun(
+          builder,
+          (result) => globalThis.__hostrun_parseCommandOutput(result, name, (text) => text.tsv())
+        );
+      },
       toFile: function (path) {
         state[name] = { type: "file", path };
         return builder;
@@ -1139,6 +1170,19 @@ globalThis.__hostrun_commandStdout = function (result) {
   }
   const stdout = result.stdout ?? "";
   return Array.isArray(stdout) ? stdout.join("\n") : String(stdout);
+};
+
+globalThis.__hostrun_commandOutput = function (result, name) {
+  if (result === null || result === undefined) {
+    return "";
+  }
+  const output = result[name] ?? "";
+  return Array.isArray(output) ? output.join("\n") : String(output);
+};
+
+globalThis.__hostrun_parseCommandOutput = function (result, name, parser) {
+  const parsed = parser(globalThis.__hostrun_commandOutput(result, name));
+  return { ...result, [name]: parsed };
 };
 
 globalThis.__hostrun_parseRgFiles = function (result) {
