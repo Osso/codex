@@ -3871,7 +3871,7 @@ impl ChatWidget {
         self.request_redraw();
     }
 
-    fn on_collab_agent_tool_call(&mut self, item: ThreadItem) {
+    fn on_collab_agent_tool_call(&mut self, item: ThreadItem, from_replay: bool) {
         let ThreadItem::CollabAgentToolCall {
             id, tool, status, ..
         } = &item
@@ -3898,7 +3898,9 @@ impl ChatWidget {
             cached_spawn_request.as_ref(),
             |thread_id| self.collab_agent_metadata(thread_id),
         ) {
-            self.sync_running_collab_agents_from_tool_call(&item);
+            if !from_replay {
+                self.sync_running_collab_agents_from_tool_call(&item);
+            }
             self.on_collab_event(cell);
         }
     }
@@ -6068,17 +6070,20 @@ impl ChatWidget {
                 model,
                 reasoning_effort,
                 agents_states,
-            } => self.on_collab_agent_tool_call(ThreadItem::CollabAgentToolCall {
-                id,
-                tool,
-                status,
-                sender_thread_id,
-                receiver_thread_ids,
-                prompt,
-                model,
-                reasoning_effort,
-                agents_states,
-            }),
+            } => self.on_collab_agent_tool_call(
+                ThreadItem::CollabAgentToolCall {
+                    id,
+                    tool,
+                    status,
+                    sender_thread_id,
+                    receiver_thread_ids,
+                    prompt,
+                    model,
+                    reasoning_effort,
+                    agents_states,
+                },
+                from_replay,
+            ),
             ThreadItem::DynamicToolCall { .. } => {}
         }
 
