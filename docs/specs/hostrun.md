@@ -40,6 +40,8 @@ thread start. How the runtime is wired internally belongs in
 - [x] Prefer public `fs.write` and `rclone.deletefile` in contributed instructions instead of their `tools.*` bridge forms.
 - [x] Expose `tools.github.createPR(options)` as a safe GitHub PR helper that runs `gh pr create` with Markdown body content passed via `--body-file -` stdin instead of shell-escaped `--body` strings.
 - [x] Reject literal escaped newline sequences in `tools.github.createPR({ body })` by default so PR bodies do not publish visible `\n` text when the caller meant Markdown line breaks.
+- [x] Expose `tools.git.commit(options)` as a safe Git commit helper that runs `git commit --file -` with commit message content passed through stdin instead of shell heredocs or command substitution.
+- [x] Reject literal escaped newline sequences in `tools.git.commit({ body })` by default so commit messages do not contain visible `\n` text when the caller meant real line breaks.
 - [x] Expose `fs.write(path, content)`, `fs.read(path)`, `fs.exists(path)`, and `fs.remove(path)` as approval-gated file helpers.
 - [x] `hostrun_eval` executes approved `fs.write`, `fs.read`, `fs.exists`, and `fs.remove` operations after the tool invocation has passed its pre-tool approval layer.
 - [x] Expose `fs.write(path, content)` as an approval-gated file-write helper.

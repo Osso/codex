@@ -1679,6 +1679,78 @@ globalThis.__hostrun_validateGithubPrBody = function (body, options) {
   }
 };
 
+globalThis.__hostrun_gitCommitBody = function (options) {
+  if (options.bodyLines !== undefined) {
+    return Array.from(options.bodyLines).map((line) => String(line)).join("\n");
+  }
+  if (Array.isArray(options.body)) {
+    return options.body.map((line) => String(line)).join("\n");
+  }
+  if (options.body !== undefined && options.body !== null) {
+    return String(options.body);
+  }
+  return "";
+};
+
+globalThis.__hostrun_gitCommitSubject = function (options) {
+  const subject = options.subject ?? options.message ?? options.title;
+  if (subject === undefined || subject === null || String(subject).trim().length === 0) {
+    throw new Error("tools.git.commit requires subject or message");
+  }
+  return String(subject);
+};
+
+globalThis.__hostrun_validateGitCommitMessage = function (subject, body, options) {
+  if (subject.includes("\n")) {
+    throw new Error("Git commit subject must be one line. Use body or bodyLines for details.");
+  }
+  if (options.allowEscapedNewlines === true) {
+    return;
+  }
+  if (subject.includes("\\n") || body.includes("\\n")) {
+    throw new Error(
+      "Git commit message contains literal \\\\n. Use bodyLines or a template literal for multiline text."
+    );
+  }
+};
+
+globalThis.__hostrun_gitCommitMessage = function (options) {
+  const subject = globalThis.__hostrun_gitCommitSubject(options);
+  const body = globalThis.__hostrun_gitCommitBody(options);
+  globalThis.__hostrun_validateGitCommitMessage(subject, body, options);
+  return body.length > 0 ? `${subject}\n\n${body}` : subject;
+};
+
+globalThis.__hostrun_gitCommitPaths = function (options) {
+  return globalThis.__hostrun_values(options.paths ?? options.files ?? options.path ?? options.file)
+    .map((file) => String(file));
+};
+
+globalThis.git = {
+  commit: function (options = {}) {
+    const args = [];
+    globalThis.__hostrun_addOption(args, "-C", options.cwd ?? options.repo);
+    args.push("commit", "--file", "-");
+    globalThis.__hostrun_addOption(args, "--amend", options.amend);
+    globalThis.__hostrun_addOption(args, "--no-edit", options.noEdit);
+    globalThis.__hostrun_addOption(args, "--allow-empty", options.allowEmpty);
+    globalThis.__hostrun_addOption(args, "--no-verify", options.noVerify);
+    globalThis.__hostrun_addOption(args, "--signoff", options.signoff);
+    globalThis.__hostrun_addOption(args, "--all", options.all);
+
+    const paths = globalThis.__hostrun_gitCommitPaths(options);
+    if (paths.length > 0) {
+      args.push("--", ...paths);
+    }
+
+    return globalThis.cli.git(...args)
+      .stdin.text(globalThis.__hostrun_gitCommitMessage(options))
+      .run();
+  }
+};
+
+globalThis.tools.git = globalThis.git;
+
 globalThis.github = {
   createPR: function (options = {}) {
     const args = ["pr", "create"];

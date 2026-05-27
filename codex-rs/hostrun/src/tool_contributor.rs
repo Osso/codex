@@ -37,6 +37,7 @@ Hostrun evaluates JavaScript in a persistent QuickJS session:
 - `rg.search(pattern, paths, options)`, `rg.files(pattern, paths, options)`, and `rg.matches(pattern, paths, options)` build lazy ripgrep commands.
 - `http.get/post/put/patch/delete/head(url, options)` and `http.request(method, url, options)` build approval-gated HTTP requests. Use `.json()`, `.text()`, `.bytes()`, `.save(path)`, or `.run()` to choose response handling.
 - `tools.github.createPR(options)` creates GitHub pull requests through `gh pr create` with the PR body sent via `--body-file -` stdin. Prefer `bodyLines: [...]` or a template literal `body` so Markdown newlines are real newlines; literal `\\n` sequences are rejected by default. Common options: `repo`, `base`, `head`, `title`, `body`, `bodyLines`, `draft`, `labels`, `reviewers`, `assignees`, `projects`, and `milestone`.
+- `tools.git.commit(options)` creates commits through `git commit --file -` with the commit message sent via stdin. Prefer `subject` plus `bodyLines: [...]` or a template literal `body`; literal `\\n` sequences are rejected by default. Common options: `cwd`, `subject`/`message`, `body`, `bodyLines`, `paths`/`files`, `all`, `amend`, `noEdit`, `allowEmpty`, `noVerify`, and `signoff`. It does not run `git add`; add new files explicitly before committing.
 
 Return a final expression value when useful.";
 

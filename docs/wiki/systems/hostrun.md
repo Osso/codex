@@ -16,7 +16,7 @@ by the tool executor.
 
 The JavaScript standard library is bootstrapped from
 `codex-rs/hostrun/src/bootstrap.js`. It defines public helpers such as `fs`,
-`tmp`, `cli`, `rclone`, `fd`, `rg`, `sqlite`, `kubectl`, `http`, `github`, `path`, string
+`tmp`, `cli`, `rclone`, `fd`, `rg`, `sqlite`, `kubectl`, `http`, `github`, `git`, `path`, string
 helpers, array helpers, table/field helpers, and structured data helpers.
 
 ## Approval Boundary
@@ -88,6 +88,19 @@ common shell failure mode where `--body "line one\nline two"` publishes visible
 Use `bodyLines: [...]` or a JavaScript template literal for multiline Markdown.
 Literal escaped newline sequences in `body` are rejected by default; callers can
 set `allowEscapedNewlines: true` only when the visible `\n` text is intentional.
+
+## Git
+
+`tools.git.commit(options)` is a focused wrapper for `git commit --file -`. It
+sends the commit message through stdin so agents do not need shell heredocs,
+command substitution, or quote-sensitive `git commit -m` chains for multiline
+messages.
+
+Use `subject` or `message` for the first line and `bodyLines: [...]` or a
+JavaScript template literal for the body. Literal escaped newline sequences are
+rejected by default. `paths`/`files` become pathspecs after `--`; the helper does
+not run `git add`, so new files still need to be added explicitly before
+committing.
 
 ## Specs And Tests
 

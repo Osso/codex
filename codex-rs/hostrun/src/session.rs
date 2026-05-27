@@ -552,3 +552,7 @@ mod tmp_tests;
 #[cfg(test)]
 #[path = "github_pr_tests.rs"]
 mod github_pr_tests;
+
+#[cfg(test)]
+#[path = "git_commit_tests.rs"]
+mod git_commit_tests;
