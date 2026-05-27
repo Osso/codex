@@ -108,7 +108,7 @@ thread start. How the runtime is wired internally belongs in
 - [x] Provide string helpers for `str.json()` and `str.jsonLines()`.
 - [ ] Support JSONL, YAML, and CSV parsing from command output and strings.
 - [x] Support JSON, JSONL, CSV, and TSV parsing from command stdout/stderr/combined output.
-- [ ] Support JSONL, YAML, and CSV serialization to stdin and files.
+- [x] Support JSONL, YAML, and CSV serialization to stdin and files.
 - [x] Support `str.jsonl()` as an alias for JSONL parsing.
 - [x] Support CSV and TSV parsing from strings with `str.csv()` and `str.tsv()`.
 - [x] Support TSV and JSONL serialization to files with `fs.writeTsv`, `fs.writeJsonLines`, and `fs.writeJsonl`.
@@ -129,10 +129,10 @@ thread start. How the runtime is wired internally belongs in
 - [x] Provide scalar helpers for `lines`, `bytes`, `lower`, `upper`, and `chars`.
 - [x] `str.lines(start, end)` returns 1-based inclusive line ranges for sed-style line selection.
 - [x] Arrays provide `.lineRange(start, end)` for 1-based inclusive ranges over existing line arrays.
-- [ ] Provide whitespace field parsing with 1-based fields: `lines.fields(separator = /\s+/)`.
-- [ ] Provide template formatting for field rows: `lines.fields().format("user:{1} prefix:{3|substr:0,7}")`.
-- [ ] Provide object template formatting for field rows: `lines.fields().format({ user: "{1}", prefix: "{3|substr:0,7}" })`.
-- [ ] Template transforms include `trim`, `lower`, `upper`, `substr`, `replace`, `basename`, and `dirname`.
+- [x] Provide whitespace field parsing with 1-based fields: `lines.fields(separator = /\s+/)`.
+- [x] Provide template formatting for field rows: `lines.fields().format("user:{1} prefix:{3|substr:0,7}")`.
+- [x] Provide object template formatting for field rows: `lines.fields().format({ user: "{1}", prefix: "{3|substr:0,7}" })`.
+- [x] Template transforms include `trim`, `lower`, `upper`, `substr`, `replace`, `basename`, and `dirname`.
 - [x] Provide whitespace field parsing, `field(n)`, string template formatting, object template formatting, and template transforms.
 - [x] Table helpers include `groupBy`, `sortBy`, `uniqueBy`, and `countBy`; selectors accept 1-based field numbers and field templates with transforms.
 - [x] `groupBy` returns `{ key, rows }`, `countBy` returns `{ key, count }`, and grouped/count/unique helpers preserve first-appearance order.
