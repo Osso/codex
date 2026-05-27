@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use reqwest::Method;
 use reqwest::blocking::Client;
+use reqwest::header::ACCEPT;
 use reqwest::header::HeaderMap;
 use reqwest::header::HeaderName;
 use reqwest::header::HeaderValue;
@@ -62,17 +63,19 @@ fn parse_method(args: &Value) -> Result<Method, HostrunSessionError> {
 
 fn headers_from_args(args: &Value) -> Result<HeaderMap, HostrunSessionError> {
     let mut headers = HeaderMap::new();
-    let Some(Value::Object(values)) = args.get("headers") else {
-        return Ok(headers);
-    };
-    for (name, value) in values {
-        let name = HeaderName::from_bytes(name.as_bytes()).map_err(|error| {
-            HostrunSessionError::Eval(format!("invalid HTTP header name {name}: {error}"))
-        })?;
-        let value = HeaderValue::from_str(&value_to_string(value)).map_err(|error| {
-            HostrunSessionError::Eval(format!("invalid HTTP header value for {name}: {error}"))
-        })?;
-        headers.insert(name, value);
+    if let Some(Value::Object(values)) = args.get("headers") {
+        for (name, value) in values {
+            let name = HeaderName::from_bytes(name.as_bytes()).map_err(|error| {
+                HostrunSessionError::Eval(format!("invalid HTTP header name {name}: {error}"))
+            })?;
+            let value = HeaderValue::from_str(&value_to_string(value)).map_err(|error| {
+                HostrunSessionError::Eval(format!("invalid HTTP header value for {name}: {error}"))
+            })?;
+            headers.insert(name, value);
+        }
+    }
+    if args.get("json").is_some() && !headers.contains_key(ACCEPT) {
+        headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
     }
     Ok(headers)
 }
@@ -120,7 +123,7 @@ fn apply_body(
         return Ok(request.form(form));
     }
     if let Some(value) = args.get("body") {
-        return Ok(request.body(value_to_string(value)));
+        return Ok(request.body(body_bytes(value)?));
     }
     if let Some(path) = args.get("file").and_then(Value::as_str) {
         let bytes = fs::read(path).map_err(|error| {
@@ -134,6 +137,22 @@ fn apply_body(
         ));
     }
     Ok(request)
+}
+
+fn body_bytes(value: &Value) -> Result<Vec<u8>, HostrunSessionError> {
+    match value {
+        Value::Array(values) => values.iter().map(body_byte).collect::<Result<Vec<_>, _>>(),
+        _ => Ok(value_to_string(value).into_bytes()),
+    }
+}
+
+fn body_byte(value: &Value) -> Result<u8, HostrunSessionError> {
+    let byte = value.as_u64().ok_or_else(|| {
+        HostrunSessionError::Eval("HTTP byte bodies must contain byte numbers".to_string())
+    })?;
+    u8::try_from(byte).map_err(|_| {
+        HostrunSessionError::Eval(format!("HTTP byte body value is out of range: {byte}"))
+    })
 }
 
 fn response_value(

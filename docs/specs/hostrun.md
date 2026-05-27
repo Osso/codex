@@ -62,17 +62,17 @@ thread start. How the runtime is wired internally belongs in
 - [x] Preserve request headers in approval metadata, e.g. `{ headers: { Accept: "application/json" } }`.
 - [x] Preserve query params in approval metadata, e.g. `{ query: { q: "hostrun", limit: 20 } }`.
 - [x] Validate exactly one body source per request: `json`, `form`, `body`, `file`, or `multipart`.
-- [ ] `json: value` sends `JSON.stringify(value)` and sets JSON content/accept headers unless overridden.
-- [ ] `form: object` sends `application/x-www-form-urlencoded`.
-- [ ] `body: string|bytes` sends the raw request body and leaves content type to the caller.
-- [ ] `file: path` sends file bytes as the whole request body.
+- [x] `json: value` sends `JSON.stringify(value)` and sets JSON content/accept headers unless overridden.
+- [x] `form: object` sends `application/x-www-form-urlencoded`.
+- [x] `body: string|bytes` sends the raw request body and leaves content type to the caller.
+- [x] `file: path` sends file bytes as the whole request body.
 - [x] Preserve `multipart: object` fields and file-part metadata in approval metadata.
 - [x] Redact bearer/basic/header-token auth secrets from approval metadata.
 - [ ] Support timeout, retry policy, redirect policy, and TLS options with readable defaults.
 - [x] Expose response intent helpers `.text()`, `.json()`, `.bytes()`, `.save(path)`, and `.run()` in approval metadata.
 - [x] `hostrun_eval` executes approved HTTP requests for common methods with query parameters, headers, bearer/basic auth, JSON/form/raw/file bodies, and response text/json/bytes/save handling.
-- [ ] Response objects expose `.status`, `.ok`, `.headers`, `.text()`, `.json()`, `.bytes()`, and `.save(path)` after real execution lands.
-- [ ] `.save(path)` streams the response body to disk and returns metadata including path, status, headers, and byte count after real execution lands.
+- [x] Response objects expose `.status`, `.ok`, `.headers`, `.text()`, `.json()`, `.bytes()`, and `.save(path)` after real execution lands.
+- [x] `.save(path)` streams the response body to disk and returns metadata including path, status, headers, and byte count after real execution lands.
 
 ### Command builder library contract
 
@@ -197,7 +197,7 @@ thread start. How the runtime is wired internally belongs in
 - [ ] Implement public file, temp, rclone, fd, rg, and HTTP helpers with approval-aware host execution; basic `fs.write/read/exists/remove` approvals are already public.
 - [ ] Implement the command builder API for `cli.<program>` so stdout/stderr redirects and stdin piping are real runtime behavior.
 - [ ] Add tests for stdout/stderr capture, redirects, stderr/stdout composition, stdin sources, stream-handle piping, and command graph approval text.
-- [ ] Add tests for HTTP query params, headers, auth redaction, JSON/form/raw/file/multipart bodies, response save-to-file, timeouts, retries, and non-2xx handling.
+- [ ] Add tests for HTTP query params, headers, auth redaction, JSON/form/raw/file bodies, response save-to-file, timeouts, retries, non-2xx handling, and multipart metadata/execution.
 - [ ] Add tests for JSON/YAML/CSV/JSONL parse/serialize helpers.
 - [ ] Add tests for remaining collection and table helpers, including reverse aliases, fd/rg structured output parsing, and error behavior.
 - [ ] Add tests for temp resource cleanup on success and failure.

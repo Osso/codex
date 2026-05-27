@@ -45,6 +45,7 @@ fn approved_http_get_executes_query_headers_and_json_response() {
 fn approved_http_post_sends_json_body_and_saves_response() {
     let server = TestHttpServer::start(|request| {
         assert!(request.starts_with("post /users "));
+        assert!(request.contains("accept: application/json"));
         assert!(request.contains("content-type: application/json"));
         assert!(request.ends_with(r#"{"name":"alice"}"#));
         http_response("201 Created", "application/json", r#"{"id":7}"#)
@@ -75,6 +76,83 @@ fn approved_http_post_sends_json_body_and_saves_response() {
             "bytes": 8,
             "path": output_text
         }))
+    );
+}
+
+#[test]
+fn approved_http_post_sends_form_body() {
+    let server = TestHttpServer::start(|request| {
+        assert!(request.starts_with("post /submit "));
+        assert!(request.contains("content-type: application/x-www-form-urlencoded"));
+        assert!(request.contains("name=alice"));
+        assert!(request.contains("ok=true"));
+        http_response("200 OK", "text/plain", "done")
+    });
+    let session = HostrunSession::new_auto_approve().expect("session");
+
+    let result = session
+        .eval(&format!(
+            "http.post({}, {{ form: {{ name: 'Alice', ok: true }} }}).text();",
+            json!(server.url("/submit"))
+        ))
+        .expect("http form");
+
+    assert_eq!(result.value.expect("value")["text"], "done");
+}
+
+#[test]
+fn approved_http_post_sends_raw_and_file_bodies() {
+    let raw_server = TestHttpServer::start(|request| {
+        assert!(request.starts_with("post /raw "));
+        assert!(request.ends_with("plain body"));
+        http_response("200 OK", "text/plain", "raw-ok")
+    });
+    let session = HostrunSession::new_auto_approve().expect("session");
+
+    let raw = session
+        .eval(&format!(
+            "http.post({}, {{ body: 'plain body' }}).text();",
+            json!(raw_server.url("/raw"))
+        ))
+        .expect("http raw");
+    assert_eq!(raw.value.expect("raw value")["text"], "raw-ok");
+
+    let file_server = TestHttpServer::start(|request| {
+        assert!(request.starts_with("post /file "));
+        assert!(request.ends_with("file body"));
+        http_response("200 OK", "text/plain", "file-ok")
+    });
+    let dir = tempfile::tempdir().expect("tempdir");
+    let input = dir.path().join("body.txt");
+    fs::write(&input, "File Body").expect("write body");
+
+    let file = session
+        .eval(&format!(
+            "http.post({}, {{ file: {} }}).text();",
+            json!(file_server.url("/file")),
+            json!(input.to_string_lossy())
+        ))
+        .expect("http file");
+    assert_eq!(file.value.expect("file value")["text"], "file-ok");
+}
+
+#[test]
+fn approved_http_get_can_return_response_bytes() {
+    let server = TestHttpServer::start(|_request| {
+        http_response("200 OK", "application/octet-stream", "bytes")
+    });
+    let session = HostrunSession::new_auto_approve().expect("session");
+
+    let result = session
+        .eval(&format!(
+            "http.get({}).bytes();",
+            json!(server.url("/bytes"))
+        ))
+        .expect("http bytes");
+
+    assert_eq!(
+        result.value.expect("value")["body"],
+        json!([98, 121, 116, 101, 115])
     );
 }
 
