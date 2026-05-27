@@ -4,6 +4,7 @@ use std::fs;
 use std::io::Write;
 use std::process::Child;
 use std::process::Command;
+use std::process::ExitStatus;
 use std::process::Output;
 use std::process::Stdio;
 use std::sync::Arc;
@@ -19,6 +20,8 @@ use serde_json::json;
 
 use crate::cli_approval;
 use crate::cli_graph::insert_command_graph;
+use crate::cli_payload;
+use crate::cli_stream;
 use crate::fs_capability::{execute_fs_operation, fs_approval};
 use crate::http_capability::{execute_http_request, http_request_approval};
 use crate::output_intent::apply_output_intent;
@@ -257,56 +260,25 @@ fn rclone_deletefile_approval(args: Value) -> HostrunApprovalRequest {
 
 fn cli_command_approval(tool_path: &str, args: Value) -> HostrunApprovalRequest {
     let program = tool_path.trim_start_matches("cli.");
-    let (cli_args, io) = split_cli_command_payload(args);
+    let (cli_args, io) = cli_payload::split_command_payload(args);
     let command = cli_approval::command_summary(program, &cli_args);
     let io_summary = cli_approval::io_summary(io.as_ref());
     HostrunApprovalRequest {
         id: format!("cli.{program}:{command}"),
         tool: format!("cli.{program}"),
         summary: format!("Run {command}{io_summary}"),
-        args: cli_command_args(program, cli_args, io),
+        args: cli_payload::command_args(program, cli_args, io),
     }
-}
-
-fn split_cli_command_payload(args: Value) -> (Vec<Value>, Option<Value>) {
-    match args {
-        Value::Array(args) => (args, None),
-        Value::Object(mut payload) if payload.contains_key("args") => {
-            let cli_args = match payload.remove("args").unwrap_or(Value::Null) {
-                Value::Array(args) => args,
-                Value::Null => Vec::new(),
-                other => vec![other],
-            };
-            if payload.is_empty() {
-                (cli_args, None)
-            } else {
-                (cli_args, Some(Value::Object(payload)))
-            }
-        }
-        Value::Null => (Vec::new(), None),
-        other => (vec![other], None),
-    }
-}
-
-fn cli_command_args(program: &str, args: Vec<Value>, io: Option<Value>) -> Value {
-    let mut payload = json!({
-        "program": program,
-        "args": args,
-    });
-    if let (Value::Object(payload), Some(Value::Object(io))) = (&mut payload, io) {
-        payload.extend(io);
-    }
-    payload
 }
 
 fn execute_cli_command(tool_path: &str, args: Value) -> Result<Value, HostrunSessionError> {
     let program = tool_path.trim_start_matches("cli.");
-    let (cli_args, io) = split_cli_command_payload(args);
-    let payload = cli_command_args(program, cli_args, io);
+    let (cli_args, io) = cli_payload::split_command_payload(args);
+    let payload = cli_payload::command_args(program, cli_args, io);
     let Value::Object(payload) = merge_cli_payload(program, payload, tool_path)? else {
         unreachable!("cli command payload is always an object");
     };
-    let argv = cli_payload_args(&payload)?;
+    let argv = cli_payload::payload_args(&payload)?;
     let output = run_cli_process(program, &argv, payload.get("stdin"))?;
     cli_execution_result(program, &argv, &payload, output)
 }
@@ -330,29 +302,6 @@ fn merge_cli_payload(
     Ok(Value::Object(payload))
 }
 
-fn cli_payload_args(
-    payload: &serde_json::Map<String, Value>,
-) -> Result<Vec<String>, HostrunSessionError> {
-    let values = payload
-        .get("args")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
-    values.iter().map(cli_arg_to_string).collect()
-}
-
-fn cli_arg_to_string(value: &Value) -> Result<String, HostrunSessionError> {
-    match value {
-        Value::String(value) => Ok(value.clone()),
-        Value::Number(value) => Ok(value.to_string()),
-        Value::Bool(value) => Ok(value.to_string()),
-        Value::Null => Ok(String::new()),
-        Value::Array(_) | Value::Object(_) => Err(HostrunSessionError::Eval(format!(
-            "cli arguments must be scalar argv values, got {value}"
-        ))),
-    }
-}
-
 pub(crate) struct CliProcessOutput {
     pub(crate) command: CliCommandStatus,
     pub(crate) upstream: Vec<CliCommandStatus>,
@@ -373,6 +322,9 @@ fn run_cli_process(
     argv: &[String],
     stdin: Option<&Value>,
 ) -> Result<CliProcessOutput, HostrunSessionError> {
+    if stdin.and_then(stdin_type) == Some("stream") {
+        return run_stream_cli_process(program, argv, stdin.and_then(|stdin| stdin.get("source")));
+    }
     let stdin = stdin_input(stdin)?;
     let mut child = spawn_cli_process(program, argv, stdin.bytes.is_some())?;
     write_cli_stdin(program, &mut child, stdin.bytes)?;
@@ -380,6 +332,40 @@ fn run_cli_process(
         HostrunSessionError::Eval(format!("failed to wait for {program}: {error}"))
     })?;
     Ok(cli_process_output(program, argv, stdin.upstream, output))
+}
+
+fn stdin_type(stdin: &Value) -> Option<&str> {
+    stdin.get("type").and_then(Value::as_str)
+}
+
+fn run_stream_cli_process(
+    program: &str,
+    argv: &[String],
+    source: Option<&Value>,
+) -> Result<CliProcessOutput, HostrunSessionError> {
+    let source = cli_stream::stream_source(source)?;
+    let mut upstream = cli_stream::spawn_stream_source(&source)?;
+    let pipe = cli_stream::take_stream_pipe(&mut upstream, &source)?;
+    let output = Command::new(program)
+        .args(argv)
+        .stdin(pipe)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| HostrunSessionError::Eval(format!("failed to start {program}: {error}")))?
+        .wait_with_output()
+        .map_err(|error| {
+            HostrunSessionError::Eval(format!("failed to wait for {program}: {error}"))
+        })?;
+    let upstream_status = upstream.wait().map_err(|error| {
+        HostrunSessionError::Eval(format!("failed to wait for {}: {error}", source.program))
+    })?;
+    let upstream = vec![cli_command_status(
+        &source.program,
+        &source.argv,
+        upstream_status,
+    )];
+    Ok(cli_process_output(program, argv, upstream, output))
 }
 
 fn spawn_cli_process(
@@ -423,12 +409,7 @@ fn cli_process_output(
     upstream: Vec<CliCommandStatus>,
     output: Output,
 ) -> CliProcessOutput {
-    let command = CliCommandStatus {
-        program: program.to_string(),
-        args: argv.to_vec(),
-        exit_code: output.status.code(),
-        success: output.status.success(),
-    };
+    let command = cli_command_status(program, argv, output.status);
     let success = command.success && upstream.iter().all(|command| command.success);
     CliProcessOutput {
         command,
@@ -436,6 +417,15 @@ fn cli_process_output(
         success,
         stdout: output.stdout,
         stderr: output.stderr,
+    }
+}
+
+fn cli_command_status(program: &str, argv: &[String], status: ExitStatus) -> CliCommandStatus {
+    CliCommandStatus {
+        program: program.to_string(),
+        args: argv.to_vec(),
+        exit_code: status.code(),
+        success: status.success(),
     }
 }
 
@@ -505,7 +495,7 @@ fn stream_stdin_bytes(
         .ok_or_else(|| {
             HostrunSessionError::Eval("stdin stream command program is required".to_string())
         })?;
-    let argv = cli_payload_args(command)?;
+    let argv = cli_payload::payload_args(command)?;
     let output = run_cli_process(program, &argv, None)?;
     let bytes = match stream {
         "stdout" => output.stdout,

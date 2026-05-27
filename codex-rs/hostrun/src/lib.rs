@@ -2,6 +2,8 @@
 
 mod cli_approval;
 mod cli_graph;
+mod cli_payload;
+mod cli_stream;
 mod fs_capability;
 mod http_capability;
 mod output_intent;
