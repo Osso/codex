@@ -204,7 +204,7 @@ thread start. How the runtime is wired internally belongs in
 - [ ] Add tests for remaining collection and table helpers, including reverse aliases, fd/rg structured output parsing, and error behavior.
 - [ ] Add tests for temp resource cleanup on success and failure.
 - [ ] Update contributed Hostrun instructions after the command builder API is implemented, keeping instructions aligned with tested behavior.
-- [ ] Add `docs/wiki/systems/hostrun.md` with architecture details once the command builder design stabilizes.
+- [x] Add `docs/wiki/systems/hostrun.md` with architecture details once the command builder design stabilizes.
 
 ## Out of scope
 
