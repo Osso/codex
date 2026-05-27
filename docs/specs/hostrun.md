@@ -41,19 +41,19 @@ thread start. How the runtime is wired internally belongs in
 - [x] `hostrun_eval` executes approved `fs.write`, `fs.read`, `fs.exists`, and `fs.remove` operations after the tool invocation has passed its pre-tool approval layer.
 - [x] Expose `fs.write(path, content)` as an approval-gated file-write helper.
 - [x] Expose `fs.writeJson(path, value)`, `fs.writeYaml(path, value)`, and `fs.writeCsv(path, rows)` for structured file writes.
-- [ ] Expose `tmp.file(prefix)` and `tmp.dir(prefix)` with automatic cleanup and explicit `.cleanup()` support.
+- [x] Expose `tmp.file(prefix)` and `tmp.dir(prefix)` with automatic cleanup and explicit `.cleanup()` support.
 - [x] Expose `tmp.file(prefix, options)` and `tmp.dir(prefix)` handles with deterministic `/tmp/hostrun-*` paths and approval-gated explicit `.cleanup()`.
 - [x] `tmp.file` handles support approval-gated `.write`, `.writeJson`, `.writeYaml`, and `.writeCsv`.
 - [x] Approved Hostrun sessions track temp handles and remove existing temp files/dirs when the session is dropped, including after JavaScript evaluation errors.
-- [ ] Expose `rclone.deletefile(target)` and `rclone.lsf(target, options)` as readable wrappers for common rclone workflows.
+- [x] Expose `rclone.deletefile(target)` and `rclone.lsf(target, options)` as readable wrappers for common rclone workflows.
 - [x] Expose `rclone.deletefile(target)` as an approval-gated rclone delete helper.
 - [x] Expose `rclone.lsf(target, options)` as a lazy command-builder wrapper.
-- [ ] Expose `fd.find`, `fd.files`, and `fd.dirs` as readable wrappers around `fdfind`/`fd`.
+- [x] Expose `fd.find`, `fd.files`, and `fd.dirs` as readable wrappers around `fdfind`/`fd`.
 - [x] Expose `fd.find`, `fd.files`, and `fd.dirs` as lazy command-builder wrappers.
-- [ ] Expose `rg.search`, `rg.files`, and `rg.matches` as readable wrappers around ripgrep, including structured match parsing where possible.
+- [x] Expose `rg.search`, `rg.files`, and `rg.matches` as readable wrappers around ripgrep, including structured match parsing where possible.
 - [x] Expose `rg.search`, `rg.files`, and `rg.matches` as lazy command-builder wrappers.
 - [x] `rg.files(...).run()` returns matching path strings after approved execution, and `rg.matches(...).run()` parses `rg --json` output into structured match objects.
-- [ ] Execute approved `cli.<program>` requests on the host and return exit status plus stdout/stderr handles or captured text.
+- [x] Execute approved `cli.<program>` requests on the host and return exit status plus stdout/stderr handles or captured text.
 
 ### HTTP client
 
@@ -84,19 +84,19 @@ thread start. How the runtime is wired internally belongs in
 - [x] The internal approved execution path can run scalar-argv commands and return `{ program, args, exitCode, success }`.
 - [x] `hostrun_eval` uses the approved execution path for `cli.*` after the tool invocation has passed its pre-tool approval layer.
 - [ ] `.spawn()` starts a command and returns process/stream handles.
-- [ ] `stdout.capture()` and `stderr.capture()` capture bounded text for model-visible results.
-- [ ] `stdout.toFile(path)` and `stderr.toFile(path)` redirect output to host files.
+- [x] `stdout.capture()` and `stderr.capture()` capture bounded text for model-visible results.
+- [x] `stdout.toFile(path)` and `stderr.toFile(path)` redirect output to host files.
 - [x] `stdout.tee(path)`, `stderr.tee(path)`, and `combined.tee(path)` write full output to a file while keeping bounded captured text visible in the result.
-- [ ] `stderr.toStdout()`, `combined.capture()`, and `combined.toFile(path)` support common stderr/stdout composition.
-- [ ] `stdout.text()` returns captured stdout text.
-- [ ] `stdout.lines()` returns captured stdout split into lines.
-- [ ] `stdin.text(str)`, `stdin.file(path)`, `stdin.json(value)`, `stdin.yaml(value)`, `stdin.csv(rows)`, and `stdin.lines(values)` provide explicit stdin sources.
+- [x] `stderr.toStdout()`, `combined.capture()`, and `combined.toFile(path)` support common stderr/stdout composition.
+- [x] `stdout.text()` returns captured stdout text.
+- [x] `stdout.lines()` returns captured stdout split into lines.
+- [x] `stdin.text(str)`, `stdin.file(path)`, `stdin.json(value)`, `stdin.yaml(value)`, `stdin.csv(rows)`, and `stdin.lines(values)` provide explicit stdin sources.
 - [x] The approved `cli.*` execution path supports stdout text, stdout lines, stdout file redirects, stderr text, combined capture, stderr-to-stdout composition, line-based stdin, and structured JSON/YAML/CSV/JSONL stdin.
 - [x] Command builders preserve explicit `stdin.yaml`, `stdin.csv`, `stdin.tsv`, `stdin.jsonLines`, and `stdin.jsonl` metadata in approval requests.
 - [x] The approved `cli.*` execution path can feed a downstream command from an upstream command's stdout or stderr stream handle.
-- [ ] A downstream command can pipe from an upstream stream handle, e.g. `cli.cat().stdin(cli.rclone(...).stdout).run()`.
-- [ ] Named upstream command handles can be reused for piping, e.g. `const result = cli.rclone(...); cli.cat().stdin(result.stdout).run()`.
-- [ ] A downstream command can pipe either upstream stdout or upstream stderr into stdin.
+- [x] A downstream command can pipe from an upstream stream handle, e.g. `cli.cat().stdin(cli.rclone(...).stdout).run()`.
+- [x] Named upstream command handles can be reused for piping, e.g. `const result = cli.rclone(...); cli.cat().stdin(result.stdout).run()`.
+- [x] A downstream command can pipe either upstream stdout or upstream stderr into stdin.
 - [ ] Piped command graphs start producer and consumer commands concurrently.
 - [ ] Approval text for command graphs includes argv and redirect/pipe shape in a readable form without using a shell internally.
 - [ ] Command graph results include every command's exit code and fail the graph if any command fails unless explicitly configured otherwise.
