@@ -68,7 +68,8 @@ thread start. How the runtime is wired internally belongs in
 - [x] `file: path` sends file bytes as the whole request body.
 - [x] Preserve `multipart: object` fields and file-part metadata in approval metadata.
 - [x] Redact bearer/basic/header-token auth secrets from approval metadata.
-- [ ] Support timeout, retry policy, redirect policy, and TLS options with readable defaults.
+- [x] Support timeout, retry policy, redirect policy, and TLS options with readable defaults.
+- [x] `throwOnError: true` turns non-2xx HTTP responses into JavaScript evaluation errors.
 - [x] Expose response intent helpers `.text()`, `.json()`, `.bytes()`, `.save(path)`, and `.run()` in approval metadata.
 - [x] `hostrun_eval` executes approved HTTP requests for common methods with query parameters, headers, bearer/basic auth, JSON/form/raw/file bodies, and response text/json/bytes/save handling.
 - [x] Response objects expose `.status`, `.ok`, `.headers`, `.text()`, `.json()`, `.bytes()`, and `.save(path)` after real execution lands.
@@ -198,7 +199,7 @@ thread start. How the runtime is wired internally belongs in
 - [ ] Implement public file, temp, rclone, fd, rg, and HTTP helpers with approval-aware host execution; basic `fs.write/read/exists/remove` approvals are already public.
 - [ ] Implement the command builder API for `cli.<program>` so stdout/stderr redirects and stdin piping are real runtime behavior.
 - [ ] Add tests for stdout/stderr capture, redirects, stderr/stdout composition, stdin sources, stream-handle piping, and command graph approval text.
-- [ ] Add tests for HTTP query params, headers, auth redaction, JSON/form/raw/file bodies, response save-to-file, timeouts, retries, non-2xx handling, and multipart metadata/execution.
+- [ ] Add tests for HTTP query params, headers, auth redaction, JSON/form/raw/file bodies, response save-to-file, timeout metadata, retry metadata, redirect disabling, non-2xx handling, and multipart metadata/execution.
 - [ ] Add tests for JSON/YAML/CSV/JSONL parse/serialize helpers; JSON/JSONL/CSV/TSV string and command-output parsing now have focused tests, while YAML parsing remains open.
 - [ ] Add tests for remaining collection and table helpers, including reverse aliases, fd/rg structured output parsing, and error behavior.
 - [ ] Add tests for temp resource cleanup on success and failure.

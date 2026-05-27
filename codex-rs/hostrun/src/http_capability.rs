@@ -3,10 +3,13 @@ use std::time::Duration;
 
 use reqwest::Method;
 use reqwest::blocking::Client;
+use reqwest::blocking::RequestBuilder;
+use reqwest::blocking::Response;
 use reqwest::header::ACCEPT;
 use reqwest::header::HeaderMap;
 use reqwest::header::HeaderName;
 use reqwest::header::HeaderValue;
+use reqwest::redirect::Policy;
 use serde_json::Value;
 use serde_json::json;
 
@@ -34,7 +37,7 @@ pub(super) fn execute_http_request(args: Value) -> Result<Value, HostrunSessionE
     let request = apply_query(request, args.get("query"))?;
     let request = apply_auth(request, args.get("auth"))?;
     let request = apply_body(request, &args)?;
-    let response = request.send().map_err(|error| {
+    let response = send_with_retries(request, retry_count(&args)).map_err(|error| {
         HostrunSessionError::Eval(format!("HTTP request failed for {url}: {error}"))
     })?;
     let status = response.status();
@@ -42,6 +45,13 @@ pub(super) fn execute_http_request(args: Value) -> Result<Value, HostrunSessionE
     let body = response.bytes().map_err(|error| {
         HostrunSessionError::Eval(format!("failed to read HTTP response body: {error}"))
     })?;
+    if should_throw_on_status(status.as_u16(), &args) {
+        return Err(HostrunSessionError::Eval(format!(
+            "HTTP request failed with status {} for {url}: {}",
+            status.as_u16(),
+            String::from_utf8_lossy(&body)
+        )));
+    }
     response_value(status.as_u16(), headers, &body, args.get("response"))
 }
 
@@ -50,9 +60,71 @@ fn build_client(args: &Value) -> Result<Client, HostrunSessionError> {
     if let Some(timeout) = args.get("timeout").and_then(parse_duration) {
         builder = builder.timeout(timeout);
     }
+    if let Some(policy) = redirect_policy(args.get("redirects").or_else(|| args.get("redirect"))) {
+        builder = builder.redirect(policy);
+    }
+    if tls_accept_invalid_certs(args.get("tls")) {
+        builder = builder.danger_accept_invalid_certs(true);
+    }
     builder
         .build()
         .map_err(|error| HostrunSessionError::Eval(format!("failed to build HTTP client: {error}")))
+}
+
+fn redirect_policy(value: Option<&Value>) -> Option<Policy> {
+    match value {
+        Some(Value::Bool(false)) => Some(Policy::none()),
+        Some(Value::Number(limit)) => limit.as_u64().map(|limit| Policy::limited(limit as usize)),
+        Some(Value::Object(options)) => {
+            if options.get("enabled") == Some(&Value::Bool(false)) {
+                return Some(Policy::none());
+            }
+            options
+                .get("limit")
+                .and_then(Value::as_u64)
+                .map(|limit| Policy::limited(limit as usize))
+        }
+        _ => None,
+    }
+}
+
+fn tls_accept_invalid_certs(value: Option<&Value>) -> bool {
+    value
+        .and_then(|value| value.get("acceptInvalidCerts"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+}
+
+fn retry_count(args: &Value) -> u64 {
+    args.get("retries").and_then(Value::as_u64).unwrap_or(0)
+}
+
+fn send_with_retries(request: RequestBuilder, retries: u64) -> reqwest::Result<Response> {
+    let mut attempts = 0;
+    let mut request = request;
+    loop {
+        let Some(next_request) = request.try_clone() else {
+            return request.send();
+        };
+        match request.send() {
+            Ok(response) => return Ok(response),
+            Err(error) if attempts < retries => {
+                attempts += 1;
+                request = next_request;
+                if !error.is_timeout() && !error.is_connect() {
+                    return Err(error);
+                }
+            }
+            Err(error) => return Err(error),
+        }
+    }
+}
+
+fn should_throw_on_status(status: u16, args: &Value) -> bool {
+    args.get("throwOnError")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+        && !(200..300).contains(&status)
 }
 
 fn parse_method(args: &Value) -> Result<Method, HostrunSessionError> {
