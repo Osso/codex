@@ -24,6 +24,7 @@ Hostrun evaluates JavaScript in a persistent QuickJS session:
 - `console.log`, `console.info`, `console.warn`, `console.error`, and `console.debug` are captured in the tool result.
 - Arrays have `.containing(needle)` for substring filtering.
 - `cli.<program>(...args)` creates a lazy host command builder. Call `.run()` to request approval and execute it, e.g. `cli.dmidecode().run()` or `cli.rg('needle', 'path').run()`. Use `.complete()` for command probes that should capture stdout, stderr, and exit status. Use `.stdout.text()`, `.stdout.lines()`, `.stdout.json()`, `.stdout.jsonl()`, `.stdout.csv()`, `.stdout.tsv()`, `.stdout.toFile(path)`, `.stdout.tee(path)`, and matching `.stderr.*`/`.combined.*` helpers for output handling.
+- Stream piping is explicit: `const source = cli.rclone('cat', remote); cli.cat().stdin(source.stdout).stdout.text().run()` returns downstream output plus `commands` status entries for the upstream and downstream commands.
 - `fs.write(path, content)`, `fs.read(path)`, `fs.exists(path)`, and `fs.remove(path)` request approval-gated host file operations.
 - `rclone.deletefile(target)` requests an approval-gated `rclone deletefile`; `rclone.lsf(target, { recursive: true })` builds a lazy `rclone lsf` command.
 - `fd.find(pattern, options)`, `fd.files(root, options)`, and `fd.dirs(root, options)` build lazy `fdfind` commands.

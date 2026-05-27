@@ -316,8 +316,25 @@ fn approved_cli_command_pipes_from_upstream_stdout_and_stderr() {
         )
         .expect("stdout pipe");
     assert_eq!(
-        stdout.value.expect("stdout value")["stdout"],
+        stdout.value.as_ref().expect("stdout value")["stdout"],
         json!("from stdout")
+    );
+    assert_eq!(
+        stdout.value.as_ref().expect("stdout value")["commands"],
+        json!([
+            {
+                "program": "printf",
+                "args": ["from stdout"],
+                "exitCode": 0,
+                "success": true
+            },
+            {
+                "program": "cat",
+                "args": [],
+                "exitCode": 0,
+                "success": true
+            }
+        ])
     );
 
     let stderr = session
@@ -329,5 +346,38 @@ fn approved_cli_command_pipes_from_upstream_stdout_and_stderr() {
     assert_eq!(
         stderr.value.expect("stderr value")["stdout"],
         json!("from-stderr")
+    );
+}
+
+#[test]
+fn approved_cli_command_graph_reports_upstream_failures() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+
+    let result = session
+        .eval(
+            "const source = cli.sh('-c', 'printf partial; exit 9');
+             cli.cat().stdin(source.stdout).stdout.text().run();",
+        )
+        .expect("graph eval");
+    let value = result.value.expect("value");
+
+    assert_eq!(value["stdout"], json!("partial"));
+    assert_eq!(value["success"], json!(false));
+    assert_eq!(
+        value["commands"],
+        json!([
+            {
+                "program": "sh",
+                "args": ["-c", "printf partial; exit 9"],
+                "exitCode": 9,
+                "success": false
+            },
+            {
+                "program": "cat",
+                "args": [],
+                "exitCode": 0,
+                "success": true
+            }
+        ])
     );
 }

@@ -2,7 +2,9 @@ use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::fs;
 use std::io::Write;
+use std::process::Child;
 use std::process::Command;
+use std::process::Output;
 use std::process::Stdio;
 use std::sync::Arc;
 
@@ -15,6 +17,7 @@ use serde::Serialize;
 use serde_json::Value;
 use serde_json::json;
 
+use crate::cli_graph::insert_command_graph;
 use crate::fs_capability::{execute_fs_operation, fs_approval};
 use crate::http_capability::{execute_http_request, http_request_approval};
 use crate::output_intent::apply_output_intent;
@@ -361,11 +364,19 @@ fn cli_arg_to_string(value: &Value) -> Result<String, HostrunSessionError> {
     }
 }
 
-struct CliProcessOutput {
-    exit_code: Option<i32>,
+pub(crate) struct CliProcessOutput {
+    pub(crate) command: CliCommandStatus,
+    pub(crate) upstream: Vec<CliCommandStatus>,
     success: bool,
     stdout: Vec<u8>,
     stderr: Vec<u8>,
+}
+
+pub(crate) struct CliCommandStatus {
+    pub(crate) program: String,
+    pub(crate) args: Vec<String>,
+    pub(crate) exit_code: Option<i32>,
+    pub(crate) success: bool,
 }
 
 fn run_cli_process(
@@ -373,9 +384,23 @@ fn run_cli_process(
     argv: &[String],
     stdin: Option<&Value>,
 ) -> Result<CliProcessOutput, HostrunSessionError> {
-    let mut child = Command::new(program)
+    let stdin = stdin_input(stdin)?;
+    let mut child = spawn_cli_process(program, argv, stdin.bytes.is_some())?;
+    write_cli_stdin(program, &mut child, stdin.bytes)?;
+    let output = child.wait_with_output().map_err(|error| {
+        HostrunSessionError::Eval(format!("failed to wait for {program}: {error}"))
+    })?;
+    Ok(cli_process_output(program, argv, stdin.upstream, output))
+}
+
+fn spawn_cli_process(
+    program: &str,
+    argv: &[String],
+    has_stdin: bool,
+) -> Result<Child, HostrunSessionError> {
+    Command::new(program)
         .args(argv)
-        .stdin(if stdin.is_some() {
+        .stdin(if has_stdin {
             Stdio::piped()
         } else {
             Stdio::null()
@@ -383,55 +408,94 @@ fn run_cli_process(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|error| {
-            HostrunSessionError::Eval(format!("failed to start {program}: {error}"))
-        })?;
+        .map_err(|error| HostrunSessionError::Eval(format!("failed to start {program}: {error}")))
+}
 
-    if let Some(stdin) = stdin {
-        let input = stdin_bytes(stdin)?;
-        let child_stdin = child.stdin.as_mut().ok_or_else(|| {
-            HostrunSessionError::Eval(format!("failed to open stdin for {program}"))
-        })?;
-        child_stdin.write_all(&input).map_err(|error| {
-            HostrunSessionError::Eval(format!("failed to write stdin for {program}: {error}"))
-        })?;
-    }
-
-    let output = child.wait_with_output().map_err(|error| {
-        HostrunSessionError::Eval(format!("failed to wait for {program}: {error}"))
-    })?;
-    Ok(CliProcessOutput {
-        exit_code: output.status.code(),
-        success: output.status.success(),
-        stdout: output.stdout,
-        stderr: output.stderr,
+fn write_cli_stdin(
+    program: &str,
+    child: &mut Child,
+    input: Option<Vec<u8>>,
+) -> Result<(), HostrunSessionError> {
+    let Some(input) = input else {
+        return Ok(());
+    };
+    let child_stdin = child
+        .stdin
+        .as_mut()
+        .ok_or_else(|| HostrunSessionError::Eval(format!("failed to open stdin for {program}")))?;
+    child_stdin.write_all(&input).map_err(|error| {
+        HostrunSessionError::Eval(format!("failed to write stdin for {program}: {error}"))
     })
 }
 
-fn stdin_bytes(stdin: &Value) -> Result<Vec<u8>, HostrunSessionError> {
+fn cli_process_output(
+    program: &str,
+    argv: &[String],
+    upstream: Vec<CliCommandStatus>,
+    output: Output,
+) -> CliProcessOutput {
+    let command = CliCommandStatus {
+        program: program.to_string(),
+        args: argv.to_vec(),
+        exit_code: output.status.code(),
+        success: output.status.success(),
+    };
+    let success = command.success && upstream.iter().all(|command| command.success);
+    CliProcessOutput {
+        command,
+        upstream,
+        success,
+        stdout: output.stdout,
+        stderr: output.stderr,
+    }
+}
+
+struct CliStdinInput {
+    bytes: Option<Vec<u8>>,
+    upstream: Vec<CliCommandStatus>,
+}
+
+fn stdin_input(stdin: Option<&Value>) -> Result<CliStdinInput, HostrunSessionError> {
+    let Some(stdin) = stdin else {
+        return Ok(CliStdinInput {
+            bytes: None,
+            upstream: Vec::new(),
+        });
+    };
+    let (bytes, upstream) = stdin_bytes(stdin)?;
+    Ok(CliStdinInput {
+        bytes: Some(bytes),
+        upstream,
+    })
+}
+
+fn stdin_bytes(stdin: &Value) -> Result<(Vec<u8>, Vec<CliCommandStatus>), HostrunSessionError> {
     let stdin_type = stdin
         .get("type")
         .and_then(Value::as_str)
         .unwrap_or("stream");
-    match stdin_type {
-        "text" => Ok(field_as_string(stdin, "text").into_bytes()),
+    let bytes = match stdin_type {
+        "text" => field_as_string(stdin, "text").into_bytes(),
         "file" => fs::read(field_as_string(stdin, "path")).map_err(|error| {
             HostrunSessionError::Eval(format!("failed to read stdin file: {error}"))
-        }),
-        "json" => serialize_json_stdin(stdin.get("value").unwrap_or(&Value::Null)),
-        "yaml" => serialize_yaml_stdin(stdin.get("value").unwrap_or(&Value::Null)),
-        "csv" => serialize_delimited_rows(stdin.get("rows"), ","),
-        "tsv" => serialize_delimited_rows(stdin.get("rows"), "\t"),
-        "jsonLines" => serialize_json_lines(stdin.get("values")),
-        "lines" => serialize_lines(stdin.get("lines")),
-        "stream" => stream_stdin_bytes(stdin.get("source")),
+        })?,
+        "json" => serialize_json_stdin(stdin.get("value").unwrap_or(&Value::Null))?,
+        "yaml" => serialize_yaml_stdin(stdin.get("value").unwrap_or(&Value::Null))?,
+        "csv" => serialize_delimited_rows(stdin.get("rows"), ",")?,
+        "tsv" => serialize_delimited_rows(stdin.get("rows"), "\t")?,
+        "jsonLines" => serialize_json_lines(stdin.get("values"))?,
+        "lines" => serialize_lines(stdin.get("lines"))?,
+        "stream" => return stream_stdin_bytes(stdin.get("source")),
         other => Err(HostrunSessionError::Eval(format!(
             "unsupported stdin source type: {other}"
-        ))),
-    }
+        )))?,
+    };
+    Ok((bytes, Vec::new()))
 }
 
-fn stream_stdin_bytes(source: Option<&Value>) -> Result<Vec<u8>, HostrunSessionError> {
+fn stream_stdin_bytes(
+    source: Option<&Value>,
+) -> Result<(Vec<u8>, Vec<CliCommandStatus>), HostrunSessionError> {
     let source = source
         .ok_or_else(|| HostrunSessionError::Eval("stdin stream source is required".to_string()))?;
     let stream = source
@@ -454,13 +518,16 @@ fn stream_stdin_bytes(source: Option<&Value>) -> Result<Vec<u8>, HostrunSessionE
         })?;
     let argv = cli_payload_args(command)?;
     let output = run_cli_process(program, &argv, None)?;
-    match stream {
-        "stdout" => Ok(output.stdout),
-        "stderr" => Ok(output.stderr),
+    let bytes = match stream {
+        "stdout" => output.stdout,
+        "stderr" => output.stderr,
         other => Err(HostrunSessionError::Eval(format!(
             "unsupported stdin stream source: {other}"
-        ))),
-    }
+        )))?,
+    };
+    let mut upstream = output.upstream;
+    upstream.push(output.command);
+    Ok((bytes, upstream))
 }
 
 fn serialize_json_stdin(value: &Value) -> Result<Vec<u8>, HostrunSessionError> {
@@ -551,8 +618,9 @@ fn cli_execution_result(
     let mut result = serde_json::Map::new();
     result.insert("program".to_string(), Value::String(program.to_string()));
     result.insert("args".to_string(), json!(argv));
-    result.insert("exitCode".to_string(), json!(output.exit_code));
+    result.insert("exitCode".to_string(), json!(output.command.exit_code));
     result.insert("success".to_string(), Value::Bool(output.success));
+    insert_command_graph(&mut result, &output);
     let stderr_to_stdout = output_intent_type(payload.get("stderr")) == Some("stdout");
     let stdout = if stderr_to_stdout {
         let mut bytes = output.stdout.clone();

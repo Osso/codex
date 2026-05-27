@@ -79,7 +79,7 @@ thread start. How the runtime is wired internally belongs in
 - [x] `cli.<program>(...args)` returns a lazy command builder rather than eagerly requesting approval.
 - [x] Command builder `.run()` preserves the existing approval request shape for `cli.<program>`.
 - [x] Command builders include requested stdout/stderr/stdin/combined handling in approval metadata.
-- [ ] `.run()` executes a command builder and returns structured status for each command in the execution graph.
+- [x] `.run()` executes a command builder and returns structured status for each command in the execution graph.
 - [x] `.complete()` runs a single command and captures stdout, stderr, exit code, and success status without hiding nonzero exits.
 - [x] The internal approved execution path can run scalar-argv commands and return `{ program, args, exitCode, success }`.
 - [x] `hostrun_eval` uses the approved execution path for `cli.*` after the tool invocation has passed its pre-tool approval layer.
@@ -99,7 +99,7 @@ thread start. How the runtime is wired internally belongs in
 - [x] A downstream command can pipe either upstream stdout or upstream stderr into stdin.
 - [ ] Piped command graphs start producer and consumer commands concurrently.
 - [ ] Approval text for command graphs includes argv and redirect/pipe shape in a readable form without using a shell internally.
-- [ ] Command graph results include every command's exit code and fail the graph if any command fails unless explicitly configured otherwise.
+- [x] Command graph results include every command's exit code and fail the graph if any command fails unless explicitly configured otherwise.
 - [x] Captured stdout/stderr/combined output have bounded size and explicit `{bytes, capturedBytes, truncated}` metadata.
 
 ### Structured data and collections

@@ -1,5 +1,6 @@
 //! Hostrun will provide a stateful, approval-readable host execution runtime.
 
+mod cli_graph;
 mod fs_capability;
 mod http_capability;
 mod output_intent;
