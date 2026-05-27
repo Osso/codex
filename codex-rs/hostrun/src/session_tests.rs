@@ -246,6 +246,10 @@ fn cli_command_builder_can_pipe_from_named_stdout_handle() {
     let approval = result.approval.expect("approval");
     assert_eq!(approval.tool, "cli.cat");
     assert_eq!(
+        approval.summary,
+        "Run cat (stdin from rclone cat spaces:bucket/index.txt stdout, combined capture)"
+    );
+    assert_eq!(
         approval.args,
         json!({
             "program": "cat",

@@ -17,6 +17,7 @@ use serde::Serialize;
 use serde_json::Value;
 use serde_json::json;
 
+use crate::cli_approval;
 use crate::cli_graph::insert_command_graph;
 use crate::fs_capability::{execute_fs_operation, fs_approval};
 use crate::http_capability::{execute_http_request, http_request_approval};
@@ -257,11 +258,12 @@ fn rclone_deletefile_approval(args: Value) -> HostrunApprovalRequest {
 fn cli_command_approval(tool_path: &str, args: Value) -> HostrunApprovalRequest {
     let program = tool_path.trim_start_matches("cli.");
     let (cli_args, io) = split_cli_command_payload(args);
-    let command = cli_command_summary(program, &cli_args);
+    let command = cli_approval::command_summary(program, &cli_args);
+    let io_summary = cli_approval::io_summary(io.as_ref());
     HostrunApprovalRequest {
         id: format!("cli.{program}:{command}"),
         tool: format!("cli.{program}"),
-        summary: format!("Run {command}"),
+        summary: format!("Run {command}{io_summary}"),
         args: cli_command_args(program, cli_args, io),
     }
 }
@@ -295,19 +297,6 @@ fn cli_command_args(program: &str, args: Vec<Value>, io: Option<Value>) -> Value
         payload.extend(io);
     }
     payload
-}
-
-fn cli_command_summary(program: &str, args: &[Value]) -> String {
-    let mut parts = vec![program.to_string()];
-    parts.extend(args.iter().map(cli_arg_summary));
-    parts.join(" ")
-}
-
-fn cli_arg_summary(arg: &Value) -> String {
-    match arg {
-        Value::String(value) => value.clone(),
-        other => other.to_string(),
-    }
 }
 
 fn execute_cli_command(tool_path: &str, args: Value) -> Result<Value, HostrunSessionError> {

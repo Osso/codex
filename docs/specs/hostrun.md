@@ -99,7 +99,7 @@ thread start. How the runtime is wired internally belongs in
 - [x] Named upstream command handles can be reused for piping, e.g. `const result = cli.rclone(...); cli.cat().stdin(result.stdout).run()`.
 - [x] A downstream command can pipe either upstream stdout or upstream stderr into stdin.
 - [ ] Piped command graphs start producer and consumer commands concurrently.
-- [ ] Approval text for command graphs includes argv and redirect/pipe shape in a readable form without using a shell internally.
+- [x] Approval text for command graphs includes argv and redirect/pipe shape in a readable form without using a shell internally.
 - [x] Command graph results include every command's exit code and fail the graph if any command fails unless explicitly configured otherwise.
 - [x] Captured stdout/stderr/combined output have bounded size and explicit `{bytes, capturedBytes, truncated}` metadata.
 
