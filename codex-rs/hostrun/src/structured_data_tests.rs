@@ -151,3 +151,37 @@ fn conversion_helpers_serialize_json_yaml_csv_tsv_and_jsonl() {
         }))
     );
 }
+
+#[test]
+fn structured_parsers_report_malformed_input_errors() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval(
+            r#"
+            const messages = [];
+            for (const parse of [
+              () => '{bad json'.json(),
+              () => '{"ok":true}\nnot-json\n'.jsonl()
+            ]) {
+              try {
+                parse();
+              } catch (error) {
+                messages.push(error.message);
+              }
+            }
+            messages;
+            "#,
+        )
+        .expect("eval");
+
+    let messages = result.value.expect("messages");
+    assert!(
+        messages[0].as_str().expect("json error").contains("JSON"),
+        "unexpected JSON parser error: {messages}"
+    );
+    assert!(
+        !messages[1].as_str().expect("jsonl error").is_empty(),
+        "unexpected JSONL parser error: {messages}"
+    );
+}

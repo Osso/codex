@@ -137,6 +137,43 @@ fn approved_http_post_sends_raw_and_file_bodies() {
 }
 
 #[test]
+fn approved_http_post_sends_multipart_fields_and_files() {
+    let server = TestHttpServer::start(|request| {
+        assert!(request.starts_with("post /upload "));
+        assert!(request.contains("content-type: multipart/form-data; boundary="));
+        assert!(request.contains("name=\"title\""));
+        assert!(request.contains("probe"));
+        assert!(request.contains("name=\"upload\"; filename=\"probe.txt\""));
+        assert!(request.contains("content-type: text/plain"));
+        assert!(request.contains("file body"));
+        http_response("200 OK", "text/plain", "uploaded")
+    });
+    let session = HostrunSession::new_auto_approve().expect("session");
+    let dir = tempfile::tempdir().expect("tempdir");
+    let input = dir.path().join("probe.txt");
+    fs::write(&input, "File Body").expect("write upload body");
+
+    let result = session
+        .eval(&format!(
+            "http.post({}, {{
+                multipart: {{
+                    title: 'Probe',
+                    upload: {{
+                        file: {},
+                        filename: 'probe.txt',
+                        contentType: 'text/plain'
+                    }}
+                }}
+            }}).text();",
+            json!(server.url("/upload")),
+            json!(input.to_string_lossy())
+        ))
+        .expect("http multipart");
+
+    assert_eq!(result.value.expect("value")["text"], "uploaded");
+}
+
+#[test]
 fn approved_http_get_can_return_response_bytes() {
     let server = TestHttpServer::start(|_request| {
         http_response("200 OK", "application/octet-stream", "bytes")

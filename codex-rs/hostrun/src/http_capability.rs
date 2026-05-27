@@ -5,6 +5,8 @@ use reqwest::Method;
 use reqwest::blocking::Client;
 use reqwest::blocking::RequestBuilder;
 use reqwest::blocking::Response;
+use reqwest::blocking::multipart::Form;
+use reqwest::blocking::multipart::Part;
 use reqwest::header::ACCEPT;
 use reqwest::header::HeaderMap;
 use reqwest::header::HeaderName;
@@ -203,12 +205,50 @@ fn apply_body(
         })?;
         return Ok(request.body(bytes));
     }
-    if args.get("multipart").is_some() {
-        return Err(HostrunSessionError::Eval(
-            "HTTP multipart execution is not implemented yet".to_string(),
-        ));
+    if let Some(Value::Object(multipart)) = args.get("multipart") {
+        return Ok(request.multipart(multipart_form(multipart)?));
     }
     Ok(request)
+}
+
+fn multipart_form(fields: &serde_json::Map<String, Value>) -> Result<Form, HostrunSessionError> {
+    let mut form = Form::new();
+    for (name, value) in fields {
+        form = if let Some(part) = multipart_file_part(value)? {
+            form.part(name.clone(), part)
+        } else {
+            form.text(name.clone(), value_to_string(value))
+        };
+    }
+    Ok(form)
+}
+
+fn multipart_file_part(value: &Value) -> Result<Option<Part>, HostrunSessionError> {
+    let Value::Object(file) = value else {
+        return Ok(None);
+    };
+    let Some(path) = file.get("file").and_then(Value::as_str) else {
+        return Ok(None);
+    };
+    let bytes = fs::read(path).map_err(|error| {
+        HostrunSessionError::Eval(format!(
+            "failed to read HTTP multipart file {path}: {error}"
+        ))
+    })?;
+    let filename = file
+        .get("filename")
+        .and_then(Value::as_str)
+        .map(ToString::to_string)
+        .unwrap_or_else(|| path.to_string());
+    let mut part = Part::bytes(bytes).file_name(filename);
+    if let Some(content_type) = file.get("contentType").and_then(Value::as_str) {
+        part = part.mime_str(content_type).map_err(|error| {
+            HostrunSessionError::Eval(format!(
+                "invalid HTTP multipart content type {content_type}: {error}"
+            ))
+        })?;
+    }
+    Ok(Some(part))
 }
 
 fn body_bytes(value: &Value) -> Result<Vec<u8>, HostrunSessionError> {

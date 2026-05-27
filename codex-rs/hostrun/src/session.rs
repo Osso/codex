@@ -498,6 +498,10 @@ mod collection_tests;
 mod text_tests;
 
 #[cfg(test)]
+#[path = "table_error_tests.rs"]
+mod table_error_tests;
+
+#[cfg(test)]
 #[path = "path_tests.rs"]
 mod path_tests;
 

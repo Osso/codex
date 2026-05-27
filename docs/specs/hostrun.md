@@ -200,17 +200,17 @@ thread start. How the runtime is wired internally belongs in
   - `hostrun_extension_tool_emits_exec_events_with_code`
 - `codex-rs/hostrun/js/src/*.test.ts` - prototype tests for persistent `ctx`, approval flow, and fake rclone workflows.
 
-## Known gaps (current cycle)
+## Completion audit (current cycle)
 
-- [ ] Update contributed Hostrun instructions to use public `fs.*`, `rclone.*`, `fd.*`, `rg.*`, `http.*`, and `cli.*` APIs; `fs.write` and `rclone.deletefile` are already public.
-- [ ] Implement public file, temp, rclone, fd, rg, and HTTP helpers with approval-aware host execution; basic `fs.write/read/exists/remove` approvals are already public.
-- [ ] Implement the command builder API for `cli.<program>` so stdout/stderr redirects and stdin piping are real runtime behavior.
-- [ ] Add tests for stdout/stderr capture, redirects, stderr/stdout composition, stdin sources, stream-handle piping, and command graph approval text.
-- [ ] Add tests for HTTP query params, headers, auth redaction, JSON/form/raw/file bodies, response save-to-file, timeout metadata, retry metadata, redirect disabling, non-2xx handling, and multipart metadata/execution.
-- [ ] Add tests for JSON/YAML/CSV/JSONL parse/serialize helpers; JSON/JSONL/CSV/TSV string and command-output parsing now have focused tests, while YAML parsing remains open.
-- [ ] Add tests for remaining collection and table helpers, including reverse aliases, fd/rg structured output parsing, and error behavior.
-- [ ] Add tests for temp resource cleanup on success and failure.
-- [ ] Update contributed Hostrun instructions after the command builder API is implemented, keeping instructions aligned with tested behavior.
+- [x] Update contributed Hostrun instructions to use public `fs.*`, `rclone.*`, `fd.*`, `rg.*`, `http.*`, and `cli.*` APIs.
+- [x] Implement public file, temp, rclone, fd, rg, and HTTP helpers with approval-aware host execution.
+- [x] Implement the command builder API for `cli.<program>` so stdout/stderr redirects and stdin piping are real runtime behavior.
+- [x] Add tests for stdout/stderr capture, redirects, stderr/stdout composition, stdin sources, stream-handle piping, and command graph approval text.
+- [x] Add tests for HTTP query params, headers, auth redaction, JSON/form/raw/file bodies, response save-to-file, timeout/retry/redirect policy metadata, redirect disabling, non-2xx handling, and multipart metadata/execution.
+- [x] Add tests for JSON/YAML/CSV/JSONL parse/serialize helpers, including string parsing, command-output parsing, stdin serialization, file serialization, conversion helpers, and malformed parser errors.
+- [x] Add tests for collection and table helpers, including non-mutating `sorted`/`reversed`, fd/rg structured output parsing, aggregation helpers, field-template formatting, and invalid transform errors.
+- [x] Add tests for temp resource cleanup on success and failure.
+- [x] Update contributed Hostrun instructions after the command builder API is implemented, keeping instructions aligned with tested behavior.
 - [x] Add `docs/wiki/systems/hostrun.md` with architecture details once the command builder design stabilizes.
 
 ## Out of scope
