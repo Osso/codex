@@ -17,10 +17,10 @@ use serde_json::json;
 
 use crate::fs_capability::{execute_fs_operation, fs_approval};
 use crate::http_capability::{execute_http_request, http_request_approval};
+use crate::output_intent::apply_output_intent;
 use crate::tmp_capability::{remove_tmp_resource, tmp_resources};
 
 const APPROVAL_REQUIRED_PREFIX: &str = "__HOSTRUN_APPROVAL_REQUIRED__:";
-const CAPTURE_LIMIT_BYTES: usize = 64 * 1024;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct HostrunEvalResult {
@@ -577,73 +577,6 @@ fn output_intent_type(intent: Option<&Value>) -> Option<&str> {
     intent
         .and_then(|intent| intent.get("type"))
         .and_then(Value::as_str)
-}
-
-fn apply_output_intent(
-    result: &mut serde_json::Map<String, Value>,
-    name: &str,
-    intent: Option<&Value>,
-    bytes: &[u8],
-) -> Result<(), HostrunSessionError> {
-    let Some(intent) = intent else {
-        return Ok(());
-    };
-    match intent
-        .get("type")
-        .and_then(Value::as_str)
-        .unwrap_or("capture")
-    {
-        "capture" | "text" => {
-            let captured = bounded_capture(bytes);
-            result.insert(
-                name.to_string(),
-                Value::String(String::from_utf8_lossy(captured).to_string()),
-            );
-            insert_capture_metadata(result, name, bytes.len(), captured.len());
-        }
-        "lines" => {
-            let captured = bounded_capture(bytes);
-            let text = String::from_utf8_lossy(captured);
-            result.insert(name.to_string(), json!(text.lines().collect::<Vec<_>>()));
-            insert_capture_metadata(result, name, bytes.len(), captured.len());
-        }
-        "file" => {
-            let path = field_as_string(intent, "path");
-            fs::write(&path, bytes).map_err(|error| {
-                HostrunSessionError::Eval(format!("failed to write {name} to {path}: {error}"))
-            })?;
-            result.insert(
-                name.to_string(),
-                json!({ "path": path, "bytes": bytes.len() }),
-            );
-        }
-        other => {
-            return Err(HostrunSessionError::Eval(format!(
-                "unsupported {name} output intent: {other}"
-            )));
-        }
-    }
-    Ok(())
-}
-
-fn bounded_capture(bytes: &[u8]) -> &[u8] {
-    &bytes[..bytes.len().min(CAPTURE_LIMIT_BYTES)]
-}
-
-fn insert_capture_metadata(
-    result: &mut serde_json::Map<String, Value>,
-    name: &str,
-    bytes: usize,
-    captured_bytes: usize,
-) {
-    result.insert(
-        format!("{name}Meta"),
-        json!({
-            "bytes": bytes,
-            "capturedBytes": captured_bytes,
-            "truncated": captured_bytes < bytes
-        }),
-    );
 }
 
 fn field_as_string(args: &Value, field: &str) -> String {

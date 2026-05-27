@@ -146,6 +146,72 @@ fn approved_cli_command_can_redirect_stderr_to_stdout() {
 }
 
 #[test]
+fn approved_cli_command_complete_captures_stdout_stderr_and_exit_status() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+
+    let result = session
+        .eval("cli.sh('-c', 'printf out; printf err >&2; exit 7').complete();")
+        .expect("eval");
+
+    assert_eq!(
+        result.value,
+        Some(json!({
+            "program": "sh",
+            "args": ["-c", "printf out; printf err >&2; exit 7"],
+            "exitCode": 7,
+            "success": false,
+            "stdout": "out",
+            "stdoutMeta": {
+                "bytes": 3,
+                "capturedBytes": 3,
+                "truncated": false
+            },
+            "stderr": "err",
+            "stderrMeta": {
+                "bytes": 3,
+                "capturedBytes": 3,
+                "truncated": false
+            }
+        }))
+    );
+}
+
+#[test]
+fn approved_cli_command_tees_stdout_to_file_and_captures_text() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+    let dir = tempfile::tempdir().expect("tempdir");
+    let output = dir.path().join("tee.txt");
+    let output_text = output.to_string_lossy().to_string();
+    let code = format!(
+        "cli.printf('visible').stdout.tee({}).run();",
+        json!(output_text)
+    );
+
+    let result = session.eval(&code).expect("eval");
+
+    assert_eq!(fs::read_to_string(&output).expect("tee file"), "visible");
+    assert_eq!(
+        result.value,
+        Some(json!({
+            "program": "printf",
+            "args": ["visible"],
+            "exitCode": 0,
+            "success": true,
+            "stdout": "visible",
+            "stdoutFile": {
+                "path": output_text,
+                "bytes": 7
+            },
+            "stdoutMeta": {
+                "bytes": 7,
+                "capturedBytes": 7,
+                "truncated": false
+            }
+        }))
+    );
+}
+
+#[test]
 fn approved_cli_command_bounds_captured_output() {
     let session = HostrunSession::new_auto_approve().expect("session");
 

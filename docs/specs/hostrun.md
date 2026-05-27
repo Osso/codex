@@ -80,11 +80,13 @@ thread start. How the runtime is wired internally belongs in
 - [x] Command builder `.run()` preserves the existing approval request shape for `cli.<program>`.
 - [x] Command builders include requested stdout/stderr/stdin/combined handling in approval metadata.
 - [ ] `.run()` executes a command builder and returns structured status for each command in the execution graph.
+- [x] `.complete()` runs a single command and captures stdout, stderr, exit code, and success status without hiding nonzero exits.
 - [x] The internal approved execution path can run scalar-argv commands and return `{ program, args, exitCode, success }`.
 - [x] `hostrun_eval` uses the approved execution path for `cli.*` after the tool invocation has passed its pre-tool approval layer.
 - [ ] `.spawn()` starts a command and returns process/stream handles.
 - [ ] `stdout.capture()` and `stderr.capture()` capture bounded text for model-visible results.
 - [ ] `stdout.toFile(path)` and `stderr.toFile(path)` redirect output to host files.
+- [x] `stdout.tee(path)`, `stderr.tee(path)`, and `combined.tee(path)` write full output to a file while keeping bounded captured text visible in the result.
 - [ ] `stderr.toStdout()`, `combined.capture()`, and `combined.toFile(path)` support common stderr/stdout composition.
 - [ ] `stdout.text()` returns captured stdout text.
 - [ ] `stdout.lines()` returns captured stdout split into lines.

@@ -211,7 +211,7 @@ fn cli_command_builder_includes_io_metadata_in_approval() {
     let result = session
         .eval(
             "cli.rg('needle', 'src')
-              .stdout.toFile('/tmp/matches.txt')
+              .stdout.tee('/tmp/matches.txt')
               .stderr.toStdout()
               .stdin.text('input')
               .run();",
@@ -225,7 +225,7 @@ fn cli_command_builder_includes_io_metadata_in_approval() {
         json!({
             "program": "rg",
             "args": ["needle", "src"],
-            "stdout": { "type": "file", "path": "/tmp/matches.txt" },
+            "stdout": { "type": "tee", "path": "/tmp/matches.txt" },
             "stderr": { "type": "stdout" },
             "stdin": { "type": "text", "text": "input" }
         })

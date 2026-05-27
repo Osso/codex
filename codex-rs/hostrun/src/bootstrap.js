@@ -976,6 +976,11 @@ globalThis.__hostrun_commandBuilder = function (program, args) {
     run: function () {
       return globalThis.__hostrun_invokeCapability("cli." + state.program, state);
     },
+    complete: function () {
+      state.stdout = { type: "text" };
+      state.stderr = { type: "text" };
+      return globalThis.__hostrun_invokeCapability("cli." + state.program, state);
+    },
     toJSON: function () {
       return { ...state };
     }
@@ -1000,6 +1005,10 @@ globalThis.__hostrun_commandBuilder = function (program, args) {
         state[name] = { type: "file", path };
         return builder;
       },
+      tee: function (path) {
+        state[name] = { type: "tee", path };
+        return builder;
+      },
       toJSON: function () {
         return { stream: name, command: { program: state.program, args: state.args } };
       }
@@ -1018,6 +1027,10 @@ globalThis.__hostrun_commandBuilder = function (program, args) {
     },
     toFile: function (path) {
       state.combined = { type: "file", path };
+      return builder;
+    },
+    tee: function (path) {
+      state.combined = { type: "tee", path };
       return builder;
     }
   };
