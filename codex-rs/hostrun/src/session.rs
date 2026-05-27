@@ -548,3 +548,7 @@ mod rg_execution_tests;
 #[cfg(test)]
 #[path = "tmp_tests.rs"]
 mod tmp_tests;
+
+#[cfg(test)]
+#[path = "github_pr_tests.rs"]
+mod github_pr_tests;

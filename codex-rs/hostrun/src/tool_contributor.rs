@@ -36,6 +36,7 @@ Hostrun evaluates JavaScript in a persistent QuickJS session:
 - `fd.find(pattern, options)`, `fd.files(root, options)`, and `fd.dirs(root, options)` build lazy `fdfind` commands.
 - `rg.search(pattern, paths, options)`, `rg.files(pattern, paths, options)`, and `rg.matches(pattern, paths, options)` build lazy ripgrep commands.
 - `http.get/post/put/patch/delete/head(url, options)` and `http.request(method, url, options)` build approval-gated HTTP requests. Use `.json()`, `.text()`, `.bytes()`, `.save(path)`, or `.run()` to choose response handling.
+- `tools.github.createPR(options)` creates GitHub pull requests through `gh pr create` with the PR body sent via `--body-file -` stdin. Prefer `bodyLines: [...]` or a template literal `body` so Markdown newlines are real newlines; literal `\\n` sequences are rejected by default. Common options: `repo`, `base`, `head`, `title`, `body`, `bodyLines`, `draft`, `labels`, `reviewers`, `assignees`, `projects`, and `milestone`.
 
 Return a final expression value when useful.";
 

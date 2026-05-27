@@ -1336,8 +1336,15 @@ globalThis.__hostrun_tmpHandle = function (kind, path) {
 
 globalThis.__hostrun_toolProxy = function (path) {
   return new Proxy(function () {}, {
-    get(_target, property) {
+    get(target, property) {
+      if (Reflect.has(target, property)) {
+        return Reflect.get(target, property);
+      }
       return globalThis.__hostrun_toolProxy(path ? path + "." + String(property) : String(property));
+    },
+    set(target, property, value) {
+      Reflect.set(target, property, value);
+      return true;
     },
     apply(_target, _thisArg, args) {
       const payload = args.length > 0 ? args[0] : {};
@@ -1625,6 +1632,13 @@ globalThis.which = function (program) {
   return globalThis.cli.which(String(program));
 };
 
+globalThis.__hostrun_values = function (value) {
+  if (value === undefined || value === null || value === false) {
+    return [];
+  }
+  return Array.isArray(value) ? value : [value];
+};
+
 globalThis.__hostrun_addOption = function (args, flag, value) {
   if (value === undefined || value === null || value === false) {
     return;
@@ -1634,6 +1648,70 @@ globalThis.__hostrun_addOption = function (args, flag, value) {
     args.push(String(value));
   }
 };
+
+globalThis.__hostrun_addRepeatedOption = function (args, flag, value) {
+  for (const item of globalThis.__hostrun_values(value)) {
+    globalThis.__hostrun_addOption(args, flag, item);
+  }
+};
+
+globalThis.__hostrun_githubPrBody = function (options) {
+  if (options.bodyLines !== undefined) {
+    return Array.from(options.bodyLines).map((line) => String(line)).join("\n");
+  }
+  if (Array.isArray(options.body)) {
+    return options.body.map((line) => String(line)).join("\n");
+  }
+  if (options.body !== undefined && options.body !== null) {
+    return String(options.body);
+  }
+  return undefined;
+};
+
+globalThis.__hostrun_validateGithubPrBody = function (body, options) {
+  if (body === undefined || options.allowEscapedNewlines === true) {
+    return;
+  }
+  if (body.includes("\\n")) {
+    throw new Error(
+      "GitHub PR body contains literal \\\\n. Use a template literal, a normal newline string, or bodyLines instead."
+    );
+  }
+};
+
+globalThis.github = {
+  createPR: function (options = {}) {
+    const args = ["pr", "create"];
+    const body = globalThis.__hostrun_githubPrBody(options);
+    globalThis.__hostrun_validateGithubPrBody(body, options);
+
+    globalThis.__hostrun_addOption(args, "--repo", options.repo);
+    globalThis.__hostrun_addOption(args, "--base", options.base);
+    globalThis.__hostrun_addOption(args, "--head", options.head);
+    globalThis.__hostrun_addOption(args, "--title", options.title);
+    if (body !== undefined) {
+      args.push("--body-file", "-");
+    } else {
+      globalThis.__hostrun_addOption(args, "--body", options.body);
+    }
+    globalThis.__hostrun_addOption(args, "--draft", options.draft);
+    globalThis.__hostrun_addOption(args, "--fill", options.fill);
+    globalThis.__hostrun_addOption(args, "--fill-first", options.fillFirst);
+    globalThis.__hostrun_addOption(args, "--fill-verbose", options.fillVerbose);
+    globalThis.__hostrun_addOption(args, "--web", options.web);
+    globalThis.__hostrun_addOption(args, "--no-maintainer-edit", options.maintainerEdit === false);
+    globalThis.__hostrun_addOption(args, "--milestone", options.milestone);
+    globalThis.__hostrun_addRepeatedOption(args, "--label", options.labels ?? options.label);
+    globalThis.__hostrun_addRepeatedOption(args, "--reviewer", options.reviewers ?? options.reviewer);
+    globalThis.__hostrun_addRepeatedOption(args, "--assignee", options.assignees ?? options.assignee);
+    globalThis.__hostrun_addRepeatedOption(args, "--project", options.projects ?? options.project);
+
+    const command = globalThis.cli.gh(...args);
+    return body === undefined ? command.run() : command.stdin.text(body).run();
+  }
+};
+
+globalThis.tools.github = globalThis.github;
 
 globalThis.fd = {
   find: function (pattern, options = {}) {

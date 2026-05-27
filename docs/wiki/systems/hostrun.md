@@ -16,7 +16,7 @@ by the tool executor.
 
 The JavaScript standard library is bootstrapped from
 `codex-rs/hostrun/src/bootstrap.js`. It defines public helpers such as `fs`,
-`tmp`, `cli`, `rclone`, `fd`, `rg`, `sqlite`, `kubectl`, `http`, `path`, string
+`tmp`, `cli`, `rclone`, `fd`, `rg`, `sqlite`, `kubectl`, `http`, `github`, `path`, string
 helpers, array helpers, table/field helpers, and structured data helpers.
 
 ## Approval Boundary
@@ -76,6 +76,18 @@ policy, TLS `acceptInvalidCerts`, and `throwOnError`.
 
 Sensitive auth fields and headers are redacted from approval metadata before
 they are shown to the model.
+
+## GitHub
+
+`tools.github.createPR(options)` is a focused wrapper for `gh pr create`. It
+keeps the host boundary at the generic `cli.gh` capability, but always sends the
+PR body as stdin through `--body-file -` when a body is provided. This avoids the
+common shell failure mode where `--body "line one\nline two"` publishes visible
+`\n` text instead of Markdown line breaks.
+
+Use `bodyLines: [...]` or a JavaScript template literal for multiline Markdown.
+Literal escaped newline sequences in `body` are rejected by default; callers can
+set `allowEscapedNewlines: true` only when the visible `\n` text is intentional.
 
 ## Specs And Tests
 
