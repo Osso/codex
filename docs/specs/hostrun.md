@@ -97,7 +97,7 @@ thread start. How the runtime is wired internally belongs in
 - [x] `stdout.text()` returns captured stdout text.
 - [x] `stdout.lines()` returns captured stdout split into lines.
 - [x] Output terminal selectors such as `stdout.text()`, `stdout.lines()`, and `stdout.json()` execute directly; callers must not chain `.run()` after them.
-- [x] Builder-level terminal selectors default to stdout, so `cli.ls().text()` is equivalent to `cli.ls().stdout.text()`.
+- [x] Builder-level terminal selectors default to stdout and return the selected stdout value directly, so `cli.ls().text().trim()` works.
 - [x] Use `run.<program>()` as the preferred no-capture command form; keep `cli.<program>()` for builder workflows.
 - [x] `stdin.text(str)`, `stdin.file(path)`, `stdin.json(value)`, `stdin.yaml(value)`, `stdin.csv(rows)`, and `stdin.lines(values)` provide explicit stdin sources.
 - [x] The approved `cli.*` execution path supports stdout text, stdout lines, stdout file redirects, stderr text, combined capture, stderr-to-stdout composition, line-based stdin, and structured JSON/YAML/CSV/JSONL stdin.

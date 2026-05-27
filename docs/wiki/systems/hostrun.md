@@ -46,7 +46,8 @@ explicit:
 the command, then capture and parse bounded stdout. Do not chain `.run()`
 after these terminal selectors.
 - Builder-level shortcuts such as `text()`, `lines()`, and `json()` default to
-  stdout, so `cli.ls().text()` is the preferred form for stdout text.
+  stdout and return the selected stdout value directly, so `cli.ls().text()`
+  is the preferred form for stdout text.
 - `stdout.toFile(path)` writes full output to a file.
 - `stdout.tee(path)` writes full output and keeps bounded captured text visible.
 - Matching helpers exist for `stderr` and `combined` where applicable.

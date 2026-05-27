@@ -23,11 +23,17 @@ impl HostrunToolConfig {
 }
 
 pub fn hostrun_tool_bundle(_config: HostrunToolConfig) -> ToolBundle {
+    hostrun_tool_bundle_with_sessions(Arc::new(
+        Mutex::new(HostrunSessionStore::new_auto_approve()),
+    ))
+}
+
+pub(crate) fn hostrun_tool_bundle_with_sessions(
+    sessions: Arc<Mutex<HostrunSessionStore>>,
+) -> ToolBundle {
     ToolBundle::new(
         hostrun_eval_spec(),
-        Arc::new(HostrunToolExecutor {
-            sessions: Mutex::new(HostrunSessionStore::new_auto_approve()),
-        }),
+        Arc::new(HostrunToolExecutor { sessions }),
     )
 }
 
@@ -56,7 +62,7 @@ fn hostrun_eval_spec() -> FunctionToolSpec {
 }
 
 struct HostrunToolExecutor {
-    sessions: Mutex<HostrunSessionStore>,
+    sessions: Arc<Mutex<HostrunSessionStore>>,
 }
 
 impl ToolExecutor for HostrunToolExecutor {
@@ -289,6 +295,25 @@ mod tests {
     }
 
     #[tokio::test(flavor = "current_thread")]
+    async fn executor_reuses_default_session_when_session_id_is_omitted() {
+        let bundle = embedded_hostrun_tool_bundle();
+
+        let first = bundle
+            .executor()
+            .execute(call_without_session("ctx.probe = 'working'; ctx.probe;"))
+            .await
+            .expect("first eval");
+        let second = bundle
+            .executor()
+            .execute(call_without_session("ctx.probe;"))
+            .await
+            .expect("second eval");
+
+        assert_eq!(first["value"], json!("working"));
+        assert_eq!(second["value"], json!("working"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
     async fn legacy_runner_config_is_ignored_by_embedded_runtime() {
         let bundle = hostrun_tool_bundle(HostrunToolConfig::new("/missing/runner.js"));
 
@@ -302,13 +327,22 @@ mod tests {
     }
 
     fn call(session_id: &str, code: &str) -> ToolCall {
+        call_with_arguments(json!({
+            "session_id": session_id,
+            "code": code
+        }))
+    }
+
+    fn call_without_session(code: &str) -> ToolCall {
+        call_with_arguments(json!({
+            "code": code
+        }))
+    }
+
+    fn call_with_arguments(arguments: serde_json::Value) -> ToolCall {
         ToolCall {
             call_id: "call-1".to_string(),
-            arguments: json!({
-                "session_id": session_id,
-                "code": code
-            })
-            .to_string(),
+            arguments: arguments.to_string(),
         }
     }
 }

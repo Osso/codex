@@ -10,9 +10,10 @@ use codex_extension_api::{
     ThreadStartContributor, ToolBundle, ToolContributor,
 };
 
+use crate::HostrunSessionStore;
 use crate::HostrunToolConfig;
-use crate::embedded_hostrun_tool_bundle;
 use crate::hostrun_tool_bundle;
+use crate::tool_bundle::hostrun_tool_bundle_with_sessions;
 
 pub const HOSTRUN_RUNNER_ENV: &str = "CODEX_HOSTRUN_RUNNER";
 const HOSTRUN_JS_PACKAGE: &str = "@openai/codex-hostrun-js";
@@ -26,7 +27,7 @@ Hostrun evaluates JavaScript in a persistent QuickJS session:
 - Strings expose shell-style helpers such as `.lines(start, end)`, `.head()`, `.tail()`, `.splitWords()`, `.splitColumn()`, `.cut(separator, fields)`, `.json()`, `.jsonl()`, `.yaml()`, `.toml()`, `.csv()`, `.tsv()`, `.lineCount()`, `.wordCount()`, `.byteCount()`, `.bytes()`, `.byteArray()`, and `.chars()`.
 - `path.*` and `date.*` provide small readable helpers for path transforms and UTC date parse/format/humanize workflows.
 - `run.<program>(...args)` executes a host command without stdout/stderr capture by default, e.g. `run.dmidecode()` or `run.git('status', '--short')`.
-- `cli.<program>(...args)` creates a lazy host command builder for workflows that need output capture, stdin, redirects, spawn, or piping. Use `.complete()` for command probes that should capture stdout, stderr, and exit status. Terminal output selectors execute directly and default to stdout: `cli.ls().text()`, `cli.rclone('lsf', remote).lines()`, or `cli.sh('-c', 'echo err >&2').stderr.text()`, never `.text().run()` or `.stdout.text().run()`. Config-only helpers such as `.stdout.toFile(path)`, `.stdout.tee(path)`, `.stderr.toStdout()`, and `.combined.toFile(path)` return the builder so another terminal call can execute it. `.run()` remains available as the low-level builder execution method when a command builder has no terminal output selector.
+- `cli.<program>(...args)` creates a lazy host command builder for workflows that need output capture, stdin, redirects, spawn, or piping. Use `.complete()` for command probes that should capture stdout, stderr, and exit status. Builder-level terminal selectors execute directly and default to stdout: `cli.ls().text().trim()` or `cli.rclone('lsf', remote).lines()`, never `.text().run()`. Explicit stream selectors such as `cli.sh('-c', 'echo err >&2').stderr.text()` return the structured command result with that stream captured. Config-only helpers such as `.stdout.toFile(path)`, `.stdout.tee(path)`, `.stderr.toStdout()`, and `.combined.toFile(path)` return the builder so another terminal call can execute it. `.run()` remains available as the low-level builder execution method when a command builder has no terminal output selector.
 - `.spawn()` starts a command and returns a managed process handle with `id`, `pid`, `stdout`, `stderr`, `.wait()`, and `.kill()`. Store it in `ctx` if a later Hostrun call should wait or kill it.
 - Stream piping is explicit: `const source = cli.rclone('cat', remote); cli.cat().stdin(source.stdout).stdout.text()` returns downstream output plus `commands` status entries for the upstream and downstream commands.
 - `fs.write(path, content)`, `fs.read(path)`, `fs.open(path, options)`, `fs.glob(pattern, options)`, `fs.exists(path)`, and `fs.remove(path)` request approval-gated host file operations. `fs.open` parses JSON, JSONL, YAML, TOML, CSV, and TSV from the filename extension unless `options.format` is supplied.
@@ -125,7 +126,9 @@ where
             return Vec::new();
         }
 
-        vec![embedded_hostrun_tool_bundle()]
+        let sessions = thread_store
+            .get_or_init(|| std::sync::Mutex::new(HostrunSessionStore::new_auto_approve()));
+        vec![hostrun_tool_bundle_with_sessions(sessions)]
     }
 }
 
@@ -261,6 +264,8 @@ mod tests {
     use codex_extension_api::ExtensionData;
     use codex_extension_api::ExtensionRegistryBuilder;
     use codex_extension_api::ToolContributor;
+    use codex_tool_api::ToolCall;
+    use serde_json::json;
     use tempfile::TempDir;
 
     use super::HostrunRunnerLifecycle;
@@ -343,5 +348,40 @@ mod tests {
         assert!(fragments[0].text().contains("rg.search(pattern"));
         assert!(fragments[0].text().contains("http.get/post"));
         assert!(!fragments[0].text().contains("tools.fs.write"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn feature_gated_tools_reuse_hostrun_session_store_across_tool_assembly() {
+        let mut builder = ExtensionRegistryBuilder::<bool>::new();
+        install_feature_gated(&mut builder, |enabled| *enabled);
+        let registry = builder.build();
+        let session_store = ExtensionData::new();
+        let thread_store = ExtensionData::new();
+
+        registry.thread_start_contributors()[0].contribute(&true, &session_store, &thread_store);
+        let first_tools = registry.tool_contributors()[0].tools(&session_store, &thread_store);
+        let first = first_tools[0]
+            .executor()
+            .execute(tool_call(
+                "ctx.hostrun_probe = 'working'; ctx.hostrun_probe;",
+            ))
+            .await
+            .expect("first eval");
+        let second_tools = registry.tool_contributors()[0].tools(&session_store, &thread_store);
+        let second = second_tools[0]
+            .executor()
+            .execute(tool_call("ctx.hostrun_probe;"))
+            .await
+            .expect("second eval");
+
+        assert_eq!(first["value"], json!("working"));
+        assert_eq!(second["value"], json!("working"));
+    }
+
+    fn tool_call(code: &str) -> ToolCall {
+        ToolCall {
+            call_id: "call-hostrun".to_string(),
+            arguments: json!({ "code": code }).to_string(),
+        }
     }
 }

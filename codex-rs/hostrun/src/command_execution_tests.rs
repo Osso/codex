@@ -33,23 +33,11 @@ fn approved_cli_command_captures_stdout_text() {
 fn command_builder_text_shortcut_executes_stdout_without_run() {
     let session = HostrunSession::new_auto_approve().expect("session");
 
-    let result = session.eval("cli.printf('hello').text();").expect("eval");
+    let result = session
+        .eval("cli.printf('hello').text().trim();")
+        .expect("eval");
 
-    assert_eq!(
-        result.value,
-        Some(json!({
-            "program": "printf",
-            "args": ["hello"],
-            "exitCode": 0,
-            "success": true,
-            "stdout": "hello",
-            "stdoutMeta": {
-                "bytes": 5,
-                "capturedBytes": 5,
-                "truncated": false
-            }
-        }))
-    );
+    assert_eq!(result.value, Some(json!("hello")));
 }
 
 #[test]

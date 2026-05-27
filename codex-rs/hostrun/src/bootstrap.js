@@ -1498,9 +1498,15 @@ globalThis.__hostrun_commandBuilder = function (program, args) {
   };
   builder.stdout = streamHandle("stdout");
   builder.stderr = streamHandle("stderr");
-  for (const method of ["text", "lines", "json", "jsonLines", "jsonl", "csv", "tsv", "yaml", "toml"]) {
-    builder[method] = function (...args) {
-      return builder.stdout[method](...args);
+  builder.text = function () {
+    return builder.stdout.text().stdout ?? "";
+  };
+  builder.lines = function () {
+    return builder.stdout.lines().stdout ?? [];
+  };
+  for (const method of ["json", "jsonLines", "jsonl", "csv", "tsv", "yaml", "toml"]) {
+    builder[method] = function () {
+      return builder.stdout[method]().stdout ?? null;
     };
   }
   builder.stderr.toStdout = function () {
