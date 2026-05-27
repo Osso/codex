@@ -474,6 +474,103 @@ globalThis.__hostrun_toYaml = function (value, indent = 0) {
   return prefix + globalThis.__hostrun_toYamlScalar(value);
 };
 
+globalThis.__hostrun_parseYamlScalar = function (value) {
+  const text = String(value).trim();
+  if (text === "null" || text === "~") {
+    return null;
+  }
+  if (text === "true") {
+    return true;
+  }
+  if (text === "false") {
+    return false;
+  }
+  if (text === "[]") {
+    return [];
+  }
+  if (text === "{}") {
+    return {};
+  }
+  if (/^-?\d+(\.\d+)?$/.test(text)) {
+    return Number(text);
+  }
+  if ((text.startsWith('"') && text.endsWith('"')) || (text.startsWith("'") && text.endsWith("'"))) {
+    return JSON.parse(text.startsWith("'") ? JSON.stringify(text.slice(1, -1)) : text);
+  }
+  return text;
+};
+
+globalThis.__hostrun_yamlItems = function (text) {
+  return String(text).replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n")
+    .filter((line) => line.trim().length > 0)
+    .map((line) => ({
+      indent: line.match(/^ */)[0].length,
+      text: line.trim()
+    }));
+};
+
+globalThis.__hostrun_parseYamlBlock = function (items, start = 0, indent = 0) {
+  if (start >= items.length) {
+    return [null, start];
+  }
+  if (items[start].indent < indent) {
+    return [null, start];
+  }
+  if (items[start].text.startsWith("-")) {
+    return globalThis.__hostrun_parseYamlArray(items, start, indent);
+  }
+  return globalThis.__hostrun_parseYamlObject(items, start, indent);
+};
+
+globalThis.__hostrun_parseYamlArray = function (items, start, indent) {
+  const values = [];
+  let index = start;
+  while (index < items.length && items[index].indent === indent && items[index].text.startsWith("-")) {
+    const rest = items[index].text.slice(1).trim();
+    if (rest.length === 0) {
+      const [value, next] = globalThis.__hostrun_parseYamlBlock(items, index + 1, indent + 2);
+      values.push(value);
+      index = next;
+    } else {
+      values.push(globalThis.__hostrun_parseYamlScalar(rest));
+      index += 1;
+    }
+  }
+  return [values, index];
+};
+
+globalThis.__hostrun_parseYamlObject = function (items, start, indent) {
+  const record = {};
+  let index = start;
+  while (index < items.length && items[index].indent === indent && !items[index].text.startsWith("-")) {
+    const [key, rest = ""] = items[index].text.split(/:(.*)/s);
+    if (rest.trim().length === 0) {
+      const [value, next] = globalThis.__hostrun_parseYamlBlock(items, index + 1, indent + 2);
+      record[key] = value;
+      index = next;
+    } else {
+      record[key] = globalThis.__hostrun_parseYamlScalar(rest);
+      index += 1;
+    }
+  }
+  return [record, index];
+};
+
+globalThis.__hostrun_parseYaml = function (text) {
+  const items = globalThis.__hostrun_yamlItems(text);
+  if (items.length === 0) {
+    return null;
+  }
+  if (items.length === 1 && !items[0].text.includes(":") && !items[0].text.startsWith("-")) {
+    return globalThis.__hostrun_parseYamlScalar(items[0].text);
+  }
+  return globalThis.__hostrun_parseYamlBlock(items, 0, items[0].indent)[0];
+};
+
+globalThis.__hostrun_defineStringHelper("yaml", function () {
+  return globalThis.__hostrun_parseYaml(this);
+});
+
 globalThis.__hostrun_regex = function (pattern) {
   return pattern instanceof RegExp ? pattern : new RegExp(String(pattern));
 };
@@ -1030,6 +1127,13 @@ globalThis.__hostrun_commandBuilder = function (program, args) {
         return globalThis.__hostrun_withParsedRun(
           builder,
           (result) => globalThis.__hostrun_parseCommandOutput(result, name, (text) => text.tsv())
+        );
+      },
+      yaml: function () {
+        state[name] = { type: "text" };
+        return globalThis.__hostrun_withParsedRun(
+          builder,
+          (result) => globalThis.__hostrun_parseCommandOutput(result, name, (text) => text.yaml())
         );
       },
       toFile: function (path) {

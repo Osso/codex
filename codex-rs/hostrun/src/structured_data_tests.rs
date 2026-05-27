@@ -12,7 +12,8 @@ fn string_helpers_parse_csv_tsv_and_jsonl() {
             ({
               csv: 'name,note\nalpha,"hello, world"\nbeta,"uses ""quotes"""\n'.csv(),
               tsv: 'name\tnote\nalpha\thello\\tthere\nbeta\tline\\nbreak\n'.tsv(),
-              jsonl: '{"name":"alpha"}\n{"name":"beta","ok":true}\n'.jsonl()
+              jsonl: '{"name":"alpha"}\n{"name":"beta","ok":true}\n'.jsonl(),
+              yaml: 'name: alpha\nports:\n  - 80\n  - 443\nactive: true\n'.yaml()
             });
             "#,
         )
@@ -34,7 +35,12 @@ fn string_helpers_parse_csv_tsv_and_jsonl() {
             "jsonl": [
                 { "name": "alpha" },
                 { "name": "beta", "ok": true }
-            ]
+            ],
+            "yaml": {
+                "name": "alpha",
+                "ports": [80, 443],
+                "active": true
+            }
         }))
     );
 }

@@ -107,7 +107,7 @@ thread start. How the runtime is wired internally belongs in
 
 - [x] Keep JSON manipulation deliberately small: native `JSON.parse` / `JSON.stringify`, `.stdout.json()`, `str.json()`, HTTP response `.json()`, and JSON stdin/file serialization.
 - [x] Provide string helpers for `str.json()` and `str.jsonLines()`.
-- [ ] Support JSONL, YAML, and CSV parsing from command output and strings.
+- [x] Support JSONL, YAML, and CSV parsing from command output and strings.
 - [x] Support JSON, JSONL, CSV, and TSV parsing from command stdout/stderr/combined output.
 - [x] Support JSONL, YAML, and CSV serialization to stdin and files.
 - [x] Support `str.jsonl()` as an alias for JSONL parsing.

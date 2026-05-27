@@ -303,6 +303,14 @@ fn approved_cli_command_parses_structured_stdout() {
         tsv_result.value.expect("tsv value")["stdout"],
         json!([["name", "note"], ["alpha", "hello\tthere"]])
     );
+
+    let yaml_result = session
+        .eval("cli.printf('%s', 'name: alpha\\nactive: true\\n').stdout.yaml().run();")
+        .expect("yaml stdout");
+    assert_eq!(
+        yaml_result.value.expect("yaml value")["stdout"],
+        json!({ "name": "alpha", "active": true })
+    );
 }
 
 #[test]
