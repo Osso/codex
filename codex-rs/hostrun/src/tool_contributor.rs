@@ -41,6 +41,8 @@ Hostrun evaluates synchronous JavaScript in a persistent QuickJS session:
 - `fd.find(pattern, options)`, `fd.files(root, options)`, and `fd.dirs(root, options)` build lazy `fdfind` commands.
 - `rg.search(pattern, paths, options)`, `rg.files(pattern, paths, options)`, and `rg.matches(pattern, paths, options)` build lazy ripgrep commands.
 - `http.get/post/put/patch/delete/head(url, options)` and `http.request(method, url, options)` build approval-gated HTTP requests. Use `.json()`, `.text()`, `.bytes()`, `.save(path)`, or `.run()` to choose response handling.
+- Prefer Hostrun over shell loops for HTTP polling, retries, and response parsing. Example:
+  `for (let i = 0; i < 30; i++) { const html = http.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, tls: { acceptInvalidCerts: true } }).text(); const tag = html.match(/<script type=\"module\" src=\"[^\"]*bundle[^\"]*\"/)?.[0] ?? ''; if (tag.includes('globalcomix-frontend.nyc3.cdn')) { tag; break; } run.sleep('2'); }`
 - `tools.sudo(commandBuilder)` wraps a `cli.*` command builder with `authsudo` for privileged commands. Example: `tools.sudo(cli.dmidecode('-t', 'system')).run()`. Its `.run()` captures stdout and stderr by default unless the wrapped builder already configured streams. `cli.sudo(...)` and `run.sudo(...)` still invoke the `sudo` binary literally.
 - `tools.github.createPR(options)` creates GitHub pull requests through `gh pr create` with the PR body sent via `--body-file -` stdin. Prefer `bodyLines: [...]` or a template literal `body` so Markdown newlines are real newlines; literal `\\n` sequences are rejected by default. Common options: `repo`, `base`, `head`, `title`, `body`, `bodyLines`, `draft`, `labels`, `reviewers`, `assignees`, `projects`, and `milestone`.
 - `tools.git.commit(options)` creates commits through `git commit --file -` with the commit message sent via stdin. Prefer `subject` plus `bodyLines: [...]` or a template literal `body`; literal `\\n` sequences are rejected by default. Common options: `cwd`, `subject`/`message`, `body`, `bodyLines`, `paths`/`files`, `includeStaged`, `all`, `amend`, `noEdit`, `allowEmpty`, `noVerify`, and `signoff`. Listed `paths`/`files` that exist are added before committing. `includeStaged` defaults to false, so unrelated staged files are excluded unless explicitly requested.
@@ -356,6 +358,12 @@ mod tests {
         assert!(fragments[0].text().contains("fd.find(pattern"));
         assert!(fragments[0].text().contains("rg.search(pattern"));
         assert!(fragments[0].text().contains("http.get/post"));
+        assert!(
+            fragments[0]
+                .text()
+                .contains("Prefer Hostrun over shell loops")
+        );
+        assert!(fragments[0].text().contains("acceptInvalidCerts"));
         assert!(!fragments[0].text().contains("tools.fs.write"));
     }
 
