@@ -1429,11 +1429,14 @@ globalThis.rclone = {
   }
 };
 
-globalThis.__hostrun_commandBuilder = function (program, args) {
+globalThis.__hostrun_commandBuilder = function (program, args, options = {}) {
   const state = {
     program,
-    args: Array.from(args)
+    args: Array.from(args),
+    ...options
   };
+  state.program = program;
+  state.args = Array.from(args);
   const builder = {
     program: state.program,
     args: state.args,
@@ -1637,9 +1640,9 @@ globalThis.__hostrun_runProxy = function (path) {
           use: [
             "run.dmidecode('-t', 'system')",
             "cli.dmidecode('-t', 'system').complete()",
-            "tools.sudo('dmidecode', '-t', 'system').complete() for privileged commands"
+            "tools.sudo(cli.dmidecode('-t', 'system')).run() for privileged commands"
           ],
-          note: "cli.sudo(...) and run.sudo(...) invoke the sudo binary literally. tools.sudo(...) uses authsudo."
+          note: "cli.sudo(...) and run.sudo(...) invoke the sudo binary literally. tools.sudo(commandBuilder) wraps a cli.* builder with authsudo."
         };
       }
       return globalThis.__hostrun_commandBuilder(path, args).run();
@@ -1649,8 +1652,16 @@ globalThis.__hostrun_runProxy = function (path) {
 
 globalThis.run = globalThis.__hostrun_runProxy("");
 
-globalThis.tools.sudo = function (program, ...args) {
-  return globalThis.cli.authsudo(String(program), ...args);
+globalThis.tools.sudo = function (command) {
+  if (!command || typeof command.toJSON !== "function") {
+    throw new Error("tools.sudo expects a cli.* command builder, e.g. tools.sudo(cli.dmidecode('-t', 'system')).run()");
+  }
+  const state = command.toJSON();
+  const { program, args = [], ...options } = state;
+  if (!program) {
+    throw new Error("tools.sudo command builder is missing a program");
+  }
+  return globalThis.__hostrun_commandBuilder("authsudo", [program, ...args], options);
 };
 
 globalThis.which = function (program) {

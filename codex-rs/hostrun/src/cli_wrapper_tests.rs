@@ -65,24 +65,37 @@ fn tools_sudo_uses_authsudo() {
     let session = HostrunSession::new().expect("session");
 
     let result = session
-        .eval("tools.sudo('dmidecode', '-t', 'system').complete();")
+        .eval("tools.sudo(cli.dmidecode('-t', 'system')).run();")
         .expect("approval");
 
     assert_eq!(result.result_type, "needs_approval");
     let approval = result.approval.expect("approval");
     assert_eq!(approval.id, "cli.authsudo:authsudo dmidecode -t system");
     assert_eq!(approval.tool, "cli.authsudo");
-    assert_eq!(
-        approval.summary,
-        "Run authsudo dmidecode -t system (stdout text, stderr text)"
-    );
+    assert_eq!(approval.summary, "Run authsudo dmidecode -t system");
     assert_eq!(
         approval.args,
         json!({
             "program": "authsudo",
+            "args": ["dmidecode", "-t", "system"]
+        })
+    );
+}
+
+#[test]
+fn tools_sudo_preserves_command_builder_io() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval("tools.sudo(cli.dmidecode('-t', 'system').stdout.capture()).run();")
+        .expect("approval");
+
+    assert_eq!(
+        result.approval.expect("approval").args,
+        json!({
+            "program": "authsudo",
             "args": ["dmidecode", "-t", "system"],
-            "stdout": { "type": "text" },
-            "stderr": { "type": "text" }
+            "stdout": { "type": "capture" }
         })
     );
 }
@@ -104,7 +117,7 @@ fn run_proxy_string_call_explains_correct_api() {
             .contains(&json!("run.dmidecode('-t', 'system')"))
     );
     assert!(value["use"].as_array().unwrap().contains(&json!(
-        "tools.sudo('dmidecode', '-t', 'system').complete() for privileged commands"
+        "tools.sudo(cli.dmidecode('-t', 'system')).run() for privileged commands"
     )));
 }
 
