@@ -1630,6 +1630,18 @@ globalThis.__hostrun_runProxy = function (path) {
       return globalThis.__hostrun_runProxy(path ? path + "." + String(property) : String(property));
     },
     apply(_target, _thisArg, args) {
+      if (!path) {
+        return {
+          ok: false,
+          error: "run is a program proxy, not a shell parser.",
+          use: [
+            "run.dmidecode('-t', 'system')",
+            "cli.dmidecode('-t', 'system').complete()",
+            "run.sudo('dmidecode', '-t', 'system') for privileged commands"
+          ],
+          note: "Hostrun maps sudo to authsudo."
+        };
+      }
       return globalThis.__hostrun_commandBuilder(path, args).run();
     }
   });

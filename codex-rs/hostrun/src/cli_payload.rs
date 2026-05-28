@@ -24,12 +24,13 @@ pub(crate) fn split_command_payload(args: Value) -> (Vec<Value>, Option<Value>) 
 }
 
 pub(crate) fn command_args(program: &str, args: Vec<Value>, io: Option<Value>) -> Value {
-    let mut payload = json!({
-        "program": program,
-        "args": args,
-    });
+    let mut payload = json!({});
     if let (Value::Object(payload), Some(Value::Object(io))) = (&mut payload, io) {
         payload.extend(io);
+    }
+    if let Value::Object(payload) = &mut payload {
+        payload.insert("program".to_string(), Value::String(program.to_string()));
+        payload.insert("args".to_string(), Value::Array(args));
     }
     payload
 }

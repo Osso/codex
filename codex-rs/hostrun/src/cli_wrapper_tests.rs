@@ -38,6 +38,49 @@ fn run_program_proxy_executes_without_capture() {
     assert_dmidecode_approval(result.approval.expect("approval"));
 }
 
+#[test]
+fn sudo_program_proxy_uses_authsudo() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval("cli.sudo('dmidecode', '-t', 'system').run();")
+        .expect("approval");
+
+    assert_eq!(result.result_type, "needs_approval");
+    let approval = result.approval.expect("approval");
+    assert_eq!(approval.id, "cli.authsudo:authsudo dmidecode -t system");
+    assert_eq!(approval.tool, "cli.authsudo");
+    assert_eq!(approval.summary, "Run authsudo dmidecode -t system");
+    assert_eq!(
+        approval.args,
+        json!({
+            "program": "authsudo",
+            "args": ["dmidecode", "-t", "system"]
+        })
+    );
+}
+
+#[test]
+fn run_proxy_string_call_explains_correct_api() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval("run('dmidecode -t system')")
+        .expect("run as a string call should explain the proxy API");
+
+    let value = result.value.expect("explanation");
+    assert_eq!(value["ok"], json!(false));
+    assert!(
+        value["use"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("run.dmidecode('-t', 'system')"))
+    );
+    assert!(value["use"].as_array().unwrap().contains(&json!(
+        "run.sudo('dmidecode', '-t', 'system') for privileged commands"
+    )));
+}
+
 fn assert_dmidecode_approval(approval: super::HostrunApprovalRequest) {
     assert_eq!(approval.id, "cli.dmidecode:dmidecode");
     assert_eq!(approval.tool, "cli.dmidecode");
