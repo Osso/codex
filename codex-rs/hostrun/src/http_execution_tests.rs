@@ -29,16 +29,7 @@ fn approved_http_get_executes_query_headers_and_json_response() {
         ))
         .expect("http get");
 
-    assert_eq!(
-        result.value,
-        Some(json!({
-            "status": 200,
-            "ok": true,
-            "headers": { "content-length": "21", "content-type": "application/json" },
-            "bytes": 21,
-            "json": { "ok": true, "count": 2 }
-        }))
-    );
+    assert_eq!(result.value, Some(json!({ "ok": true, "count": 2 })));
 }
 
 #[test]
@@ -97,7 +88,7 @@ fn approved_http_post_sends_form_body() {
         ))
         .expect("http form");
 
-    assert_eq!(result.value.expect("value")["text"], "done");
+    assert_eq!(result.value, Some(json!("done")));
 }
 
 #[test]
@@ -115,7 +106,7 @@ fn approved_http_post_sends_raw_and_file_bodies() {
             json!(raw_server.url("/raw"))
         ))
         .expect("http raw");
-    assert_eq!(raw.value.expect("raw value")["text"], "raw-ok");
+    assert_eq!(raw.value, Some(json!("raw-ok")));
 
     let file_server = TestHttpServer::start(|request| {
         assert!(request.starts_with("post /file "));
@@ -133,7 +124,7 @@ fn approved_http_post_sends_raw_and_file_bodies() {
             json!(input.to_string_lossy())
         ))
         .expect("http file");
-    assert_eq!(file.value.expect("file value")["text"], "file-ok");
+    assert_eq!(file.value, Some(json!("file-ok")));
 }
 
 #[test]
@@ -170,7 +161,7 @@ fn approved_http_post_sends_multipart_fields_and_files() {
         ))
         .expect("http multipart");
 
-    assert_eq!(result.value.expect("value")["text"], "uploaded");
+    assert_eq!(result.value, Some(json!("uploaded")));
 }
 
 #[test]
@@ -187,10 +178,7 @@ fn approved_http_get_can_return_response_bytes() {
         ))
         .expect("http bytes");
 
-    assert_eq!(
-        result.value.expect("value")["body"],
-        json!([98, 121, 116, 101, 115])
-    );
+    assert_eq!(result.value, Some(json!([98, 121, 116, 101, 115])));
 }
 
 #[test]

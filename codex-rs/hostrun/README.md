@@ -107,11 +107,16 @@ fs.open('config.toml');
 
 Use `http.get/post/put/patch/delete/head(url, options)` or `http.request(method, url, options)`.
 
+`.text()`, `.json()`, and `.bytes()` return the response body directly. `.run()` returns the structured response with status, headers, byte count, and body metadata.
+
 ```js
 http.get('https://example.com/api', {
   headers: { Accept: 'application/json' },
   retries: 2
 }).json();
+
+http.get('https://example.com/').text().slice(0, 120);
+http.get('https://example.com/').run().status;
 ```
 
 Prefer Hostrun over shell loops for HTTP polling, retries, and response parsing:

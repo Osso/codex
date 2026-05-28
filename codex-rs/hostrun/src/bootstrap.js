@@ -2014,15 +2014,15 @@ globalThis.__hostrun_httpRequestBuilder = function (method, url, options = {}) {
     },
     text: function () {
       state.response = { type: "text" };
-      return this.run();
+      return this.run().text ?? "";
     },
     json: function () {
       state.response = { type: "json" };
-      return this.run();
+      return this.run().json ?? null;
     },
     bytes: function () {
       state.response = { type: "bytes" };
-      return this.run();
+      return this.run().body ?? [];
     },
     save: function (path) {
       state.response = { type: "file", path };
