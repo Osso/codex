@@ -52,7 +52,6 @@ pub(crate) fn run_cli_process(
         );
     }
     let stdin = stdin_input(stdin, cwd)?;
-    let program = authsudo_program(program);
     let mut child = spawn_cli_process(program, argv, stdin.bytes.is_some(), cwd)?;
     write_cli_stdin(program, &mut child, stdin.bytes)?;
     let output = child.wait_with_output().map_err(|error| {
@@ -71,7 +70,6 @@ pub(crate) fn spawn_cli_process(
     has_stdin: bool,
     cwd: &Path,
 ) -> Result<Child, HostrunSessionError> {
-    let program = authsudo_program(program);
     Command::new(program)
         .args(argv)
         .current_dir(cwd)
@@ -84,14 +82,6 @@ pub(crate) fn spawn_cli_process(
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|error| HostrunSessionError::Eval(format!("failed to start {program}: {error}")))
-}
-
-pub(crate) fn authsudo_program(program: &str) -> &str {
-    if program == "sudo" {
-        "authsudo"
-    } else {
-        program
-    }
 }
 
 pub(crate) fn write_cli_stdin(

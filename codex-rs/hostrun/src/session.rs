@@ -272,7 +272,7 @@ impl HostCapabilityInvoker {
         tool_path: &str,
         args: Value,
     ) -> Result<Value, HostrunSessionError> {
-        let program = cli_execution::authsudo_program(tool_path.trim_start_matches("cli."));
+        let program = tool_path.trim_start_matches("cli.");
         let (cli_args, io) = cli_payload::split_command_payload(args);
         let payload = cli_payload::command_args(program, cli_args, io);
         let Value::Object(payload) = merge_cli_payload(program, payload, tool_path)? else {
@@ -462,7 +462,6 @@ fn rclone_deletefile_approval(args: Value) -> HostrunApprovalRequest {
 fn cli_command_approval(tool_path: &str, args: Value) -> HostrunApprovalRequest {
     let program = tool_path.trim_start_matches("cli.");
     let (cli_args, io) = cli_payload::split_command_payload(args);
-    let program = cli_execution::authsudo_program(program);
     let command = cli_approval::command_summary(program, &cli_args);
     let io_summary = cli_approval::io_summary(io.as_ref());
     let verb = if io

@@ -1637,9 +1637,9 @@ globalThis.__hostrun_runProxy = function (path) {
           use: [
             "run.dmidecode('-t', 'system')",
             "cli.dmidecode('-t', 'system').complete()",
-            "run.sudo('dmidecode', '-t', 'system') for privileged commands"
+            "tools.sudo('dmidecode', '-t', 'system').complete() for privileged commands"
           ],
-          note: "Hostrun maps sudo to authsudo."
+          note: "cli.sudo(...) and run.sudo(...) invoke the sudo binary literally. tools.sudo(...) uses authsudo."
         };
       }
       return globalThis.__hostrun_commandBuilder(path, args).run();
@@ -1648,6 +1648,10 @@ globalThis.__hostrun_runProxy = function (path) {
 };
 
 globalThis.run = globalThis.__hostrun_runProxy("");
+
+globalThis.tools.sudo = function (program, ...args) {
+  return globalThis.cli.authsudo(String(program), ...args);
+};
 
 globalThis.which = function (program) {
   return globalThis.cli.which(String(program));

@@ -39,7 +39,7 @@ fn run_program_proxy_executes_without_capture() {
 }
 
 #[test]
-fn sudo_program_proxy_uses_authsudo() {
+fn sudo_program_proxy_uses_sudo_binary_literally() {
     let session = HostrunSession::new().expect("session");
 
     let result = session
@@ -48,14 +48,41 @@ fn sudo_program_proxy_uses_authsudo() {
 
     assert_eq!(result.result_type, "needs_approval");
     let approval = result.approval.expect("approval");
+    assert_eq!(approval.id, "cli.sudo:sudo dmidecode -t system");
+    assert_eq!(approval.tool, "cli.sudo");
+    assert_eq!(approval.summary, "Run sudo dmidecode -t system");
+    assert_eq!(
+        approval.args,
+        json!({
+            "program": "sudo",
+            "args": ["dmidecode", "-t", "system"]
+        })
+    );
+}
+
+#[test]
+fn tools_sudo_uses_authsudo() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval("tools.sudo('dmidecode', '-t', 'system').complete();")
+        .expect("approval");
+
+    assert_eq!(result.result_type, "needs_approval");
+    let approval = result.approval.expect("approval");
     assert_eq!(approval.id, "cli.authsudo:authsudo dmidecode -t system");
     assert_eq!(approval.tool, "cli.authsudo");
-    assert_eq!(approval.summary, "Run authsudo dmidecode -t system");
+    assert_eq!(
+        approval.summary,
+        "Run authsudo dmidecode -t system (stdout text, stderr text)"
+    );
     assert_eq!(
         approval.args,
         json!({
             "program": "authsudo",
-            "args": ["dmidecode", "-t", "system"]
+            "args": ["dmidecode", "-t", "system"],
+            "stdout": { "type": "text" },
+            "stderr": { "type": "text" }
         })
     );
 }
@@ -77,7 +104,7 @@ fn run_proxy_string_call_explains_correct_api() {
             .contains(&json!("run.dmidecode('-t', 'system')"))
     );
     assert!(value["use"].as_array().unwrap().contains(&json!(
-        "run.sudo('dmidecode', '-t', 'system') for privileged commands"
+        "tools.sudo('dmidecode', '-t', 'system').complete() for privileged commands"
     )));
 }
 

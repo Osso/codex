@@ -123,7 +123,7 @@ fn hostrun_eval_tool() -> Tool {
              require/import, fetch, DOM APIs, or Web APIs unless Hostrun explicitly provides them. \
              Use Hostrun helpers for host access: host.cwd()/host.cd(), fs, cli, run, http, rg, fd, sqlite, kubectl, and tools. \
              run is a proxy, not a shell parser: use run.dmidecode('-t', 'system'), not run('dmidecode -t system'). \
-             For privileged commands use run.sudo('dmidecode', '-t', 'system') or cli.sudo(...); Hostrun maps sudo to authsudo.",
+             For privileged commands use tools.sudo('dmidecode', '-t', 'system').complete(); cli.sudo(...) and run.sudo(...) invoke the sudo binary literally.",
         ),
         Arc::new(hostrun_eval_input_schema()),
     );
@@ -137,7 +137,7 @@ fn hostrun_eval_input_schema() -> JsonObject {
         "properties": {
             "code": {
                 "type": "string",
-                "description": "JavaScript code for Hostrun QuickJS. No Deno, Node.js, browser, DOM, require/import, process.*, or Deno.* APIs. Use Hostrun helpers such as host.cwd(), fs, cli, run, http, rg, fd, sqlite, kubectl, and tools. run is a proxy, not a shell parser: use run.dmidecode('-t', 'system'), not run('dmidecode -t system'). For privileged commands use run.sudo('dmidecode', '-t', 'system') or cli.sudo(...); Hostrun maps sudo to authsudo."
+                "description": "JavaScript code for Hostrun QuickJS. No Deno, Node.js, browser, DOM, require/import, process.*, or Deno.* APIs. Use Hostrun helpers such as host.cwd(), fs, cli, run, http, rg, fd, sqlite, kubectl, and tools. run is a proxy, not a shell parser: use run.dmidecode('-t', 'system'), not run('dmidecode -t system'). For privileged commands use tools.sudo('dmidecode', '-t', 'system').complete(); cli.sudo(...) and run.sudo(...) invoke the sudo binary literally."
             },
             "session_id": {
                 "type": "string",
