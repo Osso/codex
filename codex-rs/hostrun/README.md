@@ -1,0 +1,224 @@
+# Hostrun
+
+Hostrun is a persistent QuickJS runtime for readable host-side automation in Codex and Claude Code.
+
+It is meant to replace ad hoc shell snippets when JavaScript control flow, structured parsing, persistent scratch state, or approval-readable host capabilities are clearer than Bash.
+
+## Runtime
+
+Hostrun evaluates synchronous JavaScript. Do not use `await`.
+
+Each session keeps `ctx` alive across later `hostrun_eval` calls, so expensive or useful intermediate results can be stored and reused:
+
+```js
+ctx.files = rg.files('Hostrun', ['codex-rs/hostrun']).lines();
+ctx.files.length;
+```
+
+Console calls are captured in the result:
+
+```js
+console.log('checking publish bundle');
+'done';
+```
+
+## Working Directory
+
+Use `host.cd(path)` to change the persistent session cwd. Relative `fs`, `cli`, `run`, `rg`, `fd`, stdin files, and output redirects resolve against it.
+
+```js
+host.cd('/syncthing/Sync/Projects/globalcomix/gc');
+host.cwd();
+```
+
+Prefer `host.cd()` over repeating `-C` or `cd ... && ...` in shell snippets.
+
+## Commands
+
+`run.<program>(...args)` executes a command without stdout/stderr capture by default:
+
+```js
+run.git('status', '--short');
+```
+
+`cli.<program>(...args)` builds a command when output capture, stdin, redirects, spawning, or piping is needed:
+
+```js
+cli.git('status', '--short').stdout.text();
+cli.ls('-la').lines();
+cli.sh('-c', 'printf out; printf err >&2')
+  .stdout.capture()
+  .stderr.capture()
+  .run();
+```
+
+`run` is not a shell parser:
+
+```js
+// Wrong
+run('git status --short');
+
+// Right
+run.git('status', '--short');
+```
+
+There is no `.complete()` command-builder method. Use explicit stream selectors or `.stdout.capture().stderr.capture().run()`.
+
+## Privileged Commands
+
+Use `tools.sudo(commandBuilder)` for privileged commands. It wraps a `cli.*` command builder with `authsudo`.
+
+```js
+tools.sudo(cli.dmidecode('-t', 'system')).run();
+```
+
+`tools.sudo(...).run()` captures stdout and stderr by default unless the wrapped builder already configured streams.
+
+```js
+tools.sudo(cli.ls('/root')).run();
+tools.sudo(cli.dmidecode('-t', 'system').stdout.capture()).run();
+```
+
+`cli.sudo(...)` and `run.sudo(...)` invoke the `sudo` binary literally. They do not use `authsudo`.
+
+## Files
+
+Filesystem helpers are approval-gated:
+
+```js
+fs.read('Cargo.toml');
+fs.write('notes.txt', 'hello\n');
+fs.exists('src/bootstrap.js');
+fs.glob('src/**/*_tests.rs');
+fs.open('config.toml');
+```
+
+`fs.open()` parses JSON, JSONL, YAML, TOML, CSV, and TSV from the filename extension unless an explicit format is passed.
+
+## HTTP
+
+Use `http.get/post/put/patch/delete/head(url, options)` or `http.request(method, url, options)`.
+
+```js
+http.get('https://example.com/api', {
+  headers: { Accept: 'application/json' },
+  retries: 2
+}).json();
+```
+
+Prefer Hostrun over shell loops for HTTP polling, retries, and response parsing:
+
+```js
+const url = 'https://publish.globalcomix.com/';
+
+for (let i = 0; i < 30; i++) {
+  const html = http.get(url, {
+    headers: { 'User-Agent': 'Mozilla/5.0' },
+    tls: { acceptInvalidCerts: true }
+  }).text();
+
+  const tag = html.match(/<script type="module" src="[^"]*bundle[^"]*"/)?.[0] ?? '';
+  if (tag.includes('globalcomix-frontend.nyc3.cdn')) {
+    tag;
+    break;
+  }
+
+  run.sleep('2');
+}
+```
+
+## Git Helpers
+
+`tools.git.commit(options)` creates commits with the message sent through `git commit --file -`.
+
+```js
+tools.git.commit({
+  cwd: '/syncthing/Sync/Projects/globalcomix/gc',
+  subject: 'Wire publish frontend version',
+  bodyLines: [
+    'Updates publish default template to use the deployed frontend bundle.',
+    '',
+    'Verification:',
+    '- checked publish page script tag'
+  ],
+  files: [
+    'apps/publish/content/publishdefault.php'
+  ]
+});
+```
+
+Listed `files` or `paths` that exist are added before committing. Missing listed files are ignored.
+
+By default `includeStaged` is false, so unrelated staged files are excluded. Set `includeStaged: true` when already-staged changes should be included:
+
+```js
+tools.git.commit({
+  cwd,
+  subject: 'Commit selected and staged files',
+  files: ['src/bootstrap.js'],
+  includeStaged: true
+});
+```
+
+Literal `\n` sequences in commit messages are rejected by default. Use `bodyLines` or a template literal for multiline text.
+
+## GitHub PR Helper
+
+`tools.github.createPR(options)` creates pull requests through `gh pr create` and sends the body through stdin:
+
+```js
+tools.github.createPR({
+  repo: 'openai/codex',
+  base: 'main',
+  head: 'hostrun-readme',
+  title: 'Document Hostrun usage',
+  bodyLines: [
+    'Adds operational Hostrun examples.',
+    '',
+    'Tested with `cargo test -p codex-hostrun`.'
+  ]
+});
+```
+
+## Search And Data Helpers
+
+Ripgrep and fd helpers build lazy commands:
+
+```js
+rg.search('tools.sudo', ['codex-rs/hostrun/src']).lines();
+rg.files('Hostrun', ['codex-rs/hostrun']).lines();
+fd.files('codex-rs/hostrun/src').lines();
+```
+
+Strings and arrays include small data-shaping helpers:
+
+```js
+cli.git('status', '--short').stdout.text().lines();
+ctx.files.containing('hostrun').sorted();
+```
+
+## MCP Server
+
+The crate builds the Claude Code MCP server binary:
+
+```bash
+cargo build --release -p codex-hostrun --bin codex-hostrun-mcp
+```
+
+Claude Code can register the built binary as the `hostrun` MCP server. The server exposes the `hostrun_eval` tool and contributes the runtime instructions above.
+
+## Tests
+
+Run Hostrun tests from `codex-rs`:
+
+```bash
+cargo test -p codex-hostrun
+```
+
+After Rust changes:
+
+```bash
+just fmt
+just fix -p codex-hostrun
+```
+
