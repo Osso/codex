@@ -72,18 +72,42 @@ fn tools_sudo_uses_authsudo() {
     let approval = result.approval.expect("approval");
     assert_eq!(approval.id, "cli.authsudo:authsudo dmidecode -t system");
     assert_eq!(approval.tool, "cli.authsudo");
-    assert_eq!(approval.summary, "Run authsudo dmidecode -t system");
+    assert_eq!(
+        approval.summary,
+        "Run authsudo dmidecode -t system (stdout text, stderr text)"
+    );
     assert_eq!(
         approval.args,
         json!({
             "program": "authsudo",
-            "args": ["dmidecode", "-t", "system"]
+            "args": ["dmidecode", "-t", "system"],
+            "stdout": { "type": "text" },
+            "stderr": { "type": "text" }
         })
     );
 }
 
 #[test]
-fn tools_sudo_preserves_command_builder_io() {
+fn tools_sudo_captures_stdout_and_stderr_by_default() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval("tools.sudo(cli.ls()).run();")
+        .expect("approval");
+
+    assert_eq!(
+        result.approval.expect("approval").args,
+        json!({
+            "program": "authsudo",
+            "args": ["ls"],
+            "stdout": { "type": "text" },
+            "stderr": { "type": "text" }
+        })
+    );
+}
+
+#[test]
+fn tools_sudo_preserves_command_builder_io_overrides() {
     let session = HostrunSession::new().expect("session");
 
     let result = session
@@ -95,7 +119,8 @@ fn tools_sudo_preserves_command_builder_io() {
         json!({
             "program": "authsudo",
             "args": ["dmidecode", "-t", "system"],
-            "stdout": { "type": "capture" }
+            "stdout": { "type": "capture" },
+            "stderr": { "type": "text" }
         })
     );
 }

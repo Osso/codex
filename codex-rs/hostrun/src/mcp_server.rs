@@ -125,7 +125,7 @@ fn hostrun_eval_tool() -> Tool {
              Use Hostrun helpers for host access: host.cwd()/host.cd(), fs, cli, run, http, rg, fd, sqlite, kubectl, and tools. \
              Correct command examples: run.dmidecode('-t', 'system'); cli.dmidecode('-t', 'system').stdout.text(); tools.sudo(cli.dmidecode('-t', 'system')).run(). \
              Never call run('dmidecode -t system') or await run(...). run is a program proxy, not a shell parser. \
-             For privileged commands use tools.sudo(cli.someCommand(...)); cli.sudo(...) and run.sudo(...) invoke the sudo binary literally.",
+             For privileged commands use tools.sudo(cli.someCommand(...)).run(); it captures stdout and stderr by default. cli.sudo(...) and run.sudo(...) invoke the sudo binary literally.",
         ),
         Arc::new(hostrun_eval_input_schema()),
     );
@@ -139,7 +139,7 @@ fn hostrun_eval_input_schema() -> JsonObject {
         "properties": {
             "code": {
                 "type": "string",
-                "description": "Synchronous JavaScript code for Hostrun QuickJS. Do not use await. No Deno, Node.js, browser, DOM, require/import, process.*, or Deno.* APIs. Use Hostrun helpers such as host.cwd(), fs, cli, run, http, rg, fd, sqlite, kubectl, and tools. Correct command examples: run.dmidecode('-t', 'system'); cli.dmidecode('-t', 'system').stdout.text(); tools.sudo(cli.dmidecode('-t', 'system')).run(). Never call run('dmidecode -t system') or await run(...). run is a program proxy, not a shell parser. For privileged commands use tools.sudo(cli.someCommand(...)); cli.sudo(...) and run.sudo(...) invoke the sudo binary literally."
+                "description": "Synchronous JavaScript code for Hostrun QuickJS. Do not use await. No Deno, Node.js, browser, DOM, require/import, process.*, or Deno.* APIs. Use Hostrun helpers such as host.cwd(), fs, cli, run, http, rg, fd, sqlite, kubectl, and tools. Correct command examples: run.dmidecode('-t', 'system'); cli.dmidecode('-t', 'system').stdout.text(); tools.sudo(cli.dmidecode('-t', 'system')).run(). Never call run('dmidecode -t system') or await run(...). run is a program proxy, not a shell parser. For privileged commands use tools.sudo(cli.someCommand(...)).run(); it captures stdout and stderr by default. cli.sudo(...) and run.sudo(...) invoke the sudo binary literally."
             },
             "session_id": {
                 "type": "string",

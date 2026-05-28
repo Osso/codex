@@ -1637,7 +1637,7 @@ globalThis.__hostrun_runProxy = function (path) {
             "cli.dmidecode('-t', 'system').stdout.text()",
             "tools.sudo(cli.dmidecode('-t', 'system')).run() for privileged commands"
           ],
-          note: "cli.sudo(...) and run.sudo(...) invoke the sudo binary literally. tools.sudo(commandBuilder) wraps a cli.* builder with authsudo."
+          note: "cli.sudo(...) and run.sudo(...) invoke the sudo binary literally. tools.sudo(commandBuilder) wraps a cli.* builder with authsudo and captures stdout/stderr by default."
         };
       }
       return globalThis.__hostrun_commandBuilder(path, args).run();
@@ -1656,7 +1656,14 @@ globalThis.tools.sudo = function (command) {
   if (!program) {
     throw new Error("tools.sudo command builder is missing a program");
   }
-  return globalThis.__hostrun_commandBuilder("authsudo", [program, ...args], options);
+  const sudoOptions = { ...options };
+  if (!("stdout" in sudoOptions) && !("combined" in sudoOptions)) {
+    sudoOptions.stdout = { type: "text" };
+  }
+  if (!("stderr" in sudoOptions) && !("combined" in sudoOptions)) {
+    sudoOptions.stderr = { type: "text" };
+  }
+  return globalThis.__hostrun_commandBuilder("authsudo", [program, ...args], sudoOptions);
 };
 
 globalThis.which = function (program) {
