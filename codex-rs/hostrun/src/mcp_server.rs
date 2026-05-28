@@ -119,7 +119,9 @@ fn hostrun_eval_tool() -> Tool {
         Cow::Borrowed("hostrun_eval"),
         Cow::Borrowed(
             "Evaluate JavaScript in a persistent Hostrun QuickJS session. \
-             Use Hostrun helpers such as fs, cli, run, http, rg, fd, sqlite, kubectl, and tools.",
+             This is not Deno, Node.js, or a browser: do not use Deno.*, process.*, \
+             require/import, fetch, DOM APIs, or Web APIs unless Hostrun explicitly provides them. \
+             Use Hostrun helpers for host access: host.cwd()/host.cd(), fs, cli, run, http, rg, fd, sqlite, kubectl, and tools.",
         ),
         Arc::new(hostrun_eval_input_schema()),
     );
@@ -133,7 +135,7 @@ fn hostrun_eval_input_schema() -> JsonObject {
         "properties": {
             "code": {
                 "type": "string",
-                "description": "JavaScript code to evaluate in the persistent Hostrun QuickJS session."
+                "description": "JavaScript code for Hostrun QuickJS. No Deno, Node.js, browser, DOM, require/import, process.*, or Deno.* APIs. Use Hostrun helpers such as host.cwd(), fs, cli, run, http, rg, fd, sqlite, kubectl, and tools."
             },
             "session_id": {
                 "type": "string",
