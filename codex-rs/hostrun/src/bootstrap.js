@@ -1764,10 +1764,39 @@ globalThis.__hostrun_gitCommitPaths = function (options) {
     .map((file) => String(file));
 };
 
+globalThis.__hostrun_gitCommitPathExists = function (cwd, file) {
+  if (String(file).startsWith("/") || cwd === undefined || cwd === null) {
+    return globalThis.fs.exists(file);
+  }
+  return globalThis.fs.exists(globalThis.path.join(cwd, file));
+};
+
+globalThis.__hostrun_existingGitCommitPaths = function (options, paths) {
+  const cwd = options.cwd ?? options.repo;
+  return paths.filter((file) => globalThis.__hostrun_gitCommitPathExists(cwd, file));
+};
+
+globalThis.__hostrun_gitCwdArgs = function (options) {
+  const cwd = options.cwd ?? options.repo;
+  return cwd === undefined || cwd === null || cwd === false ? [] : ["-C", String(cwd)];
+};
+
 globalThis.git = {
   commit: function (options = {}) {
-    const args = [];
-    globalThis.__hostrun_addOption(args, "-C", options.cwd ?? options.repo);
+    const requestedPaths = globalThis.__hostrun_gitCommitPaths(options);
+    const paths = globalThis.__hostrun_existingGitCommitPaths(options, requestedPaths);
+    const includeStaged = options.includeStaged === true;
+
+    if (requestedPaths.length > 0 && paths.length === 0 && !includeStaged) {
+      throw new Error("tools.git.commit found no existing files to add or commit");
+    }
+
+    const cwdArgs = globalThis.__hostrun_gitCwdArgs(options);
+    if (paths.length > 0) {
+      globalThis.cli.git(...cwdArgs, "add", "--", ...paths).run();
+    }
+
+    const args = [...cwdArgs];
     args.push("commit", "--file", "-");
     globalThis.__hostrun_addOption(args, "--amend", options.amend);
     globalThis.__hostrun_addOption(args, "--no-edit", options.noEdit);
@@ -1775,9 +1804,10 @@ globalThis.git = {
     globalThis.__hostrun_addOption(args, "--no-verify", options.noVerify);
     globalThis.__hostrun_addOption(args, "--signoff", options.signoff);
     globalThis.__hostrun_addOption(args, "--all", options.all);
-
-    const paths = globalThis.__hostrun_gitCommitPaths(options);
-    if (paths.length > 0) {
+    if (paths.length > 0 && !includeStaged) {
+      args.push("--only");
+    }
+    if (paths.length > 0 && !includeStaged) {
       args.push("--", ...paths);
     }
 
