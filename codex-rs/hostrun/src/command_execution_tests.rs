@@ -156,11 +156,16 @@ fn approved_cli_command_can_redirect_stderr_to_stdout() {
 }
 
 #[test]
-fn approved_cli_command_complete_captures_stdout_stderr_and_exit_status() {
+fn approved_cli_command_explicitly_captures_stdout_stderr_and_exit_status() {
     let session = HostrunSession::new_auto_approve().expect("session");
 
     let result = session
-        .eval("cli.sh('-c', 'printf out; printf err >&2; exit 7').complete();")
+        .eval(
+            "cli.sh('-c', 'printf out; printf err >&2; exit 7')
+              .stdout.capture()
+              .stderr.capture()
+              .run();",
+        )
         .expect("eval");
 
     assert_eq!(

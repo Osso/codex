@@ -1443,11 +1443,6 @@ globalThis.__hostrun_commandBuilder = function (program, args, options = {}) {
     run: function () {
       return globalThis.__hostrun_invokeCapability("cli." + state.program, state);
     },
-    complete: function () {
-      state.stdout = { type: "text" };
-      state.stderr = { type: "text" };
-      return globalThis.__hostrun_invokeCapability("cli." + state.program, state);
-    },
     spawn: function () {
       state.action = "spawn";
       return globalThis.__hostrun_processHandle(globalThis.__hostrun_invokeCapability("cli." + state.program, state));
@@ -1639,7 +1634,7 @@ globalThis.__hostrun_runProxy = function (path) {
           error: "run is a program proxy, not a shell parser.",
           use: [
             "run.dmidecode('-t', 'system')",
-            "cli.dmidecode('-t', 'system').complete()",
+            "cli.dmidecode('-t', 'system').stdout.text()",
             "tools.sudo(cli.dmidecode('-t', 'system')).run() for privileged commands"
           ],
           note: "cli.sudo(...) and run.sudo(...) invoke the sudo binary literally. tools.sudo(commandBuilder) wraps a cli.* builder with authsudo."
