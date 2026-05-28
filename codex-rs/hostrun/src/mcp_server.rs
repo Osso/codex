@@ -118,12 +118,14 @@ fn hostrun_eval_tool() -> Tool {
     let mut tool = Tool::new(
         Cow::Borrowed("hostrun_eval"),
         Cow::Borrowed(
-            "Evaluate JavaScript in a persistent Hostrun QuickJS session. \
+            "Evaluate synchronous JavaScript in a persistent Hostrun QuickJS session. \
+             Do not use await. Hostrun helpers return values directly in this runtime. \
              This is not Deno, Node.js, or a browser: do not use Deno.*, process.*, \
              require/import, fetch, DOM APIs, or Web APIs unless Hostrun explicitly provides them. \
              Use Hostrun helpers for host access: host.cwd()/host.cd(), fs, cli, run, http, rg, fd, sqlite, kubectl, and tools. \
-             run is a proxy, not a shell parser: use run.dmidecode('-t', 'system'), not run('dmidecode -t system'). \
-             For privileged commands use tools.sudo('dmidecode', '-t', 'system').complete(); cli.sudo(...) and run.sudo(...) invoke the sudo binary literally.",
+             Correct command examples: run.dmidecode('-t', 'system'); cli.dmidecode('-t', 'system').complete(); tools.sudo('dmidecode', '-t', 'system').complete(). \
+             Never call run('dmidecode -t system') or await run(...). run is a program proxy, not a shell parser. \
+             For privileged commands use tools.sudo(...); cli.sudo(...) and run.sudo(...) invoke the sudo binary literally.",
         ),
         Arc::new(hostrun_eval_input_schema()),
     );
@@ -137,7 +139,7 @@ fn hostrun_eval_input_schema() -> JsonObject {
         "properties": {
             "code": {
                 "type": "string",
-                "description": "JavaScript code for Hostrun QuickJS. No Deno, Node.js, browser, DOM, require/import, process.*, or Deno.* APIs. Use Hostrun helpers such as host.cwd(), fs, cli, run, http, rg, fd, sqlite, kubectl, and tools. run is a proxy, not a shell parser: use run.dmidecode('-t', 'system'), not run('dmidecode -t system'). For privileged commands use tools.sudo('dmidecode', '-t', 'system').complete(); cli.sudo(...) and run.sudo(...) invoke the sudo binary literally."
+                "description": "Synchronous JavaScript code for Hostrun QuickJS. Do not use await. No Deno, Node.js, browser, DOM, require/import, process.*, or Deno.* APIs. Use Hostrun helpers such as host.cwd(), fs, cli, run, http, rg, fd, sqlite, kubectl, and tools. Correct command examples: run.dmidecode('-t', 'system'); cli.dmidecode('-t', 'system').complete(); tools.sudo('dmidecode', '-t', 'system').complete(). Never call run('dmidecode -t system') or await run(...). run is a program proxy, not a shell parser. For privileged commands use tools.sudo(...); cli.sudo(...) and run.sudo(...) invoke the sudo binary literally."
             },
             "session_id": {
                 "type": "string",
@@ -204,6 +206,24 @@ mod tests {
         assert_eq!(tool.name, "hostrun_eval");
         assert_eq!(tool.input_schema["required"], json!(["code"]));
         assert_eq!(tool.input_schema["additionalProperties"], json!(false));
+    }
+
+    #[test]
+    fn hostrun_eval_tool_schema_warns_against_common_wrong_calls() {
+        let server = HostrunMcpServer::new();
+        let tool = &server.tools[0];
+        let tool_description = tool.description.as_deref().expect("tool description");
+        let description = format!(
+            "{} {}",
+            tool_description,
+            tool.input_schema["properties"]["code"]["description"]
+                .as_str()
+                .expect("code description")
+        );
+
+        assert!(description.contains("Do not use await"));
+        assert!(description.contains("Never call run('dmidecode -t system')"));
+        assert!(description.contains("tools.sudo('dmidecode', '-t', 'system').complete()"));
     }
 
     #[tokio::test(flavor = "current_thread")]
