@@ -7,6 +7,7 @@ mod cli_payload;
 mod cli_stream;
 mod fs_capability;
 mod http_capability;
+pub mod mcp_server;
 mod output_intent;
 mod process_registry;
 mod session;
