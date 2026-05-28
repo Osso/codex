@@ -1,6 +1,10 @@
+use std::path::Path;
+use std::path::PathBuf;
+
 use serde_json::Value;
 use serde_json::json;
 
+use crate::fs_capability::resolve_path;
 use crate::session::HostrunSessionError;
 
 pub(crate) fn split_command_payload(args: Value) -> (Vec<Value>, Option<Value>) {
@@ -43,6 +47,21 @@ pub(crate) fn payload_args(
         .cloned()
         .unwrap_or_default();
     values.iter().map(arg_to_string).collect()
+}
+
+pub(crate) fn payload_cwd(
+    payload: &serde_json::Map<String, Value>,
+    session_cwd: &Path,
+) -> Result<PathBuf, HostrunSessionError> {
+    let Some(cwd) = payload.get("cwd") else {
+        return Ok(session_cwd.to_path_buf());
+    };
+    let Some(cwd) = cwd.as_str() else {
+        return Err(HostrunSessionError::Eval(
+            "cli cwd must be a string".to_string(),
+        ));
+    };
+    Ok(resolve_path(session_cwd, cwd))
 }
 
 fn arg_to_string(value: &Value) -> Result<String, HostrunSessionError> {

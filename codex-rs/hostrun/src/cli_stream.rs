@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::path::PathBuf;
 use std::process::Child;
 use std::process::ChildStderr;
 use std::process::ChildStdout;
@@ -7,12 +8,14 @@ use std::process::Stdio;
 
 use serde_json::Value;
 
+use crate::fs_capability::resolve_path;
 use crate::session::HostrunSessionError;
 
 pub(crate) struct CliStreamSource {
     pub(crate) stream: String,
     pub(crate) program: String,
     pub(crate) argv: Vec<String>,
+    pub(crate) cwd: Option<PathBuf>,
 }
 
 pub(crate) fn stream_source(
@@ -44,6 +47,10 @@ pub(crate) fn stream_source(
         stream,
         program,
         argv: payload_args(command)?,
+        cwd: command
+            .get("cwd")
+            .and_then(Value::as_str)
+            .map(PathBuf::from),
     })
 }
 
@@ -51,9 +58,14 @@ pub(crate) fn spawn_stream_source(
     source: &CliStreamSource,
     cwd: &Path,
 ) -> Result<Child, HostrunSessionError> {
+    let cwd = source
+        .cwd
+        .as_ref()
+        .map(|path| resolve_path(cwd, path))
+        .unwrap_or_else(|| cwd.to_path_buf());
     Command::new(&source.program)
         .args(&source.argv)
-        .current_dir(cwd)
+        .current_dir(&cwd)
         .stdin(Stdio::null())
         .stdout(if source.stream == "stdout" {
             Stdio::piped()

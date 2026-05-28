@@ -41,6 +41,59 @@ fn command_builder_text_shortcut_executes_stdout_without_run() {
 }
 
 #[test]
+fn command_builder_in_sets_command_cwd() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+    let dir = tempfile::tempdir().expect("tempdir");
+    let code = format!("cli.pwd().in({}).text().trim();", json!(dir.path()));
+
+    let result = session.eval(&code).expect("eval");
+
+    assert_eq!(
+        result.value,
+        Some(json!(dir.path().to_string_lossy().to_string()))
+    );
+}
+
+#[test]
+fn command_builder_in_works_with_run() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+    let dir = tempfile::tempdir().expect("tempdir");
+    let output = dir.path().join("marker.txt");
+    let code = format!(
+        "cli.sh('-c', 'printf marker > marker.txt').in({}).run();",
+        json!(dir.path())
+    );
+
+    let result = session.eval(&code).expect("eval");
+
+    assert_eq!(result.value.expect("value")["success"], json!(true));
+    assert_eq!(fs::read_to_string(output).expect("marker"), "marker");
+}
+
+#[test]
+fn command_builder_in_is_visible_in_approval() {
+    let session = HostrunSession::new().expect("session");
+    let dir = tempfile::tempdir().expect("tempdir");
+    let code = format!("cli.echo('hello').in({}).run();", json!(dir.path()));
+
+    let result = session.eval(&code).expect("approval");
+
+    let approval = result.approval.expect("approval");
+    assert_eq!(
+        approval.summary,
+        format!("Run echo hello (cwd {})", dir.path().display())
+    );
+    assert_eq!(
+        approval.args,
+        json!({
+            "program": "echo",
+            "args": ["hello"],
+            "cwd": dir.path()
+        })
+    );
+}
+
+#[test]
 fn approved_cli_command_pipes_structured_stdin_to_process() {
     let session = HostrunSession::new_auto_approve().expect("session");
 

@@ -1447,6 +1447,10 @@ globalThis.__hostrun_commandBuilder = function (program, args, options = {}) {
       state.action = "spawn";
       return globalThis.__hostrun_processHandle(globalThis.__hostrun_invokeCapability("cli." + state.program, state));
     },
+    in: function (path) {
+      state.cwd = String(path);
+      return builder;
+    },
     toJSON: function () {
       return { ...state };
     }
@@ -1506,7 +1510,7 @@ globalThis.__hostrun_commandBuilder = function (program, args, options = {}) {
         return builder;
       },
       toJSON: function () {
-        return { stream: name, command: { program: state.program, args: state.args } };
+        return { stream: name, command: { ...state } };
       }
     };
   };

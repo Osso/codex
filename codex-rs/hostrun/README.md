@@ -46,6 +46,7 @@ run.git('status', '--short');
 ```js
 cli.git('status', '--short').stdout.text();
 cli.ls('-la').lines();
+cli.echo('hello').in('/tmp').run();
 cli.sh('-c', 'printf out; printf err >&2')
   .stdout.capture()
   .stderr.capture()
@@ -63,6 +64,13 @@ run.git('status', '--short');
 ```
 
 There is no `.complete()` command-builder method. Use explicit stream selectors or `.stdout.capture().stderr.capture().run()`.
+
+Use `.in(path)` for a one-command cwd without mutating the persistent Hostrun session cwd:
+
+```js
+cli.git('status', '--short').in('/repo').run();
+cli.git('status', '--short').in('/repo').stdout.text();
+```
 
 ## Privileged Commands
 
@@ -221,4 +229,3 @@ After Rust changes:
 just fmt
 just fix -p codex-hostrun
 ```
-

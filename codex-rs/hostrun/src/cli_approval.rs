@@ -5,6 +5,9 @@ pub(crate) fn io_summary(io: Option<&Value>) -> String {
         return String::new();
     };
     let mut parts = Vec::new();
+    if let Some(cwd) = io.get("cwd").and_then(Value::as_str) {
+        parts.push(format!("cwd {cwd}"));
+    }
     if let Some(stdin) = io.get("stdin") {
         parts.push(stdin_summary(stdin));
     }

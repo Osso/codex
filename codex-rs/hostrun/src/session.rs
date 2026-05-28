@@ -279,7 +279,8 @@ impl HostCapabilityInvoker {
             unreachable!("cli command payload is always an object");
         };
         let argv = cli_payload::payload_args(&payload)?;
-        let cwd = self.current_cwd()?;
+        let session_cwd = self.current_cwd()?;
+        let cwd = cli_payload::payload_cwd(&payload, &session_cwd)?;
         if payload.get("action").and_then(Value::as_str) == Some("spawn") {
             return self.spawn_process(program, &argv, payload, &cwd);
         }
