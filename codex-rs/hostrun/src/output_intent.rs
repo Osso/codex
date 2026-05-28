@@ -1,8 +1,10 @@
 use std::fs;
+use std::path::Path;
 
 use serde_json::Value;
 use serde_json::json;
 
+use crate::fs_capability::resolve_path;
 use crate::session::HostrunSessionError;
 
 const CAPTURE_LIMIT_BYTES: usize = 64 * 1024;
@@ -12,6 +14,7 @@ pub(crate) fn apply_output_intent(
     name: &str,
     intent: Option<&Value>,
     bytes: &[u8],
+    cwd: &Path,
 ) -> Result<(), HostrunSessionError> {
     let Some(intent) = intent else {
         return Ok(());
@@ -23,8 +26,8 @@ pub(crate) fn apply_output_intent(
     {
         "capture" | "text" => capture_output(result, name, bytes),
         "lines" => capture_lines(result, name, bytes),
-        "file" => write_output_file(result, name, intent, bytes),
-        "tee" => tee_output(result, name, intent, bytes),
+        "file" => write_output_file(result, name, intent, bytes, cwd),
+        "tee" => tee_output(result, name, intent, bytes, cwd),
         other => Err(HostrunSessionError::Eval(format!(
             "unsupported {name} output intent: {other}"
         ))),
@@ -62,10 +65,14 @@ fn write_output_file(
     name: &str,
     intent: &Value,
     bytes: &[u8],
+    cwd: &Path,
 ) -> Result<(), HostrunSessionError> {
-    let path = field_as_string(intent, "path");
+    let path = resolve_path(cwd, field_as_string(intent, "path"));
     fs::write(&path, bytes).map_err(|error| {
-        HostrunSessionError::Eval(format!("failed to write {name} to {path}: {error}"))
+        HostrunSessionError::Eval(format!(
+            "failed to write {name} to {}: {error}",
+            path.display()
+        ))
     })?;
     result.insert(
         name.to_string(),
@@ -79,10 +86,14 @@ fn tee_output(
     name: &str,
     intent: &Value,
     bytes: &[u8],
+    cwd: &Path,
 ) -> Result<(), HostrunSessionError> {
-    let path = field_as_string(intent, "path");
+    let path = resolve_path(cwd, field_as_string(intent, "path"));
     fs::write(&path, bytes).map_err(|error| {
-        HostrunSessionError::Eval(format!("failed to tee {name} to {path}: {error}"))
+        HostrunSessionError::Eval(format!(
+            "failed to tee {name} to {}: {error}",
+            path.display()
+        ))
     })?;
     capture_output(result, name, bytes)?;
     result.insert(

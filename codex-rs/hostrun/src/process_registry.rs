@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::process::Child;
 
 use serde_json::Map;
@@ -18,6 +19,7 @@ impl ProcessRegistry {
         argv: &[String],
         child: Child,
         payload: Map<String, Value>,
+        cwd: PathBuf,
     ) -> String {
         self.next_id += 1;
         let id = format!("process-{}", self.next_id);
@@ -28,6 +30,7 @@ impl ProcessRegistry {
                 argv: argv.to_vec(),
                 child,
                 payload,
+                cwd,
             },
         );
         id
@@ -51,6 +54,7 @@ pub(crate) struct ManagedProcess {
     pub(crate) argv: Vec<String>,
     pub(crate) child: Child,
     pub(crate) payload: Map<String, Value>,
+    pub(crate) cwd: PathBuf,
 }
 
 pub(crate) fn started_value(id: &str, pid: u32, program: &str, argv: &[String]) -> Value {

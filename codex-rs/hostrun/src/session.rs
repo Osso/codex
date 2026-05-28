@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -15,11 +17,14 @@ use serde_json::json;
 use crate::cli_approval;
 use crate::cli_execution;
 use crate::cli_payload;
-use crate::fs_capability::{execute_fs_operation, fs_approval};
-use crate::http_capability::{execute_http_request, http_request_approval};
+use crate::fs_capability::execute_fs_operation;
+use crate::fs_capability::fs_approval;
+use crate::http_capability::execute_http_request;
+use crate::http_capability::http_request_approval;
 use crate::process_registry::ManagedProcess;
 use crate::process_registry::ProcessRegistry;
-use crate::tmp_capability::{remove_tmp_resource, tmp_resources};
+use crate::tmp_capability::remove_tmp_resource;
+use crate::tmp_capability::tmp_resources;
 
 const APPROVAL_REQUIRED_PREFIX: &str = "__HOSTRUN_APPROVAL_REQUIRED__:";
 
@@ -53,6 +58,7 @@ pub struct HostrunSession {
     _runtime: Runtime,
     context: Context,
     capability_mode: HostCapabilityMode,
+    cwd: Arc<Mutex<PathBuf>>,
     processes: Arc<Mutex<ProcessRegistry>>,
 }
 
@@ -65,16 +71,32 @@ impl HostrunSession {
         Self::new_with_capability_mode(HostCapabilityMode::AutoApprove)
     }
 
+    pub fn new_auto_approve_with_cwd(cwd: impl AsRef<Path>) -> Result<Self, HostrunSessionError> {
+        Self::new_with_capability_mode_and_cwd(HostCapabilityMode::AutoApprove, cwd)
+    }
+
     fn new_with_capability_mode(
         capability_mode: HostCapabilityMode,
     ) -> Result<Self, HostrunSessionError> {
+        let cwd = std::env::current_dir()
+            .map_err(|error| HostrunSessionError::Eval(format!("failed to read cwd: {error}")))?;
+        Self::new_with_capability_mode_and_cwd(capability_mode, cwd)
+    }
+
+    fn new_with_capability_mode_and_cwd(
+        capability_mode: HostCapabilityMode,
+        cwd: impl AsRef<Path>,
+    ) -> Result<Self, HostrunSessionError> {
         let runtime = Runtime::new().map_err(HostrunSessionError::from_quickjs)?;
         let context = Context::full(&runtime).map_err(HostrunSessionError::from_quickjs)?;
+        let cwd = canonicalize_cwd(cwd.as_ref())?;
+        let cwd = Arc::new(Mutex::new(cwd));
         let processes = Arc::new(Mutex::new(ProcessRegistry::default()));
         let session = Self {
             _runtime: runtime,
             context,
             capability_mode,
+            cwd,
             processes,
         };
         session.initialize_context(capability_mode)?;
@@ -93,6 +115,7 @@ impl HostrunSession {
     ) -> Result<(), HostrunSessionError> {
         let invoker = Arc::new(HostCapabilityInvoker {
             capability_mode,
+            cwd: Arc::clone(&self.cwd),
             processes: Arc::clone(&self.processes),
         });
         self.context
@@ -156,6 +179,7 @@ enum HostCapabilityMode {
 
 struct HostCapabilityInvoker {
     capability_mode: HostCapabilityMode,
+    cwd: Arc<Mutex<PathBuf>>,
     processes: Arc<Mutex<ProcessRegistry>>,
 }
 
@@ -163,6 +187,8 @@ impl HostCapabilityInvoker {
     fn invoke_tool(&self, tool_path: &str, args_json: &str) -> String {
         let args = serde_json::from_str(args_json).unwrap_or(Value::Null);
         match tool_path {
+            "host.cwd" => self.invoke_host_cwd(),
+            "host.cd" => self.invoke_host_cd(args),
             "fs.write" | "fs.read" | "fs.exists" | "fs.remove" | "fs.glob" => {
                 self.invoke_fs_operation(tool_path, args)
             }
@@ -180,9 +206,15 @@ impl HostCapabilityInvoker {
     }
 
     fn invoke_fs_operation(&self, tool_path: &str, args: Value) -> String {
+        let cwd = match self.current_cwd() {
+            Ok(cwd) => cwd,
+            Err(error) => return denied(error.to_string()),
+        };
         match self.capability_mode {
-            HostCapabilityMode::PendingApproval => pending_approval(fs_approval(tool_path, args)),
-            HostCapabilityMode::AutoApprove => match execute_fs_operation(tool_path, args) {
+            HostCapabilityMode::PendingApproval => {
+                pending_approval(fs_approval(tool_path, args, &cwd))
+            }
+            HostCapabilityMode::AutoApprove => match execute_fs_operation(tool_path, args, &cwd) {
                 Ok(value) => completed(value),
                 Err(error) => denied(error.to_string()),
             },
@@ -247,11 +279,12 @@ impl HostCapabilityInvoker {
             unreachable!("cli command payload is always an object");
         };
         let argv = cli_payload::payload_args(&payload)?;
+        let cwd = self.current_cwd()?;
         if payload.get("action").and_then(Value::as_str) == Some("spawn") {
-            return self.spawn_process(program, &argv, payload);
+            return self.spawn_process(program, &argv, payload, &cwd);
         }
-        let output = cli_execution::run_cli_process(program, &argv, payload.get("stdin"))?;
-        cli_execution::cli_execution_result(program, &argv, &payload, output)
+        let output = cli_execution::run_cli_process(program, &argv, payload.get("stdin"), &cwd)?;
+        cli_execution::cli_execution_result(program, &argv, &payload, output, &cwd)
     }
 
     fn spawn_process(
@@ -259,20 +292,22 @@ impl HostCapabilityInvoker {
         program: &str,
         argv: &[String],
         payload: serde_json::Map<String, Value>,
+        cwd: &Path,
     ) -> Result<Value, HostrunSessionError> {
         if payload.get("stdin").and_then(cli_execution::stdin_type) == Some("stream") {
             return Err(HostrunSessionError::Eval(
                 "spawn does not support stream stdin; use run() for command graphs".to_string(),
             ));
         }
-        let stdin = cli_execution::stdin_input(payload.get("stdin"))?;
-        let mut child = cli_execution::spawn_cli_process(program, argv, stdin.bytes.is_some())?;
+        let stdin = cli_execution::stdin_input(payload.get("stdin"), cwd)?;
+        let mut child =
+            cli_execution::spawn_cli_process(program, argv, stdin.bytes.is_some(), cwd)?;
         let pid = child.id();
         cli_execution::write_cli_stdin(program, &mut child, stdin.bytes)?;
         let mut processes = self.processes.lock().map_err(|error| {
             HostrunSessionError::Eval(format!("failed to lock process registry: {error}"))
         })?;
-        let id = processes.insert(program, argv, child, payload);
+        let id = processes.insert(program, argv, child, payload, cwd.to_path_buf());
         Ok(crate::process_registry::started_value(
             &id, pid, program, argv,
         ))
@@ -291,6 +326,7 @@ impl HostCapabilityInvoker {
             &process.argv,
             &process.payload,
             output,
+            &process.cwd,
         )
     }
 
@@ -325,6 +361,50 @@ impl HostCapabilityInvoker {
             .take(id)
             .ok_or_else(|| HostrunSessionError::Eval(format!("unknown Hostrun process: {id}")))
     }
+
+    fn invoke_host_cwd(&self) -> String {
+        match self.current_cwd() {
+            Ok(cwd) => completed(json!(cwd)),
+            Err(error) => denied(error.to_string()),
+        }
+    }
+
+    fn invoke_host_cd(&self, args: Value) -> String {
+        let path = field_as_string(&args, "path");
+        match self.change_cwd(&path) {
+            Ok(cwd) => completed(json!(cwd)),
+            Err(error) => denied(error.to_string()),
+        }
+    }
+
+    fn current_cwd(&self) -> Result<PathBuf, HostrunSessionError> {
+        self.cwd.lock().map(|cwd| cwd.clone()).map_err(|error| {
+            HostrunSessionError::Eval(format!("failed to lock Hostrun cwd: {error}"))
+        })
+    }
+
+    fn change_cwd(&self, path: &str) -> Result<PathBuf, HostrunSessionError> {
+        let current_cwd = self.current_cwd()?;
+        let requested = crate::fs_capability::resolve_path(&current_cwd, path);
+        let cwd = canonicalize_cwd(&requested)?;
+        *self.cwd.lock().map_err(|error| {
+            HostrunSessionError::Eval(format!("failed to lock Hostrun cwd: {error}"))
+        })? = cwd.clone();
+        Ok(cwd)
+    }
+}
+
+fn canonicalize_cwd(path: &Path) -> Result<PathBuf, HostrunSessionError> {
+    let cwd = path.canonicalize().map_err(|error| {
+        HostrunSessionError::Eval(format!("failed to resolve cwd {}: {error}", path.display()))
+    })?;
+    if !cwd.is_dir() {
+        return Err(HostrunSessionError::Eval(format!(
+            "Hostrun cwd is not a directory: {}",
+            cwd.display()
+        )));
+    }
+    Ok(cwd)
 }
 
 fn parse_eval_output(output: &str) -> Result<HostrunEvalResult, HostrunSessionError> {
@@ -512,6 +592,10 @@ mod byte_tests;
 #[cfg(test)]
 #[path = "date_tests.rs"]
 mod date_tests;
+
+#[cfg(test)]
+#[path = "cwd_tests.rs"]
+mod cwd_tests;
 
 #[cfg(test)]
 #[path = "structured_write_tests.rs"]

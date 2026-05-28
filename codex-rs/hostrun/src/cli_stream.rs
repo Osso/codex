@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::process::Child;
 use std::process::ChildStderr;
 use std::process::ChildStdout;
@@ -46,9 +47,13 @@ pub(crate) fn stream_source(
     })
 }
 
-pub(crate) fn spawn_stream_source(source: &CliStreamSource) -> Result<Child, HostrunSessionError> {
+pub(crate) fn spawn_stream_source(
+    source: &CliStreamSource,
+    cwd: &Path,
+) -> Result<Child, HostrunSessionError> {
     Command::new(&source.program)
         .args(&source.argv)
+        .current_dir(cwd)
         .stdin(Stdio::null())
         .stdout(if source.stream == "stdout" {
             Stdio::piped()

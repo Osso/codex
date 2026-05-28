@@ -1,5 +1,6 @@
 use std::fs;
 use std::io::Write;
+use std::path::Path;
 use std::process::Child;
 use std::process::Command;
 use std::process::ExitStatus;
@@ -12,6 +13,7 @@ use serde_json::json;
 use crate::cli_graph::insert_command_graph;
 use crate::cli_payload;
 use crate::cli_stream;
+use crate::fs_capability::resolve_path;
 use crate::output_intent::apply_output_intent;
 use crate::session::HostrunSessionError;
 
@@ -39,12 +41,18 @@ pub(crate) fn run_cli_process(
     program: &str,
     argv: &[String],
     stdin: Option<&Value>,
+    cwd: &Path,
 ) -> Result<CliProcessOutput, HostrunSessionError> {
     if stdin.and_then(stdin_type) == Some("stream") {
-        return run_stream_cli_process(program, argv, stdin.and_then(|stdin| stdin.get("source")));
+        return run_stream_cli_process(
+            program,
+            argv,
+            stdin.and_then(|stdin| stdin.get("source")),
+            cwd,
+        );
     }
-    let stdin = stdin_input(stdin)?;
-    let mut child = spawn_cli_process(program, argv, stdin.bytes.is_some())?;
+    let stdin = stdin_input(stdin, cwd)?;
+    let mut child = spawn_cli_process(program, argv, stdin.bytes.is_some(), cwd)?;
     write_cli_stdin(program, &mut child, stdin.bytes)?;
     let output = child.wait_with_output().map_err(|error| {
         HostrunSessionError::Eval(format!("failed to wait for {program}: {error}"))
@@ -60,9 +68,11 @@ pub(crate) fn spawn_cli_process(
     program: &str,
     argv: &[String],
     has_stdin: bool,
+    cwd: &Path,
 ) -> Result<Child, HostrunSessionError> {
     Command::new(program)
         .args(argv)
+        .current_dir(cwd)
         .stdin(if has_stdin {
             Stdio::piped()
         } else {
@@ -91,14 +101,17 @@ pub(crate) fn write_cli_stdin(
     })
 }
 
-pub(crate) fn stdin_input(stdin: Option<&Value>) -> Result<CliStdinInput, HostrunSessionError> {
+pub(crate) fn stdin_input(
+    stdin: Option<&Value>,
+    cwd: &Path,
+) -> Result<CliStdinInput, HostrunSessionError> {
     let Some(stdin) = stdin else {
         return Ok(CliStdinInput {
             bytes: None,
             upstream: Vec::new(),
         });
     };
-    let (bytes, upstream) = stdin_bytes(stdin)?;
+    let (bytes, upstream) = stdin_bytes(stdin, cwd)?;
     Ok(CliStdinInput {
         bytes: Some(bytes),
         upstream,
@@ -127,6 +140,7 @@ pub(crate) fn cli_execution_result(
     argv: &[String],
     payload: &serde_json::Map<String, Value>,
     output: CliProcessOutput,
+    cwd: &Path,
 ) -> Result<Value, HostrunSessionError> {
     let mut result = serde_json::Map::new();
     result.insert("program".to_string(), Value::String(program.to_string()));
@@ -142,14 +156,20 @@ pub(crate) fn cli_execution_result(
     } else {
         output.stdout.clone()
     };
-    apply_output_intent(&mut result, "stdout", payload.get("stdout"), &stdout)?;
+    apply_output_intent(&mut result, "stdout", payload.get("stdout"), &stdout, cwd)?;
     if !stderr_to_stdout {
-        apply_output_intent(&mut result, "stderr", payload.get("stderr"), &output.stderr)?;
+        apply_output_intent(
+            &mut result,
+            "stderr",
+            payload.get("stderr"),
+            &output.stderr,
+            cwd,
+        )?;
     }
     if let Some(combined) = payload.get("combined") {
         let mut bytes = output.stdout.clone();
         bytes.extend_from_slice(&output.stderr);
-        apply_output_intent(&mut result, "combined", Some(combined), &bytes)?;
+        apply_output_intent(&mut result, "combined", Some(combined), &bytes, cwd)?;
     }
     Ok(Value::Object(result))
 }
@@ -158,12 +178,14 @@ fn run_stream_cli_process(
     program: &str,
     argv: &[String],
     source: Option<&Value>,
+    cwd: &Path,
 ) -> Result<CliProcessOutput, HostrunSessionError> {
     let source = cli_stream::stream_source(source)?;
-    let mut upstream = cli_stream::spawn_stream_source(&source)?;
+    let mut upstream = cli_stream::spawn_stream_source(&source, cwd)?;
     let pipe = cli_stream::take_stream_pipe(&mut upstream, &source)?;
     let output = Command::new(program)
         .args(argv)
+        .current_dir(cwd)
         .stdin(pipe)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -193,14 +215,17 @@ fn cli_command_status(program: &str, argv: &[String], status: ExitStatus) -> Cli
     }
 }
 
-fn stdin_bytes(stdin: &Value) -> Result<(Vec<u8>, Vec<CliCommandStatus>), HostrunSessionError> {
+fn stdin_bytes(
+    stdin: &Value,
+    cwd: &Path,
+) -> Result<(Vec<u8>, Vec<CliCommandStatus>), HostrunSessionError> {
     let stdin_type = stdin
         .get("type")
         .and_then(Value::as_str)
         .unwrap_or("stream");
     let bytes = match stdin_type {
         "text" => field_as_string(stdin, "text").into_bytes(),
-        "file" => fs::read(field_as_string(stdin, "path")).map_err(|error| {
+        "file" => fs::read(resolve_path(cwd, field_as_string(stdin, "path"))).map_err(|error| {
             HostrunSessionError::Eval(format!("failed to read stdin file: {error}"))
         })?,
         "json" => serialize_json_stdin(stdin.get("value").unwrap_or(&Value::Null))?,
@@ -209,7 +234,7 @@ fn stdin_bytes(stdin: &Value) -> Result<(Vec<u8>, Vec<CliCommandStatus>), Hostru
         "tsv" => serialize_delimited_rows(stdin.get("rows"), "\t")?,
         "jsonLines" => serialize_json_lines(stdin.get("values"))?,
         "lines" => serialize_lines(stdin.get("lines"))?,
-        "stream" => return stream_stdin_bytes(stdin.get("source")),
+        "stream" => return stream_stdin_bytes(stdin.get("source"), cwd),
         other => Err(HostrunSessionError::Eval(format!(
             "unsupported stdin source type: {other}"
         )))?,
@@ -219,6 +244,7 @@ fn stdin_bytes(stdin: &Value) -> Result<(Vec<u8>, Vec<CliCommandStatus>), Hostru
 
 fn stream_stdin_bytes(
     source: Option<&Value>,
+    cwd: &Path,
 ) -> Result<(Vec<u8>, Vec<CliCommandStatus>), HostrunSessionError> {
     let source = source
         .ok_or_else(|| HostrunSessionError::Eval("stdin stream source is required".to_string()))?;
@@ -241,7 +267,7 @@ fn stream_stdin_bytes(
             HostrunSessionError::Eval("stdin stream command program is required".to_string())
         })?;
     let argv = cli_payload::payload_args(command)?;
-    let output = run_cli_process(program, &argv, None)?;
+    let output = run_cli_process(program, &argv, None, cwd)?;
     let bytes = match stream {
         "stdout" => output.stdout,
         "stderr" => output.stderr,

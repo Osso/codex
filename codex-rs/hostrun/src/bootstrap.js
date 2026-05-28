@@ -1355,6 +1355,15 @@ globalThis.__hostrun_toolProxy = function (path) {
 
 globalThis.tools = globalThis.__hostrun_toolProxy("");
 
+globalThis.host = {
+  cwd: function () {
+    return globalThis.__hostrun_invokeCapability("host.cwd", {});
+  },
+  cd: function (path) {
+    return globalThis.__hostrun_invokeCapability("host.cd", { path });
+  }
+};
+
 globalThis.fs = {
   write: function (path, content) {
     return globalThis.__hostrun_invokeCapability("fs.write", { path, content });

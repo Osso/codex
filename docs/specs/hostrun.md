@@ -28,6 +28,8 @@ thread start. How the runtime is wired internally belongs in
 - [x] Return the executed code in the result for transcript visibility.
 - [x] Capture `console.log`, `console.info`, `console.warn`, `console.error`, and `console.debug` in the result.
 - [x] Provide `Array.prototype.containing(needle)` for substring filtering.
+- [x] Expose `host.cwd()` and `host.cd(path)` for persistent per-session cwd state.
+- [x] Resolve relative Hostrun file paths, command working directories, command stdin files, output redirects, `rg.*`, and `fd.*` helpers against the session cwd.
 
 ### Approval-gated host library
 

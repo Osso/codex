@@ -5,10 +5,13 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
 
-use codex_extension_api::{
-    ContextContributor, ExtensionData, ExtensionRegistryBuilder, PromptFragment,
-    ThreadStartContributor, ToolBundle, ToolContributor,
-};
+use codex_extension_api::ContextContributor;
+use codex_extension_api::ExtensionData;
+use codex_extension_api::ExtensionRegistryBuilder;
+use codex_extension_api::PromptFragment;
+use codex_extension_api::ThreadStartContributor;
+use codex_extension_api::ToolBundle;
+use codex_extension_api::ToolContributor;
 
 use crate::HostrunSessionStore;
 use crate::HostrunToolConfig;
@@ -26,6 +29,7 @@ Hostrun evaluates JavaScript in a persistent QuickJS session:
 - Arrays have `.containing(needle)` plus non-mutating helpers such as `.notContaining()`, `.startsWith()`, `.endsWith()`, `.matching()`, `.glob()`, `.unique()`, `.sorted()`, `.reversed()`, `.groupBy()`, `.countBy()`, `.uniqueBy()`, and `.sortBy()`.
 - Strings expose shell-style helpers such as `.lines(start, end)`, `.head()`, `.tail()`, `.splitWords()`, `.splitColumn()`, `.cut(separator, fields)`, `.json()`, `.jsonl()`, `.yaml()`, `.toml()`, `.csv()`, `.tsv()`, `.lineCount()`, `.wordCount()`, `.byteCount()`, `.bytes()`, `.byteArray()`, and `.chars()`.
 - `path.*` and `date.*` provide small readable helpers for path transforms and UTC date parse/format/humanize workflows.
+- `host.cwd()` returns the current Hostrun session cwd, and `host.cd(path)` changes it persistently for later Hostrun calls in the same Codex thread. Relative `fs.*` paths, `cli.*` commands, `run.*` commands, `rg.*`/`fd.*` helpers, stdin files, and output redirects resolve against this cwd.
 - `run.<program>(...args)` executes a host command without stdout/stderr capture by default, e.g. `run.dmidecode()` or `run.git('status', '--short')`.
 - `cli.<program>(...args)` creates a lazy host command builder for workflows that need output capture, stdin, redirects, spawn, or piping. Use `.complete()` for command probes that should capture stdout, stderr, and exit status. Builder-level terminal selectors execute directly and default to stdout: `cli.ls().text().trim()` or `cli.rclone('lsf', remote).lines()`, never `.text().run()`. Explicit stream selectors such as `cli.sh('-c', 'echo err >&2').stderr.text()` return the structured command result with that stream captured. Config-only helpers such as `.stdout.toFile(path)`, `.stdout.tee(path)`, `.stderr.toStdout()`, and `.combined.toFile(path)` return the builder so another terminal call can execute it. `.run()` remains available as the low-level builder execution method when a command builder has no terminal output selector.
 - `.spawn()` starts a command and returns a managed process handle with `id`, `pid`, `stdout`, `stderr`, `.wait()`, and `.kill()`. Store it in `ctx` if a later Hostrun call should wait or kill it.
