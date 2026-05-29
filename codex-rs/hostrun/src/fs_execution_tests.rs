@@ -150,3 +150,133 @@ fn approved_fs_glob_lists_matching_paths_and_open_parses_by_extension() {
         Some(json!([nested.to_string_lossy().to_string()]))
     );
 }
+
+#[test]
+fn tools_file_replace_replaces_exact_text_once() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("replace.txt");
+    fs::write(&path, "alpha\nold\nomega\n").expect("write input");
+
+    let result = session
+        .eval(&format!(
+            "tools.file.replace({}, {{ from: 'old', to: 'new' }});",
+            json!(path)
+        ))
+        .expect("replace");
+
+    assert_eq!(
+        fs::read_to_string(&path).expect("updated"),
+        "alpha\nnew\nomega\n"
+    );
+    assert_eq!(result.value.expect("value")["replacements"], json!(1));
+}
+
+#[test]
+fn tools_file_replace_rejects_ambiguous_matches_by_default() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("ambiguous.txt");
+    fs::write(&path, "old\nold\n").expect("write input");
+
+    session
+        .eval(&format!(
+            "tools.file.replace({}, {{ from: 'old', to: 'new' }});",
+            json!(path)
+        ))
+        .expect_err("ambiguous replacement should fail");
+}
+
+#[test]
+fn tools_file_replace_supports_all_and_occurrence() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("all.txt");
+    fs::write(&path, "old\nold\nold\n").expect("write input");
+
+    let all = session
+        .eval(&format!(
+            "tools.file.replace({}, {{ from: 'old', to: 'new', all: true }});",
+            json!(path)
+        ))
+        .expect("replace all");
+    assert_eq!(all.value.expect("value")["replacements"], json!(3));
+    assert_eq!(
+        fs::read_to_string(&path).expect("all updated"),
+        "new\nnew\nnew\n"
+    );
+
+    fs::write(&path, "old\nold\nold\n").expect("reset input");
+    session
+        .eval(&format!(
+            "tools.file.replace({}, {{ from: 'old', to: 'new', occurrence: 2 }});",
+            json!(path)
+        ))
+        .expect("replace occurrence");
+    assert_eq!(
+        fs::read_to_string(&path).expect("occurrence updated"),
+        "old\nnew\nold\n"
+    );
+}
+
+#[test]
+fn tools_file_patch_applies_unified_diff() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("patch.txt");
+    fs::write(&path, "alpha\nold\nomega\n").expect("write input");
+    let diff = format!(
+        "--- a/{name}\n+++ b/{name}\n@@ -1,3 +1,3 @@\n alpha\n-old\n+new\n omega\n",
+        name = path.to_string_lossy()
+    );
+
+    let result = session
+        .eval(&format!("tools.file.patch({});", json!(diff)))
+        .expect("patch");
+
+    assert_eq!(
+        fs::read_to_string(&path).expect("updated"),
+        "alpha\nnew\nomega\n"
+    );
+    assert_eq!(result.value.expect("value")[0]["hunks"], json!(1));
+}
+
+#[test]
+fn tools_file_patch_supports_explicit_path_hunks() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("explicit.txt");
+    fs::write(&path, "one\ntwo\nthree\n").expect("write input");
+    let diff = "@@ -1,3 +1,3 @@\n one\n-two\n+TWO\n three\n";
+
+    session
+        .eval(&format!(
+            "tools.file.patch({}, {});",
+            json!(path),
+            json!(diff)
+        ))
+        .expect("patch");
+
+    assert_eq!(
+        fs::read_to_string(&path).expect("updated"),
+        "one\nTWO\nthree\n"
+    );
+}
+
+#[test]
+fn tools_file_patch_can_create_new_files() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("created.txt");
+    let diff = format!(
+        "--- /dev/null\n+++ b/{name}\n@@ -0,0 +1,2 @@\n+first\n+second\n",
+        name = path.to_string_lossy()
+    );
+
+    let result = session
+        .eval(&format!("tools.file.patch({});", json!(diff)))
+        .expect("patch");
+
+    assert_eq!(fs::read_to_string(&path).expect("created"), "first\nsecond");
+    assert_eq!(result.value.expect("value")[0]["hunks"], json!(1));
+}

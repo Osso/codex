@@ -36,6 +36,8 @@ Hostrun evaluates synchronous JavaScript in a persistent QuickJS session:
 - `.spawn()` starts a command and returns a managed process handle with `id`, `pid`, `stdout`, `stderr`, `.wait()`, and `.kill()`. Store it in `ctx` if a later Hostrun call should wait or kill it.
 - Stream piping is explicit: `const source = cli.rclone('cat', remote); cli.cat().stdin(source.stdout).stdout.text()` returns downstream output plus `commands` status entries for the upstream and downstream commands.
 - `fs.write(path, content)`, `fs.read(path)`, `fs.open(path, options)`, `fs.glob(pattern, options)`, `fs.exists(path)`, and `fs.remove(path)` request approval-gated host file operations. `fs.open` parses JSON, JSONL, YAML, TOML, CSV, and TSV from the filename extension unless `options.format` is supplied.
+- `tools.file.replace(path, { from, to })` performs an exact targeted replacement through `fs.write`. It requires exactly one match by default; pass `all: true` or `occurrence: 2` when intentional. Shorthand `tools.file.replace(path, from, to)` is also available.
+- `tools.file.patch(diff)` applies unified diffs through `fs.write`; use `tools.file.patch(path, diff)` when the diff only contains `@@` hunks and the path is supplied separately.
 - `sqlite.query(database, sql)` and `kubectl.get(resource, options)` build lazy command wrappers for common JSON-output inspection workflows.
 - `rclone.deletefile(target)` requests an approval-gated `rclone deletefile`; `rclone.lsf(target, { recursive: true })` builds a lazy `rclone lsf` command.
 - `fd.find(pattern, options)`, `fd.files(root, options)`, and `fd.dirs(root, options)` build lazy `fdfind` commands.
@@ -356,6 +358,8 @@ mod tests {
         assert!(fragments[0].text().contains("across later assistant turns"));
         assert!(fragments[0].text().contains("run.dmidecode()"));
         assert!(fragments[0].text().contains("fs.read(path)"));
+        assert!(fragments[0].text().contains("tools.file.replace"));
+        assert!(fragments[0].text().contains("tools.file.patch"));
         assert!(fragments[0].text().contains("rclone.lsf(target"));
         assert!(fragments[0].text().contains("fd.find(pattern"));
         assert!(fragments[0].text().contains("rg.search(pattern"));

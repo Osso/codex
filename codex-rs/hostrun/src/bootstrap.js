@@ -1407,6 +1407,204 @@ globalThis.fs = {
   }
 };
 
+globalThis.__hostrun_fileReplaceOptions = function (fromOrOptions, to) {
+  if (typeof fromOrOptions === "object" && fromOrOptions !== null && !Array.isArray(fromOrOptions)) {
+    return { ...fromOrOptions };
+  }
+  return { from: String(fromOrOptions), to: String(to ?? "") };
+};
+
+globalThis.__hostrun_replaceAtOccurrence = function (text, from, to, occurrence) {
+  let offset = 0;
+  for (let current = 1; current <= occurrence; current += 1) {
+    const index = text.indexOf(from, offset);
+    if (index < 0) {
+      throw new Error(`replacement text occurrence ${occurrence} was not found`);
+    }
+    if (current === occurrence) {
+      return {
+        text: text.slice(0, index) + to + text.slice(index + from.length),
+        replacements: 1
+      };
+    }
+    offset = index + from.length;
+  }
+  throw new Error(`invalid replacement occurrence: ${occurrence}`);
+};
+
+globalThis.__hostrun_replaceText = function (text, options) {
+  const from = String(options.from ?? "");
+  const to = String(options.to ?? "");
+  if (from.length === 0) {
+    throw new Error("tools.file.replace requires non-empty from text");
+  }
+  if (options.occurrence !== undefined) {
+    return globalThis.__hostrun_replaceAtOccurrence(text, from, to, Number(options.occurrence));
+  }
+  const matches = text.split(from).length - 1;
+  if (matches === 0) {
+    throw new Error("replacement text was not found");
+  }
+  if (matches > 1 && options.all !== true) {
+    throw new Error(`replacement text matched ${matches} times; pass all: true or occurrence`);
+  }
+  return {
+    text: options.all === true ? text.split(from).join(to) : text.replace(from, to),
+    replacements: options.all === true ? matches : 1
+  };
+};
+
+globalThis.__hostrun_normalizePatchPath = function (path) {
+  const text = String(path ?? "");
+  if (text === "/dev/null") {
+    return null;
+  }
+  return text.replace(/^[ab]\//, "");
+};
+
+globalThis.__hostrun_parseHunkHeader = function (line) {
+  const match = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
+  if (!match) {
+    throw new Error(`invalid unified diff hunk header: ${line}`);
+  }
+  return {
+    oldStart: Number(match[1]),
+    newStart: Number(match[2])
+  };
+};
+
+globalThis.__hostrun_parsePatchHunks = function (lines, start) {
+  const hunks = [];
+  let index = start;
+  while (index < lines.length) {
+    if (!lines[index].startsWith("@@ ")) {
+      break;
+    }
+    const header = globalThis.__hostrun_parseHunkHeader(lines[index]);
+    index += 1;
+    const body = [];
+    while (index < lines.length && !lines[index].startsWith("@@ ") && !lines[index].startsWith("--- ")) {
+      if (!lines[index].startsWith("\\ No newline")) {
+        body.push(lines[index]);
+      }
+      index += 1;
+    }
+    hunks.push({ ...header, body });
+  }
+  return { hunks, next: index };
+};
+
+globalThis.__hostrun_parseUnifiedPatch = function (patch, explicitPath) {
+  const lines = String(patch).replace(/\r\n/g, "\n").split("\n");
+  if (lines[lines.length - 1] === "") {
+    lines.pop();
+  }
+  if (explicitPath !== undefined && explicitPath !== null && lines[0]?.startsWith("@@ ")) {
+    const parsed = globalThis.__hostrun_parsePatchHunks(lines, 0);
+    return [{ path: String(explicitPath), newFile: false, hunks: parsed.hunks }];
+  }
+  const files = [];
+  let index = 0;
+  while (index < lines.length) {
+    if (!lines[index].startsWith("--- ")) {
+      index += 1;
+      continue;
+    }
+    const oldPath = globalThis.__hostrun_normalizePatchPath(lines[index].slice(4).split(/\s+/)[0]);
+    index += 1;
+    if (!lines[index]?.startsWith("+++ ")) {
+      throw new Error("unified diff file header missing +++ line");
+    }
+    const newPath = globalThis.__hostrun_normalizePatchPath(lines[index].slice(4).split(/\s+/)[0]);
+    index += 1;
+    if (newPath === null) {
+      throw new Error("tools.file.patch does not support file deletion yet");
+    }
+    const parsed = globalThis.__hostrun_parsePatchHunks(lines, index);
+    files.push({ path: explicitPath === undefined ? newPath : String(explicitPath), newFile: oldPath === null, hunks: parsed.hunks });
+    index = parsed.next;
+  }
+  if (files.length === 0) {
+    throw new Error("no unified diff file hunks found");
+  }
+  return files;
+};
+
+globalThis.__hostrun_textLines = function (text) {
+  const value = String(text);
+  if (value.length === 0) {
+    return { lines: [], trailingNewline: false };
+  }
+  const trailingNewline = value.endsWith("\n");
+  const lines = value.split("\n");
+  if (trailingNewline) {
+    lines.pop();
+  }
+  return { lines, trailingNewline };
+};
+
+globalThis.__hostrun_applyPatchHunks = function (original, hunks) {
+  const split = globalThis.__hostrun_textLines(original);
+  const output = [];
+  let cursor = 0;
+  for (const hunk of hunks) {
+    const hunkStart = Math.max(0, hunk.oldStart - 1);
+    while (cursor < hunkStart) {
+      output.push(split.lines[cursor]);
+      cursor += 1;
+    }
+    for (const line of hunk.body) {
+      const kind = line.slice(0, 1);
+      const text = line.slice(1);
+      if (kind === " ") {
+        if (split.lines[cursor] !== text) {
+          throw new Error(`patch context mismatch: expected ${JSON.stringify(text)}, found ${JSON.stringify(split.lines[cursor])}`);
+        }
+        output.push(text);
+        cursor += 1;
+      } else if (kind === "-") {
+        if (split.lines[cursor] !== text) {
+          throw new Error(`patch removal mismatch: expected ${JSON.stringify(text)}, found ${JSON.stringify(split.lines[cursor])}`);
+        }
+        cursor += 1;
+      } else if (kind === "+") {
+        output.push(text);
+      } else {
+        throw new Error(`invalid unified diff line: ${line}`);
+      }
+    }
+  }
+  while (cursor < split.lines.length) {
+    output.push(split.lines[cursor]);
+    cursor += 1;
+  }
+  return output.join("\n") + (split.trailingNewline ? "\n" : "");
+};
+
+globalThis.__hostrun_applyFilePatch = function (filePatch) {
+  const original = filePatch.newFile ? "" : globalThis.fs.read(filePatch.path);
+  const updated = globalThis.__hostrun_applyPatchHunks(original, filePatch.hunks);
+  const result = globalThis.fs.write(filePatch.path, updated);
+  result.hunks = filePatch.hunks.length;
+  return result;
+};
+
+globalThis.tools.file = {
+  replace: function (path, fromOrOptions, to) {
+    const options = globalThis.__hostrun_fileReplaceOptions(fromOrOptions, to);
+    const result = globalThis.__hostrun_replaceText(globalThis.fs.read(path), options);
+    const write = globalThis.fs.write(path, result.text);
+    write.replacements = result.replacements;
+    return write;
+  },
+  patch: function (pathOrPatch, maybePatch) {
+    const patches = maybePatch === undefined
+      ? globalThis.__hostrun_parseUnifiedPatch(pathOrPatch)
+      : globalThis.__hostrun_parseUnifiedPatch(maybePatch, pathOrPatch);
+    return patches.map(globalThis.__hostrun_applyFilePatch);
+  }
+};
+
 globalThis.tmp = {
   file: function (prefix = "tmp", options = {}) {
     return globalThis.__hostrun_tmpHandle("file", globalThis.__hostrun_nextTmpPath(prefix, options.suffix ?? ""));

@@ -103,6 +103,35 @@ fs.open('config.toml');
 
 `fs.open()` parses JSON, JSONL, YAML, TOML, CSV, and TSV from the filename extension unless an explicit format is passed.
 
+## File Editing Helpers
+
+Use `tools.file.replace()` for small exact edits. It requires exactly one match by default, so ambiguous replacements fail before writing:
+
+```js
+tools.file.replace('README.md', { from: 'old text', to: 'new text' });
+tools.file.replace('README.md', 'old text', 'new text');
+tools.file.replace('README.md', { from: 'old', to: 'new', all: true });
+tools.file.replace('README.md', { from: 'old', to: 'new', occurrence: 2 });
+```
+
+Use `tools.file.patch()` for unified diffs. Pass a full diff with file headers, or pass the path separately when the patch only contains hunks:
+
+```js
+tools.file.patch(`--- a/notes.txt
++++ b/notes.txt
+@@ -1,2 +1,2 @@
+ alpha
+-old
++new
+`);
+
+tools.file.patch('notes.txt', `@@ -1,2 +1,2 @@
+ alpha
+-old
++new
+`);
+```
+
 ## HTTP
 
 Use `http.get/post/put/patch/delete/head(url, options)` or `http.request(method, url, options)`.

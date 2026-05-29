@@ -28,6 +28,7 @@ Do not use await. Hostrun helpers return values directly in this runtime. \
 This is not Deno, Node.js, or a browser: do not use Deno.*, process.*, \
 require/import, fetch, DOM APIs, or Web APIs unless Hostrun explicitly provides them. \
 Use Hostrun helpers for host access: host.cwd()/host.cd(), fs, cli, run, http, rg, fd, sqlite, kubectl, and tools. \
+Use tools.file.replace(path, { from, to }) for exact targeted file edits; it requires one match by default. Use tools.file.patch(diff) or tools.file.patch(path, diff) for unified diffs. \
 Use tools.browser for browser-cli Chrome/CDP automation: tools.browser.open(url).run(), tools.browser.get('title').text(), tools.browser.snapshot({ mini: true }).text(). \
 Prefer Hostrun JavaScript over shell loops for HTTP polling, retries, and response parsing. \
 Polling example: for (let i = 0; i < 30; i++) { const html = http.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, tls: { acceptInvalidCerts: true } }).text(); const tag = html.match(/<script type=\"module\" src=\"[^\"]*bundle[^\"]*\"/)?.[0] ?? ''; if (tag.includes('globalcomix-frontend.nyc3.cdn')) { tag; break; } run.sleep('2'); } \
@@ -38,6 +39,7 @@ For privileged commands use tools.sudo(cli.someCommand(...)).run(); it captures 
 const HOSTRUN_CODE_DESCRIPTION: &str = "\
 Synchronous JavaScript code for Hostrun QuickJS. Do not use await. No Deno, Node.js, browser, DOM, require/import, process.*, or Deno.* APIs. \
 Use Hostrun helpers such as host.cwd(), fs, cli, run, http, rg, fd, sqlite, kubectl, and tools. \
+Use tools.file.replace(path, { from, to }) for exact targeted file edits; it requires one match by default. Use tools.file.patch(diff) or tools.file.patch(path, diff) for unified diffs. \
 Use tools.browser for browser-cli Chrome/CDP automation: tools.browser.open(url).run(), tools.browser.get('title').text(), tools.browser.snapshot({ mini: true }).text(). \
 Prefer Hostrun JavaScript over shell loops for HTTP polling, retries, and response parsing. \
 Polling example: for (let i = 0; i < 30; i++) { const html = http.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, tls: { acceptInvalidCerts: true } }).text(); const tag = html.match(/<script type=\"module\" src=\"[^\"]*bundle[^\"]*\"/)?.[0] ?? ''; if (tag.includes('globalcomix-frontend.nyc3.cdn')) { tag; break; } run.sleep('2'); } \
@@ -242,6 +244,8 @@ mod tests {
         assert!(description.contains("acceptInvalidCerts"));
         assert!(description.contains("tools.browser.open(url).run()"));
         assert!(description.contains("tools.browser.snapshot({ mini: true }).text()"));
+        assert!(description.contains("tools.file.replace(path, { from, to })"));
+        assert!(description.contains("tools.file.patch(diff)"));
         assert!(description.contains("cli.git('status').in('/repo').stdout.text()"));
         assert!(description.contains("Never call run('dmidecode -t system')"));
         assert!(description.contains("tools.sudo(cli.dmidecode('-t', 'system')).run()"));
