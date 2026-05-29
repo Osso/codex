@@ -65,6 +65,30 @@ run.git('status', '--short');
 
 There is no `.complete()` command-builder method. Use explicit stream selectors or `.stdout.capture().stderr.capture().run()`.
 
+Prefer Hostrun over `Bash(...)` for multi-command workflows with pipes, command substitution, `grep`, `wc`, `sort`, `base64`, or data shaping. Capture command output and use JavaScript for filtering/counting/sorting:
+
+```js
+const secret = kubectl.get('secret', {
+  name: 'ipg-import',
+  namespace: 'ops'
+}).json();
+const decode = (value) => cli.base64('-d').stdin.text(value).text().trim();
+const remote = `:s3,provider=DigitalOcean,access_key_id=${decode(secret.data.DO_SPACES_ACCESS_KEY)},secret_access_key=${decode(secret.data.DO_SPACES_SECRET_KEY)},endpoint=nyc3.digitaloceanspaces.com:globalcomix-publisher-uploads`;
+const listing = cli.rclone('lsf', `${remote}/bookwire/content/`)
+  .lines()
+  .filter((line) => !line.includes('cached'));
+
+({
+  feedFiles: listing.filter((line) => /\.(xml|onix)$/i.test(line)),
+  total: listing.length,
+  recent: cli.rclone('lsl', `${remote}/bookwire/content/`)
+    .lines()
+    .filter((line) => !line.includes('cached'))
+    .sort()
+    .slice(-3)
+});
+```
+
 Use `.in(path)` for a one-command cwd without mutating the persistent Hostrun session cwd:
 
 ```js
