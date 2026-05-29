@@ -208,6 +208,38 @@ tools.github.createPR({
 });
 ```
 
+## Browser Helper
+
+`tools.browser` wraps `browser-cli` for Chrome DevTools Protocol automation. Chrome must be available with remote debugging; `browser-cli` can auto-start it in the usual local setup.
+
+Browser helpers return command builders, so actions use `.run()` and reads use `.text()`:
+
+```js
+tools.browser.open('https://example.com').run();
+tools.browser.get('title').text();
+tools.browser.text('main');
+tools.browser.click('button[type=submit]').run();
+tools.browser.fill('input[name=email]', 'user@example.com').run();
+tools.browser.press('Enter').run();
+```
+
+Snapshots, screenshots, JavaScript eval, waits, and tabs are also exposed:
+
+```js
+tools.browser.snapshot({ mini: true, interactive: true }).text();
+tools.browser.screenshot('/tmp/page.jpg', { full: true }).run();
+tools.browser.eval('document.title').text();
+tools.browser.wait('main').run();
+tools.browser.tabs.list().text();
+tools.browser.tabs.switch(0).run();
+```
+
+Use `tools.browser.command(...args)` for browser-cli subcommands that do not yet have a typed helper:
+
+```js
+tools.browser.command('get', 'attr', 'a.primary', 'href').text();
+```
+
 ## Search And Data Helpers
 
 Ripgrep and fd helpers build lazy commands:

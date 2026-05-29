@@ -126,6 +126,94 @@ fn tools_sudo_preserves_command_builder_io_overrides() {
 }
 
 #[test]
+fn browser_open_builds_browser_cli_command() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval("tools.browser.open('https://example.com').run();")
+        .expect("approval");
+
+    let approval = result.approval.expect("approval");
+    assert_eq!(
+        approval.id,
+        "cli.browser-cli:browser-cli open https://example.com"
+    );
+    assert_eq!(approval.tool, "cli.browser-cli");
+    assert_eq!(
+        approval.args,
+        json!({
+            "program": "browser-cli",
+            "args": ["open", "https://example.com"]
+        })
+    );
+}
+
+#[test]
+fn browser_get_helpers_capture_text() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval("tools.browser.get('title').text();")
+        .expect("approval");
+
+    assert_eq!(
+        result.approval.expect("approval").args,
+        json!({
+            "program": "browser-cli",
+            "args": ["get", "title"],
+            "stdout": { "type": "text" }
+        })
+    );
+}
+
+#[test]
+fn browser_snapshot_and_screenshot_build_expected_flags() {
+    let session = HostrunSession::new().expect("session");
+
+    let snapshot = session
+        .eval("tools.browser.snapshot({ mini: true, interactive: true, depth: 4 }).text();")
+        .expect("snapshot approval");
+
+    assert_eq!(
+        snapshot.approval.expect("approval").args,
+        json!({
+            "program": "browser-cli",
+            "args": ["snapshot", "--mini", "--interactive", "--depth", "4"],
+            "stdout": { "type": "text" }
+        })
+    );
+
+    let screenshot = session
+        .eval("tools.browser.screenshot('/tmp/page.jpg', { full: true }).run();")
+        .expect("screenshot approval");
+
+    assert_eq!(
+        screenshot.approval.expect("approval").args,
+        json!({
+            "program": "browser-cli",
+            "args": ["screenshot", "--full", "/tmp/page.jpg"]
+        })
+    );
+}
+
+#[test]
+fn browser_tabs_build_nested_commands() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval("tools.browser.tabs.switch(2).run();")
+        .expect("approval");
+
+    assert_eq!(
+        result.approval.expect("approval").args,
+        json!({
+            "program": "browser-cli",
+            "args": ["tabs", "switch", "2"]
+        })
+    );
+}
+
+#[test]
 fn run_proxy_string_call_explains_correct_api() {
     let session = HostrunSession::new().expect("session");
 

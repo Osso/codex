@@ -45,6 +45,7 @@ Hostrun evaluates synchronous JavaScript in a persistent QuickJS session:
 - Prefer Hostrun over shell loops for HTTP polling, retries, and response parsing. Example:
   `for (let i = 0; i < 30; i++) { const html = http.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, tls: { acceptInvalidCerts: true } }).text(); const tag = html.match(/<script type=\"module\" src=\"[^\"]*bundle[^\"]*\"/)?.[0] ?? ''; if (tag.includes('globalcomix-frontend.nyc3.cdn')) { tag; break; } run.sleep('2'); }`
 - `tools.sudo(commandBuilder)` wraps a `cli.*` command builder with `authsudo` for privileged commands. Example: `tools.sudo(cli.dmidecode('-t', 'system')).run()`. Its `.run()` captures stdout and stderr by default unless the wrapped builder already configured streams. `cli.sudo(...)` and `run.sudo(...)` still invoke the `sudo` binary literally.
+- `tools.browser` wraps `browser-cli` for Chrome/CDP automation. It returns command builders, so actions use `.run()` and reads use `.text()`: `tools.browser.open(url).run()`, `tools.browser.click('button').run()`, `tools.browser.get('title').text()`, `tools.browser.snapshot({ mini: true }).text()`, and `tools.browser.screenshot('/tmp/page.jpg', { full: true }).run()`.
 - `tools.github.createPR(options)` creates GitHub pull requests through `gh pr create` with the PR body sent via `--body-file -` stdin. Prefer `bodyLines: [...]` or a template literal `body` so Markdown newlines are real newlines; literal `\\n` sequences are rejected by default. Common options: `repo`, `base`, `head`, `title`, `body`, `bodyLines`, `draft`, `labels`, `reviewers`, `assignees`, `projects`, and `milestone`.
 - `tools.git.commit(options)` creates commits through `git commit --file -` with the commit message sent via stdin. Prefer `subject` plus `bodyLines: [...]` or a template literal `body`; literal `\\n` sequences are rejected by default. Common options: `cwd`, `subject`/`message`, `body`, `bodyLines`, `paths`/`files`, `includeStaged`, `all`, `amend`, `noEdit`, `allowEmpty`, `noVerify`, and `signoff`. Listed `paths`/`files` that exist are added before committing. `includeStaged` defaults to false, so unrelated staged files are excluded unless explicitly requested.
 
@@ -359,6 +360,8 @@ mod tests {
         assert!(fragments[0].text().contains("fd.find(pattern"));
         assert!(fragments[0].text().contains("rg.search(pattern"));
         assert!(fragments[0].text().contains("http.get/post"));
+        assert!(fragments[0].text().contains("tools.browser"));
+        assert!(fragments[0].text().contains("browser-cli"));
         assert!(
             fragments[0]
                 .text()

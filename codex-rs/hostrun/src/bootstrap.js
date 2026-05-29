@@ -1670,6 +1670,126 @@ globalThis.tools.sudo = function (command) {
   return globalThis.__hostrun_commandBuilder("authsudo", [program, ...args], sudoOptions);
 };
 
+globalThis.__hostrun_browserCommand = function (...args) {
+  return globalThis.__hostrun_commandBuilder("browser-cli", args.flat().filter((arg) => arg !== undefined && arg !== null));
+};
+
+globalThis.__hostrun_browserJsonFlag = function (options) {
+  return options?.json ? ["--json"] : [];
+};
+
+globalThis.__hostrun_browserSnapshotFlags = function (options = {}) {
+  const args = [];
+  if (options.react) args.push("--react");
+  if (options.full) args.push("--full");
+  if (options.mini) args.push("--mini");
+  if (options.interactive) args.push("--interactive");
+  if (options.compact) args.push("--compact");
+  if (options.depth !== undefined) args.push("--depth", String(options.depth));
+  if (options.filter !== undefined) args.push("--filter", String(options.filter));
+  return args;
+};
+
+globalThis.__hostrun_browserScreenshotFlags = function (path, options = {}) {
+  const args = [];
+  if (options.full) args.push("--full");
+  if (path !== undefined && path !== null) args.push(String(path));
+  return args;
+};
+
+globalThis.browser = {
+  command: function (...args) {
+    return globalThis.__hostrun_browserCommand(...args);
+  },
+  open: function (url, options = {}) {
+    return globalThis.__hostrun_browserCommand(...globalThis.__hostrun_browserJsonFlag(options), "open", String(url));
+  },
+  goto: function (url, options = {}) {
+    return this.open(url, options);
+  },
+  navigate: function (url, options = {}) {
+    return this.open(url, options);
+  },
+  back: function (options = {}) {
+    return globalThis.__hostrun_browserCommand(...globalThis.__hostrun_browserJsonFlag(options), "back");
+  },
+  forward: function (options = {}) {
+    return globalThis.__hostrun_browserCommand(...globalThis.__hostrun_browserJsonFlag(options), "forward");
+  },
+  reload: function (options = {}) {
+    return globalThis.__hostrun_browserCommand(...globalThis.__hostrun_browserJsonFlag(options), "reload");
+  },
+  close: function (options = {}) {
+    return globalThis.__hostrun_browserCommand(...globalThis.__hostrun_browserJsonFlag(options), "close");
+  },
+  click: function (selector, options = {}) {
+    return globalThis.__hostrun_browserCommand(...globalThis.__hostrun_browserJsonFlag(options), "click", String(selector));
+  },
+  type: function (selector, text, options = {}) {
+    return globalThis.__hostrun_browserCommand(...globalThis.__hostrun_browserJsonFlag(options), "type", String(selector), String(text));
+  },
+  fill: function (selector, text, options = {}) {
+    return globalThis.__hostrun_browserCommand(...globalThis.__hostrun_browserJsonFlag(options), "fill", String(selector), String(text));
+  },
+  press: function (key, options = {}) {
+    return globalThis.__hostrun_browserCommand(...globalThis.__hostrun_browserJsonFlag(options), "press", String(key));
+  },
+  get: function (kind, ...args) {
+    return globalThis.__hostrun_browserCommand("get", String(kind), ...args.map(String));
+  },
+  title: function () {
+    return this.get("title").text();
+  },
+  url: function () {
+    return this.get("url").text();
+  },
+  text: function (selector) {
+    return selector === undefined ? this.get("text").text() : this.get("text", selector).text();
+  },
+  html: function (selector) {
+    return this.get("html", selector).text();
+  },
+  value: function (selector) {
+    return this.get("value", selector).text();
+  },
+  attr: function (selector, name) {
+    return this.get("attr", selector, name).text();
+  },
+  count: function (selector) {
+    return Number(this.get("count", selector).text());
+  },
+  screenshot: function (path, options = {}) {
+    return globalThis.__hostrun_browserCommand("screenshot", ...globalThis.__hostrun_browserScreenshotFlags(path, options));
+  },
+  snapshot: function (options = {}) {
+    return globalThis.__hostrun_browserCommand("snapshot", ...globalThis.__hostrun_browserSnapshotFlags(options));
+  },
+  wait: function (target, options = {}) {
+    if (options.url !== undefined) return globalThis.__hostrun_browserCommand("wait", "--url", String(options.url));
+    if (options.load !== undefined) return globalThis.__hostrun_browserCommand("wait", "--load", String(options.load));
+    return globalThis.__hostrun_browserCommand("wait", String(target));
+  },
+  eval: function (code) {
+    return globalThis.__hostrun_browserCommand("eval", String(code));
+  },
+  tabs: {
+    list: function (options = {}) {
+      return globalThis.__hostrun_browserCommand(...globalThis.__hostrun_browserJsonFlag(options), "tabs", "list");
+    },
+    new: function (url, options = {}) {
+      return globalThis.__hostrun_browserCommand(...globalThis.__hostrun_browserJsonFlag(options), "tabs", "new", url === undefined ? undefined : String(url));
+    },
+    close: function (index, options = {}) {
+      return globalThis.__hostrun_browserCommand(...globalThis.__hostrun_browserJsonFlag(options), "tabs", "close", index === undefined ? undefined : String(index));
+    },
+    switch: function (index, options = {}) {
+      return globalThis.__hostrun_browserCommand(...globalThis.__hostrun_browserJsonFlag(options), "tabs", "switch", String(index));
+    }
+  }
+};
+
+globalThis.tools.browser = globalThis.browser;
+
 globalThis.which = function (program) {
   return globalThis.cli.which(String(program));
 };
