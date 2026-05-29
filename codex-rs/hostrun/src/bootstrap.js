@@ -2035,6 +2035,116 @@ globalThis.__hostrun_httpRequestBuilder = function (method, url, options = {}) {
   return builder;
 };
 
+globalThis.__hostrun_urlJoin = function (baseUrl, url) {
+  const text = String(url);
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(text)) {
+    return text;
+  }
+  const base = String(baseUrl ?? "");
+  if (text.startsWith("/")) {
+    return base.replace(/\/+$/, "") + text;
+  }
+  return base.replace(/\/+$/, "") + "/" + text;
+};
+
+globalThis.__hostrun_cookieEntries = function (headers) {
+  const value = headers?.["set-cookie"];
+  if (value === undefined || value === null) {
+    return [];
+  }
+  return Array.isArray(value) ? value : [value];
+};
+
+globalThis.__hostrun_storeCookie = function (jar, setCookie) {
+  const [pair] = String(setCookie).split(";");
+  const separator = pair.indexOf("=");
+  if (separator <= 0) {
+    return;
+  }
+  const name = pair.slice(0, separator).trim();
+  const value = pair.slice(separator + 1).trim();
+  if (name.length === 0) {
+    return;
+  }
+  jar[name] = value;
+};
+
+globalThis.__hostrun_cookieHeader = function (jar) {
+  const pairs = Object.entries(jar).map(([name, value]) => `${name}=${value}`);
+  return pairs.length === 0 ? undefined : pairs.join("; ");
+};
+
+globalThis.__hostrun_mergeHeaders = function (...headers) {
+  return Object.assign({}, ...headers.filter(Boolean));
+};
+
+globalThis.__hostrun_httpSession = function (defaults = {}) {
+  const jar = { ...(defaults.cookies ?? {}) };
+  const baseUrl = defaults.baseUrl ?? defaults.baseURL ?? "";
+  const session = {
+    cookies: jar,
+    run: function (method, url, options = {}) {
+      const cookie = globalThis.__hostrun_cookieHeader(jar);
+      const requestOptions = {
+        ...defaults,
+        ...options,
+        headers: globalThis.__hostrun_mergeHeaders(defaults.headers, cookie ? { Cookie: cookie } : undefined, options.headers)
+      };
+      delete requestOptions.baseUrl;
+      delete requestOptions.baseURL;
+      delete requestOptions.cookies;
+      const response = globalThis.http.request(method, globalThis.__hostrun_urlJoin(baseUrl, url), requestOptions).run();
+      for (const setCookie of globalThis.__hostrun_cookieEntries(response.headers)) {
+        globalThis.__hostrun_storeCookie(jar, setCookie);
+      }
+      return response;
+    },
+    request: function (method, url, options = {}) {
+      return globalThis.__hostrun_httpSessionRequestBuilder(session, method, url, options);
+    },
+    get: function (url, options = {}) {
+      return this.request("GET", url, options);
+    },
+    post: function (url, options = {}) {
+      return this.request("POST", url, options);
+    },
+    put: function (url, options = {}) {
+      return this.request("PUT", url, options);
+    },
+    patch: function (url, options = {}) {
+      return this.request("PATCH", url, options);
+    },
+    delete: function (url, options = {}) {
+      return this.request("DELETE", url, options);
+    },
+    head: function (url, options = {}) {
+      return this.request("HEAD", url, options);
+    }
+  };
+  return session;
+};
+
+globalThis.__hostrun_httpSessionRequestBuilder = function (session, method, url, options = {}) {
+  const builder = {
+    run: function () {
+      return session.run(method, url, options);
+    },
+    text: function () {
+      return session.run(method, url, { ...options, response: { type: "text" } }).text ?? "";
+    },
+    json: function () {
+      return session.run(method, url, { ...options, response: { type: "json" } }).json ?? null;
+    },
+    bytes: function () {
+      return session.run(method, url, { ...options, response: { type: "bytes" } }).body ?? [];
+    },
+    save: function (path) {
+      return session.run(method, url, { ...options, response: { type: "file", path } });
+    }
+  };
+  return builder;
+};
+
 globalThis.http = {
   request: function (method, url, options = {}) {
     return globalThis.__hostrun_httpRequestBuilder(method, url, options);
@@ -2056,6 +2166,9 @@ globalThis.http = {
   },
   head: function (url, options = {}) {
     return globalThis.http.request("HEAD", url, options);
+  },
+  session: function (defaults = {}) {
+    return globalThis.__hostrun_httpSession(defaults);
   }
 };
 

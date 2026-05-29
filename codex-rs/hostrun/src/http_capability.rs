@@ -331,17 +331,21 @@ fn apply_response_body(
 }
 
 fn response_headers(headers: &HeaderMap) -> Value {
-    Value::Object(
-        headers
-            .iter()
-            .map(|(name, value)| {
-                (
-                    name.as_str().to_string(),
-                    Value::String(value.to_str().unwrap_or("").to_string()),
-                )
-            })
-            .collect(),
-    )
+    let mut output = serde_json::Map::new();
+    for (name, value) in headers {
+        let name = name.as_str().to_string();
+        let value = Value::String(value.to_str().unwrap_or("").to_string());
+        match output.get_mut(&name) {
+            Some(Value::Array(values)) => values.push(value),
+            Some(existing) => {
+                *existing = Value::Array(vec![existing.clone(), value]);
+            }
+            None => {
+                output.insert(name, value);
+            }
+        }
+    }
+    Value::Object(output)
 }
 
 fn parse_duration(value: &Value) -> Option<Duration> {

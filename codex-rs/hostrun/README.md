@@ -119,6 +119,21 @@ http.get('https://example.com/').text().slice(0, 120);
 http.get('https://example.com/').run().status;
 ```
 
+Use `http.session(options)` when multiple requests share a base URL, headers, TLS options, or cookies:
+
+```js
+ctx.unifi = http.session({
+  baseUrl: `https://${cfg.host}`,
+  headers: { 'X-API-Key': cfg.api_key },
+  tls: { acceptInvalidCerts: true }
+});
+
+ctx.unifi.get('/proxy/network/api/s/default/rest/portforward').json();
+ctx.unifi.cookies;
+```
+
+HTTP sessions store cookies from `Set-Cookie` response headers and send them on later requests through the session. The cookie jar is a visible object at `.cookies`.
+
 Prefer Hostrun over shell loops for HTTP polling, retries, and response parsing:
 
 ```js

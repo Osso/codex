@@ -2,6 +2,7 @@ use std::fs;
 use std::io::Read;
 use std::io::Write;
 use std::net::TcpListener;
+use std::sync::mpsc;
 use std::thread;
 
 use serde_json::json;
@@ -216,6 +217,46 @@ fn approved_http_request_can_disable_redirects() {
     assert_eq!(result.value.expect("value")["status"], json!(302));
 }
 
+#[test]
+fn approved_http_session_persists_cookies_between_requests() {
+    let (tx, rx) = mpsc::channel();
+    let server = TestHttpServer::start_many(2, move |request| {
+        tx.send(request.clone()).expect("record request");
+        if request.starts_with("get /login ") {
+            return "HTTP/1.1 200 OK\r\nset-cookie: token=abc; Path=/\r\nset-cookie: mode=dark; Path=/\r\ncontent-length: 6\r\n\r\nlogged"
+                .to_string();
+        }
+        assert!(request.starts_with("get /data "));
+        assert!(request.contains("cookie: token=abc; mode=dark"));
+        http_response("200 OK", "application/json", r#"{"ok":true}"#)
+    });
+    let session = HostrunSession::new_auto_approve().expect("session");
+
+    let result = session
+        .eval(&format!(
+            "const client = http.session({{ baseUrl: {} }});
+             client.get('/login').text();
+             ({{
+               cookies: client.cookies,
+               data: client.get('/data').json()
+             }});",
+            json!(server.url(""))
+        ))
+        .expect("http session");
+
+    let first = rx.recv().expect("first request");
+    let second = rx.recv().expect("second request");
+    assert!(!first.contains("cookie:"));
+    assert!(second.contains("cookie: token=abc; mode=dark"));
+    assert_eq!(
+        result.value,
+        Some(json!({
+            "cookies": { "token": "abc", "mode": "dark" },
+            "data": { "ok": true }
+        }))
+    );
+}
+
 struct TestHttpServer {
     url: String,
     handle: Option<thread::JoinHandle<()>>,
@@ -232,6 +273,28 @@ impl TestHttpServer {
             stream
                 .write_all(response.as_bytes())
                 .expect("write response");
+        });
+        Self {
+            url,
+            handle: Some(handle),
+        }
+    }
+
+    fn start_many(
+        count: usize,
+        mut handler: impl FnMut(String) -> String + Send + 'static,
+    ) -> Self {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
+        let url = format!("http://{}", listener.local_addr().expect("local addr"));
+        let handle = thread::spawn(move || {
+            for _ in 0..count {
+                let (mut stream, _) = listener.accept().expect("accept connection");
+                let request = read_http_request(&mut stream);
+                let response = handler(request);
+                stream
+                    .write_all(response.as_bytes())
+                    .expect("write response");
+            }
         });
         Self {
             url,
