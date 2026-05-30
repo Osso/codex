@@ -1,6 +1,7 @@
 use std::path::Path;
 use std::path::PathBuf;
 
+use serde_json::Map;
 use serde_json::Value;
 use serde_json::json;
 
@@ -62,6 +63,36 @@ pub(crate) fn payload_cwd(
         ));
     };
     Ok(resolve_path(session_cwd, cwd))
+}
+
+pub(crate) fn payload_env(
+    payload: &serde_json::Map<String, Value>,
+) -> Result<Vec<(String, String)>, HostrunSessionError> {
+    let Some(env) = payload.get("env") else {
+        return Ok(Vec::new());
+    };
+    let Value::Object(env) = env else {
+        return Err(HostrunSessionError::Eval(
+            "cli env must be an object".to_string(),
+        ));
+    };
+    env.iter()
+        .map(|(key, value)| Ok((key.clone(), arg_to_string(value)?)))
+        .collect()
+}
+
+pub(crate) fn redact_env_values(payload: &mut Value) {
+    let Value::Object(payload) = payload else {
+        return;
+    };
+    let Some(Value::Object(env)) = payload.get_mut("env") else {
+        return;
+    };
+    let redacted = env
+        .keys()
+        .map(|key| (key.clone(), Value::String("[redacted]".to_string())))
+        .collect::<Map<String, Value>>();
+    *env = redacted;
 }
 
 fn arg_to_string(value: &Value) -> Result<String, HostrunSessionError> {

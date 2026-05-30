@@ -411,6 +411,31 @@ fn approved_cli_command_serializes_structured_stdin_sources() {
 }
 
 #[test]
+fn approved_cli_command_sets_environment_variables() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+
+    let result = session
+        .eval("cli.printenv('TOKEN').env({ TOKEN: 'plain' }).text();")
+        .expect("env command");
+
+    assert_eq!(result.value, Some(json!("plain\n")));
+}
+
+#[test]
+fn approved_cli_command_stream_sources_can_use_environment_variables() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+
+    let result = session
+        .eval(
+            "const source = cli.printenv('TOKEN').env({ TOKEN: 'plain' });
+             cli.cat().stdin(source.stdout).text();",
+        )
+        .expect("env stream command");
+
+    assert_eq!(result.value, Some(json!("plain\n")));
+}
+
+#[test]
 fn approved_cli_command_parses_structured_stdout() {
     let session = HostrunSession::new_auto_approve().expect("session");
 

@@ -284,7 +284,13 @@ impl HostCapabilityInvoker {
         if payload.get("action").and_then(Value::as_str) == Some("spawn") {
             return self.spawn_process(program, &argv, payload, &cwd);
         }
-        let output = cli_execution::run_cli_process(program, &argv, payload.get("stdin"), &cwd)?;
+        let output = cli_execution::run_cli_process(
+            program,
+            &argv,
+            payload.get("stdin"),
+            payload.get("env"),
+            &cwd,
+        )?;
         cli_execution::cli_execution_result(program, &argv, &payload, output, &cwd)
     }
 
@@ -301,8 +307,9 @@ impl HostCapabilityInvoker {
             ));
         }
         let stdin = cli_execution::stdin_input(payload.get("stdin"), cwd)?;
+        let env = cli_payload::payload_env(&payload)?;
         let mut child =
-            cli_execution::spawn_cli_process(program, argv, stdin.bytes.is_some(), cwd)?;
+            cli_execution::spawn_cli_process(program, argv, stdin.bytes.is_some(), &env, cwd)?;
         let pid = child.id();
         cli_execution::write_cli_stdin(program, &mut child, stdin.bytes)?;
         let mut processes = self.processes.lock().map_err(|error| {
@@ -479,7 +486,11 @@ fn cli_command_approval(tool_path: &str, args: Value) -> HostrunApprovalRequest 
         id: format!("cli.{program}:{command}"),
         tool: format!("cli.{program}"),
         summary: format!("{verb} {command}{io_summary}"),
-        args: cli_payload::command_args(program, cli_args, io),
+        args: {
+            let mut args = cli_payload::command_args(program, cli_args, io);
+            cli_payload::redact_env_values(&mut args);
+            args
+        },
     }
 }
 

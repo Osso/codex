@@ -49,6 +49,7 @@ Hostrun evaluates synchronous JavaScript in a persistent QuickJS session:
 - Kubernetes secret plus rclone listing example:
   `const secret = kubectl.get('secret', { name: 'ipg-import', namespace: 'ops' }).json(); const decode = (value) => cli.base64('-d').stdin.text(value).text().trim(); const remote = ':s3,provider=DigitalOcean,access_key_id=' + decode(secret.data.DO_SPACES_ACCESS_KEY) + ',secret_access_key=' + decode(secret.data.DO_SPACES_SECRET_KEY) + ',endpoint=nyc3.digitaloceanspaces.com:globalcomix-publisher-uploads'; const listing = cli.rclone('lsf', remote + '/bookwire/content/').lines().filter((line) => !line.includes('cached')); ({ feedFiles: listing.filter((line) => line.endsWith('.xml') || line.endsWith('.onix')), total: listing.length });`
 - `tools.sudo(commandBuilder)` wraps a `cli.*` command builder with `authsudo` for privileged commands. Example: `tools.sudo(cli.dmidecode('-t', 'system')).run()`. Its `.run()` captures stdout and stderr by default unless the wrapped builder already configured streams. `cli.sudo(...)` and `run.sudo(...)` still invoke the `sudo` binary literally.
+- `tools.ssh({ host, user, port, password, passwordMode }).run(cli.hostname())` runs a `cli.*` command builder remotely through OpenSSH and captures stdout/stderr by default. Use `.cli(command)` instead of `.run(command)` when you want to choose output handling, e.g. `tools.ssh({ host }).cli(cli.cat('/etc/os-release')).text()`. Password auth is only enabled when `passwordMode: 'plain'` is explicit; this uses `sshpass -e` and redacts `SSHPASS` from approval metadata.
 - `tools.browser` wraps `browser-cli` for Chrome/CDP automation. It returns command builders, so actions use `.run()` and reads use `.text()`: `tools.browser.open(url).run()`, `tools.browser.click('button').run()`, `tools.browser.get('title').text()`, `tools.browser.snapshot({ mini: true }).text()`, and `tools.browser.screenshot('/tmp/page.jpg', { full: true }).run()`.
 - `tools.github.createPR(options)` creates GitHub pull requests through `gh pr create` with the PR body sent via `--body-file -` stdin. Prefer `bodyLines: [...]` or a template literal `body` so Markdown newlines are real newlines; literal `\\n` sequences are rejected by default. Common options: `repo`, `base`, `head`, `title`, `body`, `bodyLines`, `draft`, `labels`, `reviewers`, `assignees`, `projects`, and `milestone`.
 - `tools.github.prView({ repo, pr, fields })` wraps `gh pr view --json ...` and returns parsed JSON. Default fields cover the common review/status shape: number, title, url, headRefName, baseRefName, state, mergeable, reviewDecision, and statusCheckRollup.
@@ -368,6 +369,8 @@ mod tests {
         assert!(fragments[0].text().contains("tools.git.status"));
         assert!(fragments[0].text().contains("tools.github.prView"));
         assert!(fragments[0].text().contains("tools.github.runView"));
+        assert!(fragments[0].text().contains("tools.ssh"));
+        assert!(fragments[0].text().contains("passwordMode: 'plain'"));
         assert!(fragments[0].text().contains("rclone.lsf(target"));
         assert!(fragments[0].text().contains("fd.find(pattern"));
         assert!(fragments[0].text().contains("rg.search(pattern"));

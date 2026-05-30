@@ -8,6 +8,7 @@ use std::process::Stdio;
 
 use serde_json::Value;
 
+use crate::cli_payload;
 use crate::fs_capability::resolve_path;
 use crate::session::HostrunSessionError;
 
@@ -16,6 +17,7 @@ pub(crate) struct CliStreamSource {
     pub(crate) program: String,
     pub(crate) argv: Vec<String>,
     pub(crate) cwd: Option<PathBuf>,
+    pub(crate) env: Vec<(String, String)>,
 }
 
 pub(crate) fn stream_source(
@@ -28,14 +30,7 @@ pub(crate) fn stream_source(
         .and_then(Value::as_str)
         .unwrap_or("stdout")
         .to_string();
-    let command = source
-        .get("command")
-        .ok_or_else(|| HostrunSessionError::Eval("stdin stream command is required".to_string()))?;
-    let Value::Object(command) = command else {
-        return Err(HostrunSessionError::Eval(
-            "stdin stream command must be an object".to_string(),
-        ));
-    };
+    let command = stream_source_command(source)?;
     let program = command
         .get("program")
         .and_then(Value::as_str)
@@ -51,7 +46,22 @@ pub(crate) fn stream_source(
             .get("cwd")
             .and_then(Value::as_str)
             .map(PathBuf::from),
+        env: cli_payload::payload_env(command)?,
     })
+}
+
+fn stream_source_command(
+    source: &Value,
+) -> Result<&serde_json::Map<String, Value>, HostrunSessionError> {
+    let command = source
+        .get("command")
+        .ok_or_else(|| HostrunSessionError::Eval("stdin stream command is required".to_string()))?;
+    let Value::Object(command) = command else {
+        return Err(HostrunSessionError::Eval(
+            "stdin stream command must be an object".to_string(),
+        ));
+    };
+    Ok(command)
 }
 
 pub(crate) fn spawn_stream_source(
@@ -63,9 +73,12 @@ pub(crate) fn spawn_stream_source(
         .as_ref()
         .map(|path| resolve_path(cwd, path))
         .unwrap_or_else(|| cwd.to_path_buf());
-    Command::new(&source.program)
+    let mut command = Command::new(&source.program);
+    command
         .args(&source.argv)
         .current_dir(&cwd)
+        .envs(source.env.iter().cloned());
+    command
         .stdin(Stdio::null())
         .stdout(if source.stream == "stdout" {
             Stdio::piped()

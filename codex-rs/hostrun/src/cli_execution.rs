@@ -41,6 +41,7 @@ pub(crate) fn run_cli_process(
     program: &str,
     argv: &[String],
     stdin: Option<&Value>,
+    env: Option<&Value>,
     cwd: &Path,
 ) -> Result<CliProcessOutput, HostrunSessionError> {
     if stdin.and_then(stdin_type) == Some("stream") {
@@ -48,11 +49,13 @@ pub(crate) fn run_cli_process(
             program,
             argv,
             stdin.and_then(|stdin| stdin.get("source")),
+            env,
             cwd,
         );
     }
     let stdin = stdin_input(stdin, cwd)?;
-    let mut child = spawn_cli_process(program, argv, stdin.bytes.is_some(), cwd)?;
+    let env = command_env(env)?;
+    let mut child = spawn_cli_process(program, argv, stdin.bytes.is_some(), &env, cwd)?;
     write_cli_stdin(program, &mut child, stdin.bytes)?;
     let output = child.wait_with_output().map_err(|error| {
         HostrunSessionError::Eval(format!("failed to wait for {program}: {error}"))
@@ -68,11 +71,15 @@ pub(crate) fn spawn_cli_process(
     program: &str,
     argv: &[String],
     has_stdin: bool,
+    env: &[(String, String)],
     cwd: &Path,
 ) -> Result<Child, HostrunSessionError> {
-    Command::new(program)
+    let mut command = Command::new(program);
+    command
         .args(argv)
         .current_dir(cwd)
+        .envs(env.iter().cloned());
+    command
         .stdin(if has_stdin {
             Stdio::piped()
         } else {
@@ -82,6 +89,15 @@ pub(crate) fn spawn_cli_process(
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|error| HostrunSessionError::Eval(format!("failed to start {program}: {error}")))
+}
+
+pub(crate) fn command_env(
+    env: Option<&Value>,
+) -> Result<Vec<(String, String)>, HostrunSessionError> {
+    let Some(Value::Object(payload)) = env.map(|env| json!({ "env": env })) else {
+        return Ok(Vec::new());
+    };
+    cli_payload::payload_env(&payload)
 }
 
 pub(crate) fn write_cli_stdin(
@@ -178,14 +194,19 @@ fn run_stream_cli_process(
     program: &str,
     argv: &[String],
     source: Option<&Value>,
+    env: Option<&Value>,
     cwd: &Path,
 ) -> Result<CliProcessOutput, HostrunSessionError> {
+    let env = command_env(env)?;
     let source = cli_stream::stream_source(source)?;
     let mut upstream = cli_stream::spawn_stream_source(&source, cwd)?;
     let pipe = cli_stream::take_stream_pipe(&mut upstream, &source)?;
-    let output = Command::new(program)
+    let mut command = Command::new(program);
+    command
         .args(argv)
         .current_dir(cwd)
+        .envs(env.iter().cloned());
+    let output = command
         .stdin(pipe)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -267,7 +288,7 @@ fn stream_stdin_bytes(
             HostrunSessionError::Eval("stdin stream command program is required".to_string())
         })?;
     let argv = cli_payload::payload_args(command)?;
-    let output = run_cli_process(program, &argv, None, cwd)?;
+    let output = run_cli_process(program, &argv, None, command.get("env"), cwd)?;
     let bytes = match stream {
         "stdout" => output.stdout,
         "stderr" => output.stderr,

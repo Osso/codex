@@ -11,6 +11,11 @@ pub(crate) fn io_summary(io: Option<&Value>) -> String {
     if let Some(stdin) = io.get("stdin") {
         parts.push(stdin_summary(stdin));
     }
+    if let Some(Value::Object(env)) = io.get("env") {
+        let mut keys = env.keys().cloned().collect::<Vec<_>>();
+        keys.sort();
+        parts.push(format!("env {}", keys.join(",")));
+    }
     for name in ["stdout", "stderr", "combined"] {
         if let Some(output) = io.get(name) {
             parts.push(output_summary(name, output));

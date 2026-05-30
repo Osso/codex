@@ -113,6 +113,24 @@ tools.sudo(cli.dmidecode('-t', 'system').stdout.capture()).run();
 
 `cli.sudo(...)` and `run.sudo(...)` invoke the `sudo` binary literally. They do not use `authsudo`.
 
+## SSH Commands
+
+`tools.ssh(options)` wraps OpenSSH for remote `cli.*` command builders. `.run(command)` captures stdout and stderr by default:
+
+```js
+const router = tools.ssh({
+  host: 'router',
+  user: 'root',
+  password: 'none',
+  passwordMode: 'plain'
+});
+
+router.run(cli.hostname());
+router.cli(cli.cat('/etc/os-release')).text();
+```
+
+Password auth is only enabled when `passwordMode: 'plain'` is explicit. That mode uses `sshpass -e` and redacts `SSHPASS` from approval metadata; it is meant for intentionally non-secret passwords such as `none`.
+
 ## Files
 
 Filesystem helpers are approval-gated:

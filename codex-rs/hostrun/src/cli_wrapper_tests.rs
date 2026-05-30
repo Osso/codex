@@ -126,6 +126,90 @@ fn tools_sudo_preserves_command_builder_io_overrides() {
 }
 
 #[test]
+fn command_builder_env_is_redacted_in_approval() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval("cli.printenv('TOKEN').env('TOKEN', 'plain').stdout.text();")
+        .expect("approval");
+
+    let approval = result.approval.expect("approval");
+    assert_eq!(
+        approval.summary,
+        "Run printenv TOKEN (env TOKEN, stdout text)"
+    );
+    assert_eq!(
+        approval.args,
+        json!({
+            "program": "printenv",
+            "args": ["TOKEN"],
+            "env": { "TOKEN": "[redacted]" },
+            "stdout": { "type": "text" }
+        })
+    );
+}
+
+#[test]
+fn tools_ssh_plain_password_uses_sshpass_env() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval(
+            "tools.ssh({
+              host: 'router',
+              user: 'root',
+              password: 'none',
+              passwordMode: 'plain'
+            }).run(cli.echo('hello'));",
+        )
+        .expect("approval");
+
+    let approval = result.approval.expect("approval");
+    assert_eq!(approval.tool, "cli.sshpass");
+    assert_eq!(
+        approval.summary,
+        "Run sshpass -e ssh root@router 'echo' 'hello' (env SSHPASS, stdout text, stderr text)"
+    );
+    assert_eq!(
+        approval.args,
+        json!({
+            "program": "sshpass",
+            "args": ["-e", "ssh", "root@router", "'echo' 'hello'"],
+            "env": { "SSHPASS": "[redacted]" },
+            "stdout": { "type": "text" },
+            "stderr": { "type": "text" }
+        })
+    );
+}
+
+#[test]
+fn tools_ssh_rejects_password_without_plain_mode() {
+    let session = HostrunSession::new().expect("session");
+
+    session
+        .eval("tools.ssh({ host: 'router', password: 'none' }).run(cli.hostname());")
+        .expect_err("plain password mode should be explicit");
+}
+
+#[test]
+fn tools_ssh_cli_returns_lazy_builder() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval("tools.ssh({ host: 'router', port: 2222 }).cli(cli.hostname()).text();")
+        .expect("approval");
+
+    assert_eq!(
+        result.approval.expect("approval").args,
+        json!({
+            "program": "ssh",
+            "args": ["-p", "2222", "router", "'hostname'"],
+            "stdout": { "type": "text" }
+        })
+    );
+}
+
+#[test]
 fn browser_open_builds_browser_cli_command() {
     let session = HostrunSession::new().expect("session");
 

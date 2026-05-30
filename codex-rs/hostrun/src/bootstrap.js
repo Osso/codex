@@ -1649,6 +1649,15 @@ globalThis.__hostrun_commandBuilder = function (program, args, options = {}) {
       state.cwd = String(path);
       return builder;
     },
+    env: function (nameOrValues, value) {
+      state.env = state.env ?? {};
+      if (typeof nameOrValues === "object" && nameOrValues !== null && !Array.isArray(nameOrValues)) {
+        Object.assign(state.env, nameOrValues);
+      } else {
+        state.env[String(nameOrValues)] = String(value ?? "");
+      }
+      return builder;
+    },
     toJSON: function () {
       return { ...state };
     }
@@ -1866,6 +1875,83 @@ globalThis.tools.sudo = function (command) {
     sudoOptions.stderr = { type: "text" };
   }
   return globalThis.__hostrun_commandBuilder("authsudo", [program, ...args], sudoOptions);
+};
+
+globalThis.__hostrun_shellQuote = function (value) {
+  const text = String(value);
+  if (text.length === 0) {
+    return "''";
+  }
+  return "'" + text.replace(/'/g, "'\\''") + "'";
+};
+
+globalThis.__hostrun_remoteCommand = function (state) {
+  const command = [state.program, ...(state.args ?? [])]
+    .map(globalThis.__hostrun_shellQuote)
+    .join(" ");
+  if (state.cwd === undefined || state.cwd === null) {
+    return command;
+  }
+  return "cd " + globalThis.__hostrun_shellQuote(state.cwd) + " && " + command;
+};
+
+globalThis.__hostrun_sshArgs = function (options, remoteCommand) {
+  if (!options || typeof options !== "object") {
+    throw new Error("tools.ssh requires an options object");
+  }
+  if (options.host === undefined || options.host === null || String(options.host).length === 0) {
+    throw new Error("tools.ssh requires host");
+  }
+  const destination = options.user === undefined || options.user === null
+    ? String(options.host)
+    : String(options.user) + "@" + String(options.host);
+  const args = [];
+  globalThis.__hostrun_addOption(args, "-p", options.port);
+  for (const option of globalThis.__hostrun_values(options.options)) {
+    args.push("-o", String(option));
+  }
+  args.push(destination, remoteCommand);
+  return args;
+};
+
+globalThis.__hostrun_sshCommand = function (options, remoteState, defaults = {}) {
+  const sshArgs = globalThis.__hostrun_sshArgs(options, globalThis.__hostrun_remoteCommand(remoteState));
+  const commandOptions = { ...remoteState, ...defaults };
+  delete commandOptions.program;
+  delete commandOptions.args;
+  delete commandOptions.cwd;
+  if (options.password !== undefined || options.passwordMode !== undefined) {
+    if (options.passwordMode !== "plain") {
+      throw new Error("tools.ssh password requires passwordMode: 'plain'");
+    }
+    commandOptions.env = { ...(commandOptions.env ?? {}), SSHPASS: String(options.password ?? "") };
+    return globalThis.__hostrun_commandBuilder("sshpass", ["-e", "ssh", ...sshArgs], commandOptions);
+  }
+  return globalThis.__hostrun_commandBuilder("ssh", sshArgs, commandOptions);
+};
+
+globalThis.tools.ssh = function (options = {}) {
+  const wrap = function (command, defaults = {}) {
+    if (!command || typeof command.toJSON !== "function") {
+      throw new Error("tools.ssh expects a cli.* command builder, e.g. tools.ssh({ host }).run(cli.hostname())");
+    }
+    return globalThis.__hostrun_sshCommand(options, command.toJSON(), defaults);
+  };
+  return {
+    cli: function (command) {
+      return wrap(command);
+    },
+    run: function (command) {
+      const defaults = {};
+      if (!("stdout" in command.toJSON()) && !("combined" in command.toJSON())) {
+        defaults.stdout = { type: "text" };
+      }
+      if (!("stderr" in command.toJSON()) && !("combined" in command.toJSON())) {
+        defaults.stderr = { type: "text" };
+      }
+      return wrap(command, defaults).run();
+    }
+  };
 };
 
 globalThis.__hostrun_browserCommand = function (...args) {
