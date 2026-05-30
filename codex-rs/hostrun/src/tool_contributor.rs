@@ -51,6 +51,8 @@ Hostrun evaluates synchronous JavaScript in a persistent QuickJS session:
 - `tools.sudo(commandBuilder)` wraps a `cli.*` command builder with `authsudo` for privileged commands. Example: `tools.sudo(cli.dmidecode('-t', 'system')).run()`. Its `.run()` captures stdout and stderr by default unless the wrapped builder already configured streams. `cli.sudo(...)` and `run.sudo(...)` still invoke the `sudo` binary literally.
 - `tools.browser` wraps `browser-cli` for Chrome/CDP automation. It returns command builders, so actions use `.run()` and reads use `.text()`: `tools.browser.open(url).run()`, `tools.browser.click('button').run()`, `tools.browser.get('title').text()`, `tools.browser.snapshot({ mini: true }).text()`, and `tools.browser.screenshot('/tmp/page.jpg', { full: true }).run()`.
 - `tools.github.createPR(options)` creates GitHub pull requests through `gh pr create` with the PR body sent via `--body-file -` stdin. Prefer `bodyLines: [...]` or a template literal `body` so Markdown newlines are real newlines; literal `\\n` sequences are rejected by default. Common options: `repo`, `base`, `head`, `title`, `body`, `bodyLines`, `draft`, `labels`, `reviewers`, `assignees`, `projects`, and `milestone`.
+- `tools.github.prView({ repo, pr, fields })` wraps `gh pr view --json ...` and returns parsed JSON. Default fields cover the common review/status shape: number, title, url, headRefName, baseRefName, state, mergeable, reviewDecision, and statusCheckRollup.
+- `tools.git.status({ cwd })` returns `git status --short --branch` text by default. Pass `short: false` or `branch: false` to omit either flag.
 - `tools.git.commit(options)` creates commits through `git commit --file -` with the commit message sent via stdin. Prefer `subject` plus `bodyLines: [...]` or a template literal `body`; literal `\\n` sequences are rejected by default. Common options: `cwd`, `subject`/`message`, `body`, `bodyLines`, `paths`/`files`, `includeStaged`, `all`, `amend`, `noEdit`, `allowEmpty`, `noVerify`, and `signoff`. Listed `paths`/`files` that exist are added before committing. `includeStaged` defaults to false, so unrelated staged files are excluded unless explicitly requested.
 
 Return a final expression value when useful.";
@@ -362,6 +364,8 @@ mod tests {
         assert!(fragments[0].text().contains("fs.read(path)"));
         assert!(fragments[0].text().contains("tools.file.replace"));
         assert!(fragments[0].text().contains("tools.file.patch"));
+        assert!(fragments[0].text().contains("tools.git.status"));
+        assert!(fragments[0].text().contains("tools.github.prView"));
         assert!(fragments[0].text().contains("rclone.lsf(target"));
         assert!(fragments[0].text().contains("fd.find(pattern"));
         assert!(fragments[0].text().contains("rg.search(pattern"));

@@ -7,6 +7,31 @@ use serde_json::json;
 use super::HostrunSession;
 
 #[test]
+fn git_status_defaults_to_short_branch_output() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval("tools.git.status({ cwd: '/repo' });")
+        .expect("approval");
+
+    assert_eq!(result.result_type, "needs_approval");
+    let approval = result.approval.expect("approval");
+    assert_eq!(approval.tool, "cli.git");
+    assert_eq!(
+        approval.summary,
+        "Run git -C /repo status --short --branch (stdout text)"
+    );
+    assert_eq!(
+        approval.args,
+        json!({
+            "program": "git",
+            "args": ["-C", "/repo", "status", "--short", "--branch"],
+            "stdout": { "type": "text" }
+        })
+    );
+}
+
+#[test]
 fn git_commit_uses_file_stdin_for_message() {
     let session = HostrunSession::new().expect("session");
 

@@ -210,6 +210,12 @@ for (let i = 0; i < 30; i++) {
 
 ## Git Helpers
 
+`tools.git.status({ cwd })` returns `git status --short --branch` text:
+
+```js
+tools.git.status({ cwd: '/syncthing/Sync/Projects/globalcomix/gc' });
+```
+
 `tools.git.commit(options)` creates commits with the message sent through `git commit --file -`.
 
 ```js
@@ -244,6 +250,16 @@ tools.git.commit({
 Literal `\n` sequences in commit messages are rejected by default. Use `bodyLines` or a template literal for multiline text.
 
 ## GitHub PR Helper
+
+`tools.github.prView({ repo, pr, fields })` returns parsed JSON from `gh pr view --json ...`:
+
+```js
+tools.github.prView({
+  repo: 'Globalcomix/gc',
+  pr: 789,
+  fields: ['headRefName', 'baseRefName', 'state', 'mergeable']
+});
+```
 
 `tools.github.createPR(options)` creates pull requests through `gh pr create` and sends the body through stdin:
 

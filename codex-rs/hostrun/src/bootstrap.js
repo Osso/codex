@@ -2104,6 +2104,18 @@ globalThis.__hostrun_gitCwdArgs = function (options) {
 };
 
 globalThis.git = {
+  status: function (options = {}) {
+    const args = [...globalThis.__hostrun_gitCwdArgs(options), "status"];
+    if (options.short !== false) {
+      args.push("--short");
+    }
+    if (options.branch !== false) {
+      args.push("--branch");
+    }
+    globalThis.__hostrun_addOption(args, "--untracked-files", options.untrackedFiles);
+    globalThis.__hostrun_addOption(args, "--ignored", options.ignored);
+    return globalThis.cli.git(...args).text();
+  },
   commit: function (options = {}) {
     const requestedPaths = globalThis.__hostrun_gitCommitPaths(options);
     const paths = globalThis.__hostrun_existingGitCommitPaths(options, requestedPaths);
@@ -2142,6 +2154,27 @@ globalThis.git = {
 globalThis.tools.git = globalThis.git;
 
 globalThis.github = {
+  prView: function (input = {}) {
+    const options = (typeof input === "object" && input !== null && !Array.isArray(input)) ? input : { pr: input };
+    const fields = globalThis.__hostrun_values(options.fields ?? [
+      "number",
+      "title",
+      "url",
+      "headRefName",
+      "baseRefName",
+      "state",
+      "mergeable",
+      "reviewDecision",
+      "statusCheckRollup"
+    ]);
+    const args = ["pr", "view"];
+    if (options.pr !== undefined && options.pr !== null) {
+      args.push(String(options.pr));
+    }
+    globalThis.__hostrun_addOption(args, "--repo", options.repo);
+    args.push("--json", fields.map((field) => String(field)).join(","));
+    return globalThis.cli.gh(...args).json();
+  },
   createPR: function (options = {}) {
     const args = ["pr", "create"];
     const body = globalThis.__hostrun_githubPrBody(options);
