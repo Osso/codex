@@ -30,7 +30,7 @@ require/import, fetch, DOM APIs, or Web APIs unless Hostrun explicitly provides 
 Use Hostrun helpers for host access: host.cwd()/host.cd(), fs, cli, run, http, rg, fd, sqlite, kubectl, and tools. \
 Use tools.file.replace(path, { from, to }) for exact targeted file edits; it requires one match by default. Use tools.file.patch(diff) or tools.file.patch(path, diff) for unified diffs. \
 Use tools.browser for browser-cli Chrome/CDP automation: tools.browser.open(url).run(), tools.browser.get('title').text(), tools.browser.snapshot({ mini: true }).text(). \
-Common git/GitHub shortcuts: tools.git.status({ cwd }); tools.github.prView({ repo, pr }); tools.git.commit(options); tools.github.createPR(options). \
+Common git/GitHub shortcuts: tools.git.status({ cwd }); tools.github.prView({ repo, pr }); tools.github.runView({ repo, run }); tools.git.commit(options); tools.github.createPR(options). \
 Prefer Hostrun JavaScript over Bash(...) for multi-command workflows with pipes, command substitution, grep, wc, sort, base64, HTTP polling, retries, or response parsing. Use cli.* stdout selectors plus JavaScript filtering/counting/sorting. \
 Polling example: for (let i = 0; i < 30; i++) { const html = http.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, tls: { acceptInvalidCerts: true } }).text(); const tag = html.match(/<script type=\"module\" src=\"[^\"]*bundle[^\"]*\"/)?.[0] ?? ''; if (tag.includes('globalcomix-frontend.nyc3.cdn')) { tag; break; } run.sleep('2'); } \
 Kubernetes/rclone example: const secret = kubectl.get('secret', { name: 'ipg-import', namespace: 'ops' }).json(); const key = cli.base64('-d').stdin.text(secret.data.DO_SPACES_ACCESS_KEY).text().trim(); const files = cli.rclone('lsf', remote).lines().filter((line) => line.endsWith('.xml') || line.endsWith('.onix')); \
@@ -43,7 +43,7 @@ Synchronous JavaScript code for Hostrun QuickJS. Do not use await. No Deno, Node
 Use Hostrun helpers such as host.cwd(), fs, cli, run, http, rg, fd, sqlite, kubectl, and tools. \
 Use tools.file.replace(path, { from, to }) for exact targeted file edits; it requires one match by default. Use tools.file.patch(diff) or tools.file.patch(path, diff) for unified diffs. \
 Use tools.browser for browser-cli Chrome/CDP automation: tools.browser.open(url).run(), tools.browser.get('title').text(), tools.browser.snapshot({ mini: true }).text(). \
-Common git/GitHub shortcuts: tools.git.status({ cwd }); tools.github.prView({ repo, pr }); tools.git.commit(options); tools.github.createPR(options). \
+Common git/GitHub shortcuts: tools.git.status({ cwd }); tools.github.prView({ repo, pr }); tools.github.runView({ repo, run }); tools.git.commit(options); tools.github.createPR(options). \
 Prefer Hostrun JavaScript over Bash(...) for multi-command workflows with pipes, command substitution, grep, wc, sort, base64, HTTP polling, retries, or response parsing. Use cli.* stdout selectors plus JavaScript filtering/counting/sorting. \
 Polling example: for (let i = 0; i < 30; i++) { const html = http.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, tls: { acceptInvalidCerts: true } }).text(); const tag = html.match(/<script type=\"module\" src=\"[^\"]*bundle[^\"]*\"/)?.[0] ?? ''; if (tag.includes('globalcomix-frontend.nyc3.cdn')) { tag; break; } run.sleep('2'); } \
 Kubernetes/rclone example: const secret = kubectl.get('secret', { name: 'ipg-import', namespace: 'ops' }).json(); const key = cli.base64('-d').stdin.text(secret.data.DO_SPACES_ACCESS_KEY).text().trim(); const files = cli.rclone('lsf', remote).lines().filter((line) => line.endsWith('.xml') || line.endsWith('.onix')); \
@@ -254,6 +254,7 @@ mod tests {
         assert!(description.contains("tools.file.patch(diff)"));
         assert!(description.contains("tools.git.status({ cwd })"));
         assert!(description.contains("tools.github.prView({ repo, pr })"));
+        assert!(description.contains("tools.github.runView({ repo, run })"));
         assert!(description.contains("cli.git('status').in('/repo').stdout.text()"));
         assert!(description.contains("Never call run('dmidecode -t system')"));
         assert!(description.contains("tools.sudo(cli.dmidecode('-t', 'system')).run()"));

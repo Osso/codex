@@ -2175,6 +2175,23 @@ globalThis.github = {
     args.push("--json", fields.map((field) => String(field)).join(","));
     return globalThis.cli.gh(...args).json();
   },
+  runView: function (input = {}) {
+    const options = (typeof input === "object" && input !== null && !Array.isArray(input)) ? input : { run: input };
+    const fields = globalThis.__hostrun_values(options.fields ?? [
+      "status",
+      "conclusion",
+      "jobs",
+      "url",
+      "headSha"
+    ]);
+    const args = ["run", "view"];
+    if (options.run !== undefined && options.run !== null) {
+      args.push(String(options.run));
+    }
+    globalThis.__hostrun_addOption(args, "--repo", options.repo);
+    args.push("--json", fields.map((field) => String(field)).join(","));
+    return globalThis.cli.gh(...args).json();
+  },
   createPR: function (options = {}) {
     const args = ["pr", "create"];
     const body = globalThis.__hostrun_githubPrBody(options);

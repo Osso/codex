@@ -261,6 +261,16 @@ tools.github.prView({
 });
 ```
 
+`tools.github.runView({ repo, run, fields })` returns parsed JSON from `gh run view --json ...`:
+
+```js
+tools.github.runView({
+  repo: 'Globalcomix/gc',
+  run: 26680417560,
+  fields: ['status', 'conclusion', 'jobs', 'url', 'headSha']
+});
+```
+
 `tools.github.createPR(options)` creates pull requests through `gh pr create` and sends the body through stdin:
 
 ```js

@@ -54,6 +54,57 @@ fn github_pr_view_accepts_field_overrides() {
 }
 
 #[test]
+fn github_run_view_defaults_to_job_status_json_fields() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval("tools.github.runView({ repo: 'Globalcomix/gc', run: 26680417560 });")
+        .expect("approval");
+
+    assert_eq!(result.result_type, "needs_approval");
+    let approval = result.approval.expect("approval");
+    assert_eq!(approval.tool, "cli.gh");
+    assert_eq!(
+        approval.summary,
+        "Run gh run view 26680417560 --repo Globalcomix/gc --json status,conclusion,jobs,url,headSha (stdout text)"
+    );
+    assert_eq!(
+        approval.args,
+        json!({
+            "program": "gh",
+            "args": [
+                "run",
+                "view",
+                "26680417560",
+                "--repo",
+                "Globalcomix/gc",
+                "--json",
+                "status,conclusion,jobs,url,headSha"
+            ],
+            "stdout": { "type": "text" }
+        })
+    );
+}
+
+#[test]
+fn github_run_view_accepts_field_overrides() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval("tools.github.runView({ run: 26680417560, fields: ['status', 'url'] });")
+        .expect("approval");
+
+    assert_eq!(
+        result.approval.expect("approval").args,
+        json!({
+            "program": "gh",
+            "args": ["run", "view", "26680417560", "--json", "status,url"],
+            "stdout": { "type": "text" }
+        })
+    );
+}
+
+#[test]
 fn github_create_pr_uses_body_file_stdin() {
     let session = HostrunSession::new().expect("session");
 
