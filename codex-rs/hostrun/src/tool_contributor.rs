@@ -44,7 +44,7 @@ Hostrun evaluates synchronous JavaScript in a persistent QuickJS session:
 - `rg(pattern, paths, options)` is shorthand for `rg.search(pattern, paths, options)`. `rg.search`, `rg.files`, and `rg.matches` build lazy ripgrep commands.
 - `http.get/post/put/patch/delete/head(url, options)` and `http.request(method, url, options)` build approval-gated HTTP requests. Use `.text()`, `.json()`, or `.bytes()` for the response body directly; use `.save(path)` to write the body to a file; use `.run()` when status, headers, and metadata are needed.
 - `http.session(options)` creates a persistent JS HTTP client object with `baseUrl`, default headers/options, and a visible cookie jar at `.cookies`. Session methods mirror base HTTP helpers: `client.get('/path').json()`, `client.post('/login', options).text()`, and `client.get('/path').run()`.
-- Prefer Hostrun over `Bash(...)` for multi-command workflows with pipes, command substitution, `grep`, `wc`, `sort`, `base64`, HTTP polling, retries, or response parsing. Use `cli.*` stdout selectors plus JavaScript filtering/counting/sorting instead. Example:
+- Never use `Bash(...)` for ad hoc command composition, pipes, loops, command substitution, parsing, retries, or multi-line workflows when Hostrun is available. Use Hostrun `cli.*`, `run.*`, `rg.*`, `fd.*`, `http.*`, `kubectl.*`, and `tools.*` helpers instead. Example:
   `for (let i = 0; i < 30; i++) { const html = http.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, tls: { acceptInvalidCerts: true } }).text(); const tag = html.match(/<script type=\"module\" src=\"[^\"]*bundle[^\"]*\"/)?.[0] ?? ''; if (tag.includes('globalcomix-frontend.nyc3.cdn')) { tag; break; } run.sleep('2'); }`
 - Kubernetes secret plus rclone listing example:
   `const secret = kubectl.get('secret', { name: 'ipg-import', namespace: 'ops' }).json(); const decode = (value) => cli.base64('-d').stdin.text(value).text().trim(); const remote = ':s3,provider=DigitalOcean,access_key_id=' + decode(secret.data.DO_SPACES_ACCESS_KEY) + ',secret_access_key=' + decode(secret.data.DO_SPACES_SECRET_KEY) + ',endpoint=nyc3.digitaloceanspaces.com:globalcomix-publisher-uploads'; const listing = cli.rclone('lsf', remote + '/bookwire/content/').lines().filter((line) => !line.includes('cached')); ({ feedFiles: listing.filter((line) => line.endsWith('.xml') || line.endsWith('.onix')), total: listing.length });`
@@ -379,12 +379,8 @@ mod tests {
         assert!(fragments[0].text().contains("tools.browser"));
         assert!(fragments[0].text().contains("tools.browser.exceptions"));
         assert!(fragments[0].text().contains("browser-cli"));
-        assert!(
-            fragments[0]
-                .text()
-                .contains("Prefer Hostrun over `Bash(...)`")
-        );
-        assert!(fragments[0].text().contains("grep`, `wc`, `sort`, `base64"));
+        assert!(fragments[0].text().contains("Never use `Bash(...)`"));
+        assert!(fragments[0].text().contains("Hostrun `cli.*`, `run.*`"));
         assert!(
             fragments[0]
                 .text()

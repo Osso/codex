@@ -65,7 +65,7 @@ run.git('status', '--short');
 
 There is no `.complete()` command-builder method. Use explicit stream selectors or `.stdout.capture().stderr.capture().run()`.
 
-Prefer Hostrun over `Bash(...)` for multi-command workflows with pipes, command substitution, `grep`, `wc`, `sort`, `base64`, or data shaping. Capture command output and use JavaScript for filtering/counting/sorting:
+Never use `Bash(...)` for ad hoc command composition, pipes, loops, command substitution, parsing, retries, or multi-line workflows when Hostrun is available. Capture command output and use JavaScript for filtering/counting/sorting:
 
 ```js
 const secret = kubectl.get('secret', {
