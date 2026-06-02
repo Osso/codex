@@ -326,6 +326,8 @@ Snapshots, screenshots, JavaScript eval, waits, and tabs are also exposed:
 tools.browser.snapshot({ mini: true, interactive: true }).text();
 tools.browser.screenshot('/tmp/page.jpg', { full: true }).run();
 tools.browser.eval('document.title').text();
+tools.browser.exceptions({ reload: true }).json();
+tools.browser.console({ reload: true, waitMs: 3000 }).json();
 tools.browser.wait('main').run();
 tools.browser.tabs.list().text();
 tools.browser.tabs.switch(0).run();

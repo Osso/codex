@@ -1981,6 +1981,13 @@ globalThis.__hostrun_browserScreenshotFlags = function (path, options = {}) {
   return args;
 };
 
+globalThis.__hostrun_browserRuntimeFlags = function (options = {}) {
+  const args = [];
+  if (options.reload) args.push("--reload");
+  if (options.waitMs !== undefined) args.push("--wait-ms", String(options.waitMs));
+  return args;
+};
+
 globalThis.browser = {
   command: function (...args) {
     return globalThis.__hostrun_browserCommand(...args);
@@ -2055,6 +2062,12 @@ globalThis.browser = {
   },
   eval: function (code) {
     return globalThis.__hostrun_browserCommand("eval", String(code));
+  },
+  console: function (options = {}) {
+    return globalThis.__hostrun_browserCommand(...globalThis.__hostrun_browserJsonFlag({ json: true }), "runtime", "console", ...globalThis.__hostrun_browserRuntimeFlags(options));
+  },
+  exceptions: function (options = {}) {
+    return globalThis.__hostrun_browserCommand(...globalThis.__hostrun_browserJsonFlag({ json: true }), "runtime", "exceptions", ...globalThis.__hostrun_browserRuntimeFlags(options));
   },
   tabs: {
     list: function (options = {}) {

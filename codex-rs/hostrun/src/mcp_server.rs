@@ -29,7 +29,7 @@ This is not Deno, Node.js, or a browser: do not use Deno.*, process.*, \
 require/import, fetch, DOM APIs, or Web APIs unless Hostrun explicitly provides them. \
 Use Hostrun helpers for host access: host.cwd()/host.cd(), fs, cli, run, http, rg, fd, sqlite, kubectl, and tools. \
 Use tools.file.replace(path, { from, to }) for exact targeted file edits; it requires one match by default. Use tools.file.patch(diff) or tools.file.patch(path, diff) for unified diffs. \
-Use tools.browser for browser-cli Chrome/CDP automation: tools.browser.open(url).run(), tools.browser.get('title').text(), tools.browser.snapshot({ mini: true }).text(). \
+Use tools.browser for browser-cli Chrome/CDP automation: tools.browser.open(url).run(), tools.browser.get('title').text(), tools.browser.snapshot({ mini: true }).text(), tools.browser.exceptions({ reload: true }).json(), and tools.browser.console({ reload: true }).json(). \
 Use tools.ssh({ host, user, password, passwordMode: 'plain' }).run(cli.hostname()) for OpenSSH remote commands with an explicit non-secret plain password through sshpass -e. Use .cli(command).text() when choosing output handling. \
 Common git/GitHub shortcuts: tools.git.status({ cwd }); tools.github.prView({ repo, pr }); tools.github.runView({ repo, run }); tools.git.commit(options); tools.github.createPR(options). \
 Prefer Hostrun JavaScript over Bash(...) for multi-command workflows with pipes, command substitution, grep, wc, sort, base64, HTTP polling, retries, or response parsing. Use cli.* stdout selectors plus JavaScript filtering/counting/sorting. \
@@ -43,7 +43,7 @@ const HOSTRUN_CODE_DESCRIPTION: &str = "\
 Synchronous JavaScript code for Hostrun QuickJS. Do not use await. No Deno, Node.js, browser, DOM, require/import, process.*, or Deno.* APIs. \
 Use Hostrun helpers such as host.cwd(), fs, cli, run, http, rg, fd, sqlite, kubectl, and tools. \
 Use tools.file.replace(path, { from, to }) for exact targeted file edits; it requires one match by default. Use tools.file.patch(diff) or tools.file.patch(path, diff) for unified diffs. \
-Use tools.browser for browser-cli Chrome/CDP automation: tools.browser.open(url).run(), tools.browser.get('title').text(), tools.browser.snapshot({ mini: true }).text(). \
+Use tools.browser for browser-cli Chrome/CDP automation: tools.browser.open(url).run(), tools.browser.get('title').text(), tools.browser.snapshot({ mini: true }).text(), tools.browser.exceptions({ reload: true }).json(), and tools.browser.console({ reload: true }).json(). \
 Use tools.ssh({ host, user, password, passwordMode: 'plain' }).run(cli.hostname()) for OpenSSH remote commands with an explicit non-secret plain password through sshpass -e. Use .cli(command).text() when choosing output handling. \
 Common git/GitHub shortcuts: tools.git.status({ cwd }); tools.github.prView({ repo, pr }); tools.github.runView({ repo, run }); tools.git.commit(options); tools.github.createPR(options). \
 Prefer Hostrun JavaScript over Bash(...) for multi-command workflows with pipes, command substitution, grep, wc, sort, base64, HTTP polling, retries, or response parsing. Use cli.* stdout selectors plus JavaScript filtering/counting/sorting. \
@@ -252,6 +252,7 @@ mod tests {
         assert!(description.contains("acceptInvalidCerts"));
         assert!(description.contains("tools.browser.open(url).run()"));
         assert!(description.contains("tools.browser.snapshot({ mini: true }).text()"));
+        assert!(description.contains("tools.browser.exceptions({ reload: true }).json()"));
         assert!(description.contains("tools.file.replace(path, { from, to })"));
         assert!(description.contains("tools.file.patch(diff)"));
         assert!(description.contains("tools.ssh({ host, user, password"));

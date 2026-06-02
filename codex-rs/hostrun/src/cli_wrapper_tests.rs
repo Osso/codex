@@ -281,6 +281,37 @@ fn browser_snapshot_and_screenshot_build_expected_flags() {
 }
 
 #[test]
+fn browser_runtime_helpers_capture_json() {
+    let session = HostrunSession::new().expect("session");
+
+    let console = session
+        .eval("tools.browser.console({ reload: true, waitMs: 3000 }).json();")
+        .expect("console approval");
+
+    assert_eq!(
+        console.approval.expect("approval").args,
+        json!({
+            "program": "browser-cli",
+            "args": ["--json", "runtime", "console", "--reload", "--wait-ms", "3000"],
+            "stdout": { "type": "text" }
+        })
+    );
+
+    let exceptions = session
+        .eval("tools.browser.exceptions({ reload: true }).json();")
+        .expect("exceptions approval");
+
+    assert_eq!(
+        exceptions.approval.expect("approval").args,
+        json!({
+            "program": "browser-cli",
+            "args": ["--json", "runtime", "exceptions", "--reload"],
+            "stdout": { "type": "text" }
+        })
+    );
+}
+
+#[test]
 fn browser_tabs_build_nested_commands() {
     let session = HostrunSession::new().expect("session");
 
