@@ -41,7 +41,7 @@ Hostrun evaluates synchronous JavaScript in a persistent QuickJS session:
 - `sqlite.query(database, sql)` and `kubectl.get(resource, options)` build lazy command wrappers for common JSON-output inspection workflows.
 - `rclone.deletefile(target)` requests an approval-gated `rclone deletefile`; `rclone.lsf(target, { recursive: true })` builds a lazy `rclone lsf` command.
 - `fd.find(pattern, options)`, `fd.files(root, options)`, and `fd.dirs(root, options)` build lazy `fdfind` commands.
-- `rg.search(pattern, paths, options)`, `rg.files(pattern, paths, options)`, and `rg.matches(pattern, paths, options)` build lazy ripgrep commands.
+- `rg(pattern, paths, options)` is shorthand for `rg.search(pattern, paths, options)`. `rg.search`, `rg.files`, and `rg.matches` build lazy ripgrep commands.
 - `http.get/post/put/patch/delete/head(url, options)` and `http.request(method, url, options)` build approval-gated HTTP requests. Use `.text()`, `.json()`, or `.bytes()` for the response body directly; use `.save(path)` to write the body to a file; use `.run()` when status, headers, and metadata are needed.
 - `http.session(options)` creates a persistent JS HTTP client object with `baseUrl`, default headers/options, and a visible cookie jar at `.cookies`. Session methods mirror base HTTP helpers: `client.get('/path').json()`, `client.post('/login', options).text()`, and `client.get('/path').run()`.
 - Prefer Hostrun over `Bash(...)` for multi-command workflows with pipes, command substitution, `grep`, `wc`, `sort`, `base64`, HTTP polling, retries, or response parsing. Use `cli.*` stdout selectors plus JavaScript filtering/counting/sorting instead. Example:
@@ -374,7 +374,7 @@ mod tests {
         assert!(fragments[0].text().contains("passwordMode: 'plain'"));
         assert!(fragments[0].text().contains("rclone.lsf(target"));
         assert!(fragments[0].text().contains("fd.find(pattern"));
-        assert!(fragments[0].text().contains("rg.search(pattern"));
+        assert!(fragments[0].text().contains("rg(pattern"));
         assert!(fragments[0].text().contains("http.get/post"));
         assert!(fragments[0].text().contains("tools.browser"));
         assert!(fragments[0].text().contains("tools.browser.exceptions"));

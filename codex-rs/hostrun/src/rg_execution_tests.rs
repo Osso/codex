@@ -5,6 +5,23 @@ use serde_json::json;
 use super::HostrunSession;
 
 #[test]
+fn approved_rg_callable_searches_text() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+    let dir = tempfile::tempdir().expect("tempdir");
+    fs::write(dir.path().join("one.txt"), "needle\n").expect("write file");
+    fs::write(dir.path().join("two.txt"), "nothing\n").expect("write file");
+    let root = dir.path().to_string_lossy().to_string();
+
+    let result = session
+        .eval(&format!("rg('needle', {}).lines();", json!(root)))
+        .expect("rg search");
+
+    let lines = result.value.expect("lines");
+    assert_eq!(lines.as_array().expect("array").len(), 1);
+    assert!(lines[0].as_str().expect("line").ends_with("one.txt:needle"));
+}
+
+#[test]
 fn approved_rg_files_returns_matching_paths() {
     let session = HostrunSession::new_auto_approve().expect("session");
     let dir = tempfile::tempdir().expect("tempdir");

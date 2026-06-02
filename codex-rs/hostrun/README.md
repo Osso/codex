@@ -344,7 +344,7 @@ tools.browser.command('get', 'attr', 'a.primary', 'href').text();
 Ripgrep and fd helpers build lazy commands:
 
 ```js
-rg.search('tools.sudo', ['codex-rs/hostrun/src']).lines();
+rg('tools.sudo', ['codex-rs/hostrun/src']).lines();
 rg.files('Hostrun', ['codex-rs/hostrun']).lines();
 fd.files('codex-rs/hostrun/src').lines();
 ```

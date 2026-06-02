@@ -2399,38 +2399,47 @@ globalThis.__hostrun_parseRgMatches = function (result) {
     });
 };
 
-globalThis.rg = {
-  search: function (pattern, paths = [], options = {}) {
-    const args = [];
-    globalThis.__hostrun_addOption(args, "--fixed-strings", options.fixed);
-    globalThis.__hostrun_addOption(args, "--ignore-case", options.ignoreCase);
-    globalThis.__hostrun_addOption(args, "--json", options.json);
-    globalThis.__hostrun_addOption(args, "--hidden", options.hidden);
-    globalThis.__hostrun_addOption(args, "--no-ignore", options.ignored === false);
-    globalThis.__hostrun_addOption(args, "--files-with-matches", options.filesWithMatches);
-    globalThis.__hostrun_addOption(args, "--max-count", options.maxCount);
-    globalThis.__hostrun_addOption(args, "--type", options.type);
-    if (options.glob) {
-      for (const glob of [].concat(options.glob)) {
-        args.push("--glob", String(glob));
-      }
+globalThis.__hostrun_rgSearch = function (pattern, paths = [], options = {}) {
+  const args = [];
+  globalThis.__hostrun_addOption(args, "--fixed-strings", options.fixed);
+  globalThis.__hostrun_addOption(args, "--ignore-case", options.ignoreCase);
+  globalThis.__hostrun_addOption(args, "--json", options.json);
+  globalThis.__hostrun_addOption(args, "--hidden", options.hidden);
+  globalThis.__hostrun_addOption(args, "--no-ignore", options.ignored === false);
+  globalThis.__hostrun_addOption(args, "--files-with-matches", options.filesWithMatches);
+  globalThis.__hostrun_addOption(args, "--max-count", options.maxCount);
+  globalThis.__hostrun_addOption(args, "--type", options.type);
+  if (options.glob) {
+    for (const glob of [].concat(options.glob)) {
+      args.push("--glob", String(glob));
     }
-    if (options.context !== undefined) {
-      args.push("--context", String(options.context));
-    }
-    args.push(String(pattern));
-    args.push(...[].concat(paths).filter((path) => path !== undefined && path !== null).map(String));
-    return globalThis.__hostrun_commandBuilder("rg", args);
-  },
-  files: function (pattern, paths = [], options = {}) {
-    const result = globalThis.rg.search(pattern, paths, { ...options, filesWithMatches: true }).stdout.lines();
-    return globalThis.__hostrun_parseRgFiles(result);
-  },
-  matches: function (pattern, paths = [], options = {}) {
-    const result = globalThis.rg.search(pattern, paths, { ...options, json: true }).stdout.text();
-    return globalThis.__hostrun_parseRgMatches(result);
   }
+  if (options.context !== undefined) {
+    args.push("--context", String(options.context));
+  }
+  args.push(String(pattern));
+  args.push(...[].concat(paths).filter((path) => path !== undefined && path !== null).map(String));
+  return globalThis.__hostrun_commandBuilder("rg", args);
 };
+
+globalThis.rg = Object.assign(
+  function (pattern, paths = [], options = {}) {
+    return globalThis.__hostrun_rgSearch(pattern, paths, options);
+  },
+  {
+    search: function (pattern, paths = [], options = {}) {
+      return globalThis.__hostrun_rgSearch(pattern, paths, options);
+    },
+    files: function (pattern, paths = [], options = {}) {
+      const result = globalThis.rg.search(pattern, paths, { ...options, filesWithMatches: true }).stdout.lines();
+      return globalThis.__hostrun_parseRgFiles(result);
+    },
+    matches: function (pattern, paths = [], options = {}) {
+      const result = globalThis.rg.search(pattern, paths, { ...options, json: true }).stdout.text();
+      return globalThis.__hostrun_parseRgMatches(result);
+    }
+  }
+);
 
 globalThis.sqlite = {
   query: function (database, sql, options = {}) {
