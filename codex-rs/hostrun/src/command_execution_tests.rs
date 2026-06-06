@@ -1,5 +1,10 @@
 use std::fs;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 
+use codex_tool_api::ToolExecutionContext;
 use serde_json::json;
 
 use super::HostrunSession;
@@ -26,6 +31,55 @@ fn approved_cli_command_captures_stdout_text() {
                 "truncated": false
             }
         }))
+    );
+}
+
+#[test]
+fn approved_cli_command_emits_live_stdout_chunks() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+    let chunks = Arc::new(Mutex::new(Vec::new()));
+    let context = ToolExecutionContext::default().with_output_sink({
+        let chunks = Arc::clone(&chunks);
+        move |delta| chunks.lock().expect("chunks lock").push(delta.chunk)
+    });
+
+    let result = session
+        .eval_with_context("cli.printf('hello').stdout.text();", context)
+        .expect("eval");
+
+    assert_eq!(
+        result.value.as_ref().and_then(|value| value.get("stdout")),
+        Some(&json!("hello"))
+    );
+    assert_eq!(
+        *chunks.lock().expect("chunks lock"),
+        vec![b"hello".to_vec()]
+    );
+}
+
+#[test]
+fn approved_cli_command_stops_when_execution_context_is_cancelled() {
+    let session = HostrunSession::new_auto_approve().expect("session");
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let context = ToolExecutionContext::new({
+        let cancelled = Arc::clone(&cancelled);
+        move || cancelled.load(Ordering::SeqCst)
+    })
+    .with_output_sink({
+        let cancelled = Arc::clone(&cancelled);
+        move |_| cancelled.store(true, Ordering::SeqCst)
+    });
+
+    let error = session
+        .eval_with_context(
+            "cli.sh('-c', 'printf ready; sleep 5').stdout.text();",
+            context,
+        )
+        .expect_err("cancelled command should fail");
+
+    assert!(
+        error.to_string().contains("interrupted by user"),
+        "unexpected cancellation error: {error}"
     );
 }
 

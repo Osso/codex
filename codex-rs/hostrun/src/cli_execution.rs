@@ -1,4 +1,5 @@
 use std::fs;
+use std::io::Read;
 use std::io::Write;
 use std::path::Path;
 use std::process::Child;
@@ -6,7 +7,11 @@ use std::process::Command;
 use std::process::ExitStatus;
 use std::process::Output;
 use std::process::Stdio;
+use std::thread;
+use std::time::Duration;
 
+use codex_tool_api::ToolCallOutputDelta;
+use codex_tool_api::ToolExecutionContext;
 use serde_json::Value;
 use serde_json::json;
 
@@ -43,6 +48,7 @@ pub(crate) fn run_cli_process(
     stdin: Option<&Value>,
     env: Option<&Value>,
     cwd: &Path,
+    context: &ToolExecutionContext,
 ) -> Result<CliProcessOutput, HostrunSessionError> {
     if stdin.and_then(stdin_type) == Some("stream") {
         return run_stream_cli_process(
@@ -51,15 +57,14 @@ pub(crate) fn run_cli_process(
             stdin.and_then(|stdin| stdin.get("source")),
             env,
             cwd,
+            context,
         );
     }
-    let stdin = stdin_input(stdin, cwd)?;
+    let stdin = stdin_input(stdin, cwd, context)?;
     let env = command_env(env)?;
     let mut child = spawn_cli_process(program, argv, stdin.bytes.is_some(), &env, cwd)?;
     write_cli_stdin(program, &mut child, stdin.bytes)?;
-    let output = child.wait_with_output().map_err(|error| {
-        HostrunSessionError::Eval(format!("failed to wait for {program}: {error}"))
-    })?;
+    let output = wait_with_live_output(program, child, context)?;
     Ok(cli_process_output(program, argv, stdin.upstream, output))
 }
 
@@ -108,9 +113,9 @@ pub(crate) fn write_cli_stdin(
     let Some(input) = input else {
         return Ok(());
     };
-    let child_stdin = child
+    let mut child_stdin = child
         .stdin
-        .as_mut()
+        .take()
         .ok_or_else(|| HostrunSessionError::Eval(format!("failed to open stdin for {program}")))?;
     child_stdin.write_all(&input).map_err(|error| {
         HostrunSessionError::Eval(format!("failed to write stdin for {program}: {error}"))
@@ -120,6 +125,7 @@ pub(crate) fn write_cli_stdin(
 pub(crate) fn stdin_input(
     stdin: Option<&Value>,
     cwd: &Path,
+    context: &ToolExecutionContext,
 ) -> Result<CliStdinInput, HostrunSessionError> {
     let Some(stdin) = stdin else {
         return Ok(CliStdinInput {
@@ -127,7 +133,7 @@ pub(crate) fn stdin_input(
             upstream: Vec::new(),
         });
     };
-    let (bytes, upstream) = stdin_bytes(stdin, cwd)?;
+    let (bytes, upstream) = stdin_bytes(stdin, cwd, context)?;
     Ok(CliStdinInput {
         bytes: Some(bytes),
         upstream,
@@ -196,6 +202,7 @@ fn run_stream_cli_process(
     source: Option<&Value>,
     env: Option<&Value>,
     cwd: &Path,
+    context: &ToolExecutionContext,
 ) -> Result<CliProcessOutput, HostrunSessionError> {
     let env = command_env(env)?;
     let source = cli_stream::stream_source(source)?;
@@ -206,16 +213,15 @@ fn run_stream_cli_process(
         .args(argv)
         .current_dir(cwd)
         .envs(env.iter().cloned());
-    let output = command
+    let child = command
         .stdin(pipe)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|error| HostrunSessionError::Eval(format!("failed to start {program}: {error}")))?
-        .wait_with_output()
         .map_err(|error| {
-            HostrunSessionError::Eval(format!("failed to wait for {program}: {error}"))
+            HostrunSessionError::Eval(format!("failed to start {program}: {error}"))
         })?;
+    let output = wait_with_live_output(program, child, context)?;
     let upstream_status = upstream.wait().map_err(|error| {
         HostrunSessionError::Eval(format!("failed to wait for {}: {error}", source.program))
     })?;
@@ -225,6 +231,122 @@ fn run_stream_cli_process(
         upstream_status,
     )];
     Ok(cli_process_output(program, argv, upstream, output))
+}
+
+pub(crate) fn wait_with_live_output(
+    program: &str,
+    mut child: Child,
+    context: &ToolExecutionContext,
+) -> Result<Output, HostrunSessionError> {
+    let output_readers = spawn_output_readers(program, &mut child, context)?;
+    let status = wait_for_child_status(program, &mut child, context)?;
+    let stdout = join_output_reader(program, "stdout", output_readers.stdout)?;
+    let stderr = join_output_reader(program, "stderr", output_readers.stderr)?;
+    Ok(Output {
+        status,
+        stdout,
+        stderr,
+    })
+}
+
+struct OutputReaders {
+    stdout: thread::JoinHandle<std::io::Result<Vec<u8>>>,
+    stderr: thread::JoinHandle<std::io::Result<Vec<u8>>>,
+}
+
+fn spawn_output_readers(
+    program: &str,
+    child: &mut Child,
+    context: &ToolExecutionContext,
+) -> Result<OutputReaders, HostrunSessionError> {
+    let stdout = take_piped_output(child.stdout.take(), program, "stdout")?;
+    let stderr = take_piped_output(child.stderr.take(), program, "stderr")?;
+    let stdout_context = context.clone();
+    let stderr_context = context.clone();
+    Ok(OutputReaders {
+        stdout: thread::spawn(move || {
+            read_live_output(stdout, stdout_context, ToolCallOutputDelta::stdout)
+        }),
+        stderr: thread::spawn(move || {
+            read_live_output(stderr, stderr_context, ToolCallOutputDelta::stderr)
+        }),
+    })
+}
+
+fn take_piped_output<T>(
+    output: Option<T>,
+    program: &str,
+    stream: &str,
+) -> Result<T, HostrunSessionError> {
+    output.ok_or_else(|| HostrunSessionError::Eval(format!("{program} {stream} was not piped")))
+}
+
+fn wait_for_child_status(
+    program: &str,
+    child: &mut Child,
+    context: &ToolExecutionContext,
+) -> Result<ExitStatus, HostrunSessionError> {
+    let mut interrupted = false;
+    let status = loop {
+        if let Some(status) = child.try_wait().map_err(|error| {
+            HostrunSessionError::Eval(format!("failed to wait for {program}: {error}"))
+        })? {
+            break status;
+        }
+        if context.is_cancelled() {
+            interrupted = true;
+            child.kill().map_err(|error| {
+                HostrunSessionError::Eval(format!("failed to interrupt {program}: {error}"))
+            })?;
+            break child.wait().map_err(|error| {
+                HostrunSessionError::Eval(format!(
+                    "failed to wait for interrupted {program}: {error}"
+                ))
+            })?;
+        }
+        thread::sleep(Duration::from_millis(10));
+    };
+    if interrupted {
+        return Err(HostrunSessionError::Eval(format!(
+            "{program} interrupted by user"
+        )));
+    }
+    Ok(status)
+}
+
+fn read_live_output<R>(
+    mut reader: R,
+    context: ToolExecutionContext,
+    delta: fn(Vec<u8>) -> ToolCallOutputDelta,
+) -> std::io::Result<Vec<u8>>
+where
+    R: Read,
+{
+    let mut output = Vec::new();
+    let mut buffer = [0; 8192];
+    loop {
+        let bytes_read = reader.read(&mut buffer)?;
+        if bytes_read == 0 {
+            break;
+        }
+        let chunk = buffer[..bytes_read].to_vec();
+        context.emit_output(delta(chunk.clone()));
+        output.extend_from_slice(&chunk);
+    }
+    Ok(output)
+}
+
+fn join_output_reader(
+    program: &str,
+    stream: &str,
+    handle: thread::JoinHandle<std::io::Result<Vec<u8>>>,
+) -> Result<Vec<u8>, HostrunSessionError> {
+    handle
+        .join()
+        .map_err(|_| HostrunSessionError::Eval(format!("{program} {stream} reader panicked")))?
+        .map_err(|error| {
+            HostrunSessionError::Eval(format!("failed to read {program} {stream}: {error}"))
+        })
 }
 
 fn cli_command_status(program: &str, argv: &[String], status: ExitStatus) -> CliCommandStatus {
@@ -239,6 +361,7 @@ fn cli_command_status(program: &str, argv: &[String], status: ExitStatus) -> Cli
 fn stdin_bytes(
     stdin: &Value,
     cwd: &Path,
+    context: &ToolExecutionContext,
 ) -> Result<(Vec<u8>, Vec<CliCommandStatus>), HostrunSessionError> {
     let stdin_type = stdin
         .get("type")
@@ -255,7 +378,7 @@ fn stdin_bytes(
         "tsv" => serialize_delimited_rows(stdin.get("rows"), "\t")?,
         "jsonLines" => serialize_json_lines(stdin.get("values"))?,
         "lines" => serialize_lines(stdin.get("lines"))?,
-        "stream" => return stream_stdin_bytes(stdin.get("source"), cwd),
+        "stream" => return stream_stdin_bytes(stdin.get("source"), cwd, context),
         other => Err(HostrunSessionError::Eval(format!(
             "unsupported stdin source type: {other}"
         )))?,
@@ -266,6 +389,7 @@ fn stdin_bytes(
 fn stream_stdin_bytes(
     source: Option<&Value>,
     cwd: &Path,
+    context: &ToolExecutionContext,
 ) -> Result<(Vec<u8>, Vec<CliCommandStatus>), HostrunSessionError> {
     let source = source
         .ok_or_else(|| HostrunSessionError::Eval("stdin stream source is required".to_string()))?;
@@ -288,7 +412,7 @@ fn stream_stdin_bytes(
             HostrunSessionError::Eval("stdin stream command program is required".to_string())
         })?;
     let argv = cli_payload::payload_args(command)?;
-    let output = run_cli_process(program, &argv, None, command.get("env"), cwd)?;
+    let output = run_cli_process(program, &argv, None, command.get("env"), cwd, context)?;
     let bytes = match stream {
         "stdout" => output.stdout,
         "stderr" => output.stderr,

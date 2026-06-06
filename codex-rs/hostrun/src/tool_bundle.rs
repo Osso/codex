@@ -5,6 +5,7 @@ use codex_tool_api::FunctionToolSpec;
 use codex_tool_api::ToolBundle;
 use codex_tool_api::ToolCall;
 use codex_tool_api::ToolError;
+use codex_tool_api::ToolExecutionContext;
 use codex_tool_api::ToolExecutor;
 use codex_tool_api::ToolFuture;
 use serde::Deserialize;
@@ -67,23 +68,36 @@ struct HostrunToolExecutor {
 
 impl ToolExecutor for HostrunToolExecutor {
     fn execute<'a>(&'a self, call: ToolCall) -> ToolFuture<'a> {
+        self.execute_with_context(call, ToolExecutionContext::default())
+    }
+
+    fn execute_with_context<'a>(
+        &'a self,
+        call: ToolCall,
+        context: ToolExecutionContext,
+    ) -> ToolFuture<'a> {
         Box::pin(async move {
             let input = parse_eval_arguments(&call.arguments)?;
-            self.run_eval(&input)
+            self.run_eval(&input, context)
         })
     }
 }
 
 impl HostrunToolExecutor {
-    fn run_eval(&self, input: &HostrunEvalArguments) -> Result<Value, ToolError> {
+    fn run_eval(
+        &self,
+        input: &HostrunEvalArguments,
+        context: ToolExecutionContext,
+    ) -> Result<Value, ToolError> {
         let mut sessions = self
             .sessions
             .lock()
             .map_err(|_| ToolError::fatal("Hostrun session lock was poisoned"))?;
         let result = sessions
-            .eval(
+            .eval_with_context(
                 input.session_id.as_deref().unwrap_or("default"),
                 &input.code,
+                context,
             )
             .map_err(|error| ToolError::respond_to_model(error.to_string()))?;
 

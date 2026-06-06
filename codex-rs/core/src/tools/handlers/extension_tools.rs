@@ -5,9 +5,15 @@ use codex_protocol::exec_output::StreamOutput;
 use codex_protocol::models::FunctionCallOutputBody;
 use codex_protocol::models::FunctionCallOutputPayload;
 use codex_protocol::models::ResponseInputItem;
+use codex_protocol::protocol::Event;
+use codex_protocol::protocol::EventMsg;
+use codex_protocol::protocol::ExecCommandOutputDeltaEvent;
 use codex_protocol::protocol::ExecCommandSource;
+use codex_protocol::protocol::ExecOutputStream;
 use codex_tool_api::ToolBundle as ExtensionToolBundle;
+use codex_tool_api::ToolCallOutputStream;
 use codex_tool_api::ToolError as ExtensionToolError;
+use codex_tool_api::ToolExecutionContext;
 use codex_tools::ResponsesApiTool;
 use codex_tools::ToolName;
 use codex_tools::ToolSpec;
@@ -94,8 +100,9 @@ impl BundledToolHandler {
         emit_hostrun_begin(hostrun_emitter.as_ref(), event_ctx).await;
 
         let started_at = Instant::now();
+        let execution_context = hostrun_execution_context(&invocation);
         let result = self
-            .execute_bundle(invocation.call_id.clone(), arguments)
+            .execute_bundle_with_context(invocation.call_id.clone(), arguments, execution_context)
             .await;
 
         let value = match result {
@@ -117,14 +124,15 @@ impl BundledToolHandler {
         Ok(value)
     }
 
-    async fn execute_bundle(
+    async fn execute_bundle_with_context(
         &self,
         call_id: String,
         arguments: String,
+        context: ToolExecutionContext,
     ) -> Result<Value, ExtensionToolError> {
         self.bundle
             .executor()
-            .execute(codex_tool_api::ToolCall { call_id, arguments })
+            .execute_with_context(codex_tool_api::ToolCall { call_id, arguments }, context)
             .await
     }
 }
@@ -186,6 +194,34 @@ impl ToolHandler for BundledToolHandler {
             .execute_with_hostrun_events(invocation, arguments)
             .await?;
         Ok(BundledToolOutput { value })
+    }
+}
+
+fn hostrun_execution_context(invocation: &ToolInvocation) -> ToolExecutionContext {
+    let tx_event = invocation.session.get_tx_event();
+    let sub_id = invocation.turn.sub_id.clone();
+    let call_id = invocation.call_id.clone();
+    let cancellation_token = invocation.cancellation_token.clone();
+    ToolExecutionContext::new(move || cancellation_token.is_cancelled()).with_output_sink(
+        move |delta| {
+            let stream = hostrun_output_stream(delta.stream);
+            let event = Event {
+                id: sub_id.clone(),
+                msg: EventMsg::ExecCommandOutputDelta(ExecCommandOutputDeltaEvent {
+                    call_id: call_id.clone(),
+                    stream,
+                    chunk: delta.chunk,
+                }),
+            };
+            let _ = tx_event.try_send(event);
+        },
+    )
+}
+
+fn hostrun_output_stream(stream: ToolCallOutputStream) -> ExecOutputStream {
+    match stream {
+        ToolCallOutputStream::Stdout => ExecOutputStream::Stdout,
+        ToolCallOutputStream::Stderr => ExecOutputStream::Stderr,
     }
 }
 
@@ -288,12 +324,11 @@ fn hostrun_output_text(value: &Value) -> String {
             }
         }
     }
-    if lines.is_empty() {
-        if let Some(result) = value.get("value") {
-            if !result.is_null() {
-                lines.push(result.to_string());
-            }
-        }
+    if lines.is_empty()
+        && let Some(result) = value.get("value")
+        && !result.is_null()
+    {
+        lines.push(result.to_string());
     }
     lines.join("\n")
 }
@@ -330,8 +365,11 @@ fn extension_tool_hook_input(arguments: &str) -> Value {
 mod tests {
     use std::sync::Arc;
 
+    use codex_tool_api::ToolCallOutputDelta;
+    use codex_tool_api::ToolExecutionContext;
     use pretty_assertions::assert_eq;
     use serde_json::json;
+    use tokio_util::sync::CancellationToken;
 
     use super::BundledToolHandler;
     use super::BundledToolOutput;
@@ -364,6 +402,32 @@ mod tests {
                     "executed": "console.log('hello')",
                     "console": [
                         { "level": "log", "message": "hello" }
+                    ],
+                    "value": null
+                }))
+            })
+        }
+    }
+
+    struct StreamingHostrunExecutor;
+
+    impl codex_tool_api::ToolExecutor for StreamingHostrunExecutor {
+        fn execute(&self, _call: codex_tool_api::ToolCall) -> codex_tool_api::ToolFuture<'_> {
+            Box::pin(async { panic!("streaming Hostrun test requires execution context") })
+        }
+
+        fn execute_with_context(
+            &self,
+            _call: codex_tool_api::ToolCall,
+            context: ToolExecutionContext,
+        ) -> codex_tool_api::ToolFuture<'_> {
+            Box::pin(async move {
+                context.emit_output(ToolCallOutputDelta::stdout(b"early\n".to_vec()));
+                Ok(json!({
+                    "type": "completed",
+                    "executed": "console.log('early')",
+                    "console": [
+                        { "level": "log", "message": "early" }
                     ],
                     "value": null
                 }))
@@ -491,5 +555,58 @@ mod tests {
             }
             other => panic!("expected hostrun exec end, got {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn hostrun_extension_tool_emits_output_delta_before_end() {
+        let bundle = codex_tool_api::ToolBundle::new(
+            codex_tool_api::FunctionToolSpec {
+                name: "hostrun_eval".to_string(),
+                description: "Evaluate Hostrun code.".to_string(),
+                strict: true,
+                parameters: json!({
+                    "type": "object",
+                    "properties": {
+                        "code": { "type": "string" },
+                    },
+                    "required": ["code"],
+                    "additionalProperties": false,
+                }),
+            },
+            Arc::new(StreamingHostrunExecutor),
+        );
+        let spec = extension_tool_spec(bundle.spec()).expect("extension spec should convert");
+        let handler = BundledToolHandler::new(bundle, spec);
+        let (session, turn, rx) = crate::session::tests::make_session_and_context_with_rx().await;
+        let invocation = ToolInvocation {
+            session,
+            turn,
+            cancellation_token: CancellationToken::new(),
+            tracker: Arc::new(tokio::sync::Mutex::new(TurnDiffTracker::new())),
+            call_id: "call-hostrun".to_string(),
+            tool_name: codex_tools::ToolName::plain("hostrun_eval"),
+            source: ToolCallSource::Direct,
+            pre_tool_use_approved: false,
+            pre_tool_use_approval_required: false,
+            payload: ToolPayload::Function {
+                arguments: json!({ "code": "console.log('early')" }).to_string(),
+            },
+        };
+
+        let output = handler.handle(invocation).await.expect("hostrun output");
+
+        assert_eq!(output.value["console"][0]["message"], json!("early"));
+        let begin = rx.recv().await.expect("begin event");
+        assert!(matches!(begin.msg, EventMsg::ExecCommandBegin(_)));
+        let delta = rx.recv().await.expect("delta event");
+        match delta.msg {
+            EventMsg::ExecCommandOutputDelta(event) => {
+                assert_eq!(event.call_id, "call-hostrun");
+                assert_eq!(event.chunk, b"early\n");
+            }
+            other => panic!("expected hostrun output delta, got {other:?}"),
+        }
+        let end = rx.recv().await.expect("end event");
+        assert!(matches!(end.msg, EventMsg::ExecCommandEnd(_)));
     }
 }

@@ -3,8 +3,13 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 
+use codex_tool_api::ToolCallOutputStream;
+use codex_tool_api::ToolExecutionContext;
 use rmcp::ErrorData as McpError;
+use rmcp::RoleServer;
 use rmcp::ServiceExt;
 use rmcp::handler::server::ServerHandler;
 use rmcp::model::CallToolRequestParams;
@@ -12,10 +17,14 @@ use rmcp::model::CallToolResult;
 use rmcp::model::Content;
 use rmcp::model::JsonObject;
 use rmcp::model::ListToolsResult;
+use rmcp::model::LoggingLevel;
+use rmcp::model::LoggingMessageNotificationParam;
 use rmcp::model::PaginatedRequestParams;
+use rmcp::model::ProgressNotificationParam;
 use rmcp::model::ServerCapabilities;
 use rmcp::model::ServerInfo;
 use rmcp::model::Tool;
+use rmcp::service::RequestContext;
 use serde::Deserialize;
 use serde_json::Value;
 use serde_json::json;
@@ -67,13 +76,29 @@ impl HostrunMcpServer {
         }
     }
 
-    fn eval(&self, args: HostrunEvalArgs) -> Result<CallToolResult, McpError> {
+    fn eval(
+        &self,
+        args: HostrunEvalArgs,
+        context: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, McpError> {
+        self.eval_with_context(args, mcp_execution_context(context))
+    }
+
+    fn eval_with_context(
+        &self,
+        args: HostrunEvalArgs,
+        execution_context: ToolExecutionContext,
+    ) -> Result<CallToolResult, McpError> {
         let mut sessions = self
             .sessions
             .lock()
             .map_err(|_| McpError::internal_error("Hostrun session lock was poisoned", None))?;
         let result = sessions
-            .eval(args.session_id.as_deref().unwrap_or("default"), &args.code)
+            .eval_with_context(
+                args.session_id.as_deref().unwrap_or("default"),
+                &args.code,
+                execution_context,
+            )
             .map_err(|error| McpError::internal_error(error.to_string(), None))?;
         let structured_content = serde_json::to_value(&result).map_err(|error| {
             McpError::internal_error(format!("failed to encode Hostrun result: {error}"), None)
@@ -100,7 +125,10 @@ impl Default for HostrunMcpServer {
 impl ServerHandler for HostrunMcpServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
-            capabilities: ServerCapabilities::builder().enable_tools().build(),
+            capabilities: ServerCapabilities::builder()
+                .enable_tools()
+                .enable_logging()
+                .build(),
             ..ServerInfo::default()
         }
     }
@@ -123,16 +151,88 @@ impl ServerHandler for HostrunMcpServer {
     async fn call_tool(
         &self,
         request: CallToolRequestParams,
-        _context: rmcp::service::RequestContext<rmcp::service::RoleServer>,
+        context: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
         match request.name.as_ref() {
-            "hostrun_eval" => self.eval(parse_eval_args(request.arguments)?),
+            "hostrun_eval" => self.eval(parse_eval_args(request.arguments)?, context),
             name => Err(McpError::invalid_params(
                 format!("unknown Hostrun tool: {name}"),
                 None,
             )),
         }
     }
+}
+
+fn mcp_execution_context(context: RequestContext<RoleServer>) -> ToolExecutionContext {
+    let cancellation_token = context.ct.clone();
+    let peer = context.peer.clone();
+    let progress_token = context.meta.get_progress_token();
+    let progress = Arc::new(AtomicU64::new(0));
+    ToolExecutionContext::new(move || cancellation_token.is_cancelled()).with_output_sink(
+        move |delta| {
+            spawn_mcp_output_notification(
+                peer.clone(),
+                progress_token.clone(),
+                Arc::clone(&progress),
+                mcp_stream_name(delta.stream),
+                String::from_utf8_lossy(&delta.chunk).to_string(),
+            );
+        },
+    )
+}
+
+fn mcp_stream_name(stream: ToolCallOutputStream) -> &'static str {
+    match stream {
+        ToolCallOutputStream::Stdout => "stdout",
+        ToolCallOutputStream::Stderr => "stderr",
+    }
+}
+
+fn spawn_mcp_output_notification(
+    peer: rmcp::Peer<RoleServer>,
+    progress_token: Option<rmcp::model::ProgressToken>,
+    progress: Arc<AtomicU64>,
+    stream: &'static str,
+    chunk: String,
+) {
+    tokio::spawn(async move {
+        notify_mcp_log(&peer, stream, &chunk).await;
+        notify_mcp_progress(&peer, progress_token, progress, stream, &chunk).await;
+    });
+}
+
+async fn notify_mcp_log(peer: &rmcp::Peer<RoleServer>, stream: &str, chunk: &str) {
+    let _ = peer
+        .notify_logging_message(LoggingMessageNotificationParam {
+            level: LoggingLevel::Info,
+            logger: Some("hostrun".to_string()),
+            data: json!({
+                "stream": stream,
+                "chunk": chunk,
+            }),
+        })
+        .await;
+}
+
+async fn notify_mcp_progress(
+    peer: &rmcp::Peer<RoleServer>,
+    progress_token: Option<rmcp::model::ProgressToken>,
+    progress: Arc<AtomicU64>,
+    stream: &str,
+    chunk: &str,
+) {
+    let Some(progress_token) = progress_token else {
+        return;
+    };
+    let progress = progress.fetch_add(1, Ordering::Relaxed) + 1;
+    let _ = peer
+        .notify_progress(ProgressNotificationParam {
+            progress_token,
+            progress: progress as f64,
+            total: None,
+            message: Some(format!("Hostrun {stream}: {chunk}")),
+        })
+        .await;
 }
 
 pub async fn run_stdio_server() -> Result<(), Box<dyn std::error::Error>> {
@@ -217,6 +317,7 @@ struct HostrunEvalArgs {
 
 #[cfg(test)]
 mod tests {
+    use codex_tool_api::ToolExecutionContext;
     use serde_json::json;
 
     use super::HostrunEvalArgs;
@@ -270,10 +371,16 @@ mod tests {
         let server = HostrunMcpServer::new();
 
         let first = server
-            .eval(args("ctx.count = 1; ctx.count;"))
+            .eval_with_context(
+                args("ctx.count = 1; ctx.count;"),
+                ToolExecutionContext::default(),
+            )
             .expect("first eval");
         let second = server
-            .eval(args("ctx.count += 1; ctx.count;"))
+            .eval_with_context(
+                args("ctx.count += 1; ctx.count;"),
+                ToolExecutionContext::default(),
+            )
             .expect("second eval");
 
         assert_eq!(first.structured_content.unwrap()["value"], json!(1));

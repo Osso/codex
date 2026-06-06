@@ -7,6 +7,9 @@ mod error;
 mod spec;
 
 pub use bundle::ToolBundle;
+pub use bundle::ToolCallOutputDelta;
+pub use bundle::ToolCallOutputStream;
+pub use bundle::ToolExecutionContext;
 pub use bundle::ToolExecutor;
 pub use bundle::ToolFuture;
 pub use call::ToolCall;

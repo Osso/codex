@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use codex_tool_api::ToolExecutionContext;
 use rquickjs::Context;
 use rquickjs::Ctx;
 use rquickjs::Function;
@@ -60,6 +61,7 @@ pub struct HostrunSession {
     capability_mode: HostCapabilityMode,
     cwd: Arc<Mutex<PathBuf>>,
     processes: Arc<Mutex<ProcessRegistry>>,
+    execution_context: Arc<Mutex<ToolExecutionContext>>,
 }
 
 impl HostrunSession {
@@ -92,21 +94,59 @@ impl HostrunSession {
         let cwd = canonicalize_cwd(cwd.as_ref())?;
         let cwd = Arc::new(Mutex::new(cwd));
         let processes = Arc::new(Mutex::new(ProcessRegistry::default()));
+        let execution_context = Arc::new(Mutex::new(ToolExecutionContext::default()));
+        let interrupt_context = Arc::clone(&execution_context);
+        runtime.set_interrupt_handler(Some(Box::new(move || {
+            interrupt_context
+                .lock()
+                .is_ok_and(|context| context.is_cancelled())
+        })));
         let session = Self {
             _runtime: runtime,
             context,
             capability_mode,
             cwd,
             processes,
+            execution_context,
         };
         session.initialize_context(capability_mode)?;
         Ok(session)
     }
 
     pub fn eval(&self, code: &str) -> Result<HostrunEvalResult, HostrunSessionError> {
+        self.eval_with_context(code, ToolExecutionContext::default())
+    }
+
+    pub fn eval_with_context(
+        &self,
+        code: &str,
+        execution_context: ToolExecutionContext,
+    ) -> Result<HostrunEvalResult, HostrunSessionError> {
+        self.replace_execution_context(execution_context.clone())?;
+        let result = self.eval_current_context(code);
+        self.replace_execution_context(ToolExecutionContext::default())?;
+        if execution_context.is_cancelled() && result.is_err() {
+            return Err(HostrunSessionError::Eval(
+                "Hostrun execution interrupted by user".to_string(),
+            ));
+        }
+        result
+    }
+
+    fn eval_current_context(&self, code: &str) -> Result<HostrunEvalResult, HostrunSessionError> {
         self.context
             .with(|ctx| self.eval_in_context(ctx, code))
             .map_err(HostrunSessionError::from_quickjs)?
+    }
+
+    fn replace_execution_context(
+        &self,
+        execution_context: ToolExecutionContext,
+    ) -> Result<(), HostrunSessionError> {
+        *self.execution_context.lock().map_err(|error| {
+            HostrunSessionError::Eval(format!("failed to lock execution context: {error}"))
+        })? = execution_context;
+        Ok(())
     }
 
     fn initialize_context(
@@ -117,6 +157,7 @@ impl HostrunSession {
             capability_mode,
             cwd: Arc::clone(&self.cwd),
             processes: Arc::clone(&self.processes),
+            execution_context: Arc::clone(&self.execution_context),
         });
         self.context
             .with(|ctx| {
@@ -181,6 +222,7 @@ struct HostCapabilityInvoker {
     capability_mode: HostCapabilityMode,
     cwd: Arc<Mutex<PathBuf>>,
     processes: Arc<Mutex<ProcessRegistry>>,
+    execution_context: Arc<Mutex<ToolExecutionContext>>,
 }
 
 impl HostCapabilityInvoker {
@@ -290,6 +332,7 @@ impl HostCapabilityInvoker {
             payload.get("stdin"),
             payload.get("env"),
             &cwd,
+            &self.current_execution_context()?,
         )?;
         cli_execution::cli_execution_result(program, &argv, &payload, output, &cwd)
     }
@@ -306,7 +349,11 @@ impl HostCapabilityInvoker {
                 "spawn does not support stream stdin; use run() for command graphs".to_string(),
             ));
         }
-        let stdin = cli_execution::stdin_input(payload.get("stdin"), cwd)?;
+        let stdin = cli_execution::stdin_input(
+            payload.get("stdin"),
+            cwd,
+            &self.current_execution_context()?,
+        )?;
         let env = cli_payload::payload_env(&payload)?;
         let mut child =
             cli_execution::spawn_cli_process(program, argv, stdin.bytes.is_some(), &env, cwd)?;
@@ -324,9 +371,11 @@ impl HostCapabilityInvoker {
     fn wait_process(&self, args: Value) -> Result<Value, HostrunSessionError> {
         let id = field_as_string(&args, "id");
         let process = self.take_process(&id)?;
-        let output = process.child.wait_with_output().map_err(|error| {
-            HostrunSessionError::Eval(format!("failed to wait for {}: {error}", process.program))
-        })?;
+        let output = cli_execution::wait_with_live_output(
+            &process.program,
+            process.child,
+            &self.current_execution_context()?,
+        )?;
         let output =
             cli_execution::cli_process_output(&process.program, &process.argv, Vec::new(), output);
         cli_execution::cli_execution_result(
@@ -368,6 +417,15 @@ impl HostCapabilityInvoker {
             })?
             .take(id)
             .ok_or_else(|| HostrunSessionError::Eval(format!("unknown Hostrun process: {id}")))
+    }
+
+    fn current_execution_context(&self) -> Result<ToolExecutionContext, HostrunSessionError> {
+        self.execution_context
+            .lock()
+            .map_err(|error| {
+                HostrunSessionError::Eval(format!("failed to lock execution context: {error}"))
+            })
+            .map(|context| context.clone())
     }
 
     fn invoke_host_cwd(&self) -> String {
@@ -555,13 +613,22 @@ impl HostrunSessionStore {
         session_id: &str,
         code: &str,
     ) -> Result<HostrunEvalResult, HostrunSessionError> {
+        self.eval_with_context(session_id, code, ToolExecutionContext::default())
+    }
+
+    pub fn eval_with_context(
+        &mut self,
+        session_id: &str,
+        code: &str,
+        execution_context: ToolExecutionContext,
+    ) -> Result<HostrunEvalResult, HostrunSessionError> {
         let session = match self.sessions.entry(session_id.to_string()) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => entry.insert(HostrunSession::new_with_capability_mode(
                 self.capability_mode,
             )?),
         };
-        session.eval(code)
+        session.eval_with_context(code, execution_context)
     }
 }
 
