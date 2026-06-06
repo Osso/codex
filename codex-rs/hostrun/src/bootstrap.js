@@ -1895,6 +1895,28 @@ globalThis.__hostrun_remoteCommand = function (state) {
   return "cd " + globalThis.__hostrun_shellQuote(state.cwd) + " && " + command;
 };
 
+globalThis.__hostrun_sshDefaultOptions = function (options) {
+  const providedKeys = globalThis.__hostrun_values(options.options)
+    .map((option) => String(option).split(/[\s=]+/)[0].toLowerCase());
+  const defaults = [];
+  const usesPasswordAuth = options.password !== undefined || options.passwordMode !== undefined;
+  if (options.batchMode !== false && !usesPasswordAuth && !providedKeys.includes("batchmode")) {
+    defaults.push("BatchMode=yes");
+  }
+  if (options.multiplex !== false) {
+    if (!providedKeys.includes("controlmaster")) {
+      defaults.push("ControlMaster=auto");
+    }
+    if (!providedKeys.includes("controlpath")) {
+      defaults.push("ControlPath=~/.ssh/hostrun-%C");
+    }
+    if (!providedKeys.includes("controlpersist")) {
+      defaults.push("ControlPersist=120s");
+    }
+  }
+  return defaults;
+};
+
 globalThis.__hostrun_sshArgs = function (options, remoteCommand) {
   if (!options || typeof options !== "object") {
     throw new Error("tools.ssh requires an options object");
@@ -1909,6 +1931,9 @@ globalThis.__hostrun_sshArgs = function (options, remoteCommand) {
   globalThis.__hostrun_addOption(args, "-p", options.port);
   for (const option of globalThis.__hostrun_values(options.options)) {
     args.push("-o", String(option));
+  }
+  for (const option of globalThis.__hostrun_sshDefaultOptions(options)) {
+    args.push("-o", option);
   }
   args.push(destination, remoteCommand);
   return args;

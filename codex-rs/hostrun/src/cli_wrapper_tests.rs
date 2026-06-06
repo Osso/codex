@@ -168,13 +168,24 @@ fn tools_ssh_plain_password_uses_sshpass_env() {
     assert_eq!(approval.tool, "cli.sshpass");
     assert_eq!(
         approval.summary,
-        "Run sshpass -e ssh root@router 'echo' 'hello' (env SSHPASS, stdout text, stderr text)"
+        "Run sshpass -e ssh -o ControlMaster=auto -o ControlPath=~/.ssh/hostrun-%C -o ControlPersist=120s root@router 'echo' 'hello' (env SSHPASS, stdout text, stderr text)"
     );
     assert_eq!(
         approval.args,
         json!({
             "program": "sshpass",
-            "args": ["-e", "ssh", "root@router", "'echo' 'hello'"],
+            "args": [
+                "-e",
+                "ssh",
+                "-o",
+                "ControlMaster=auto",
+                "-o",
+                "ControlPath=~/.ssh/hostrun-%C",
+                "-o",
+                "ControlPersist=120s",
+                "root@router",
+                "'echo' 'hello'"
+            ],
             "env": { "SSHPASS": "[redacted]" },
             "stdout": { "type": "text" },
             "stderr": { "type": "text" }
@@ -192,7 +203,7 @@ fn tools_ssh_rejects_password_without_plain_mode() {
 }
 
 #[test]
-fn tools_ssh_cli_returns_lazy_builder() {
+fn tools_ssh_cli_returns_lazy_builder_with_persistent_defaults() {
     let session = HostrunSession::new().expect("session");
 
     let result = session
@@ -203,7 +214,73 @@ fn tools_ssh_cli_returns_lazy_builder() {
         result.approval.expect("approval").args,
         json!({
             "program": "ssh",
-            "args": ["-p", "2222", "router", "'hostname'"],
+            "args": [
+                "-p",
+                "2222",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ControlMaster=auto",
+                "-o",
+                "ControlPath=~/.ssh/hostrun-%C",
+                "-o",
+                "ControlPersist=120s",
+                "router",
+                "'hostname'"
+            ],
+            "stdout": { "type": "text" }
+        })
+    );
+}
+
+#[test]
+fn tools_ssh_opt_outs_disable_multiplex_and_batch_mode() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval(
+            "tools.ssh({ host: 'router', multiplex: false, batchMode: false })
+              .cli(cli.hostname()).text();",
+        )
+        .expect("approval");
+
+    assert_eq!(
+        result.approval.expect("approval").args,
+        json!({
+            "program": "ssh",
+            "args": ["router", "'hostname'"],
+            "stdout": { "type": "text" }
+        })
+    );
+}
+
+#[test]
+fn tools_ssh_explicit_options_override_matching_defaults() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval(
+            "tools.ssh({ host: 'router', options: ['ControlMaster=no', 'BatchMode no'] })
+              .cli(cli.hostname()).text();",
+        )
+        .expect("approval");
+
+    assert_eq!(
+        result.approval.expect("approval").args,
+        json!({
+            "program": "ssh",
+            "args": [
+                "-o",
+                "ControlMaster=no",
+                "-o",
+                "BatchMode no",
+                "-o",
+                "ControlPath=~/.ssh/hostrun-%C",
+                "-o",
+                "ControlPersist=120s",
+                "router",
+                "'hostname'"
+            ],
             "stdout": { "type": "text" }
         })
     );
