@@ -47,7 +47,7 @@ automatically.
 
 ## Standalone Repository Extraction
 
-This crate is shaped so it can move to a standalone Hostrun repository:
+This crate has a local standalone package proof in `/home/osso/Repos/hostrun`:
 
 - Runtime and MCP code live here, without `codex-extension-api` or
   `codex-tool-api` dependencies.
@@ -58,12 +58,10 @@ This crate is shaped so it can move to a standalone Hostrun repository:
 
 Remaining lift-out work:
 
-- Move `codex-rs/hostrun` to the new repository.
-- Rename the package from `codex-hostrun` to `hostrun` in that repository.
-- Replace workspace dependency versions with normal dependency versions.
+- Publish or otherwise finalize the standalone Hostrun repository location.
 - Keep `codex-hostrun-adapter` in Codex and point it at the standalone Hostrun
   crate or repository.
-- Preserve focused verification: `cargo test -p hostrun`, `cargo build --bin
+- Preserve focused verification: standalone `cargo test`, `cargo build --bin
   hostrun-mcp`, and Codex adapter progress-display tests.
 
 ## Runtime

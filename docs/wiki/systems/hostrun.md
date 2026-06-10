@@ -1,11 +1,11 @@
 # Hostrun
 
 Hostrun is an experimental stateful JavaScript runtime for readable host
-execution. The reusable runtime and stdio MCP server live in
-`codex-rs/hostrun`. Codex-specific extension/tool integration lives in
-`codex-rs/hostrun-adapter`; when the `hostrun` feature is enabled, that adapter
-contributes a `hostrun_eval` tool plus model-facing instructions that describe
-the Hostrun standard library.
+execution. The reusable runtime and stdio MCP server currently live in
+`codex-rs/hostrun`, with a standalone package proof in `/home/osso/Repos/hostrun`.
+Codex-specific extension/tool integration lives in `codex-rs/hostrun-adapter`;
+when the `hostrun` feature is enabled, that adapter contributes a `hostrun_eval`
+tool plus model-facing instructions that describe the Hostrun standard library.
 
 ## Runtime Shape
 
