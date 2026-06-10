@@ -1,7 +1,7 @@
 # Hostrun
 
 Hostrun is a stateful JavaScript host-execution runtime. Its reusable runtime
-and stdio MCP server live in the standalone `/home/osso/Repos/hostrun`
+and stdio MCP server live in the standalone `https://github.com/Osso/hostrun`
 repository; Codex-specific extension/tool
 integration lives in `codex-rs/hostrun-adapter`, with app-server registration in
 `codex-rs/app-server`. Codex exposes a `hostrun_eval` tool when the experimental
@@ -30,7 +30,7 @@ belongs in `docs/wiki/systems/hostrun.md`.
   `/home/osso/Repos/hostrun` with normal dependency versions, package name
   `hostrun`, `hostrun-mcp`, and the `codex-hostrun-mcp` compatibility alias.
 - [x] Point Codex's `codex-hostrun-adapter` at the standalone Hostrun package
-  with the workspace dependency `hostrun = { path = "../../hostrun" }`.
+  with the workspace dependency pinned to `https://github.com/Osso/hostrun`.
 - [x] Keep Codex's Hostrun adapter in Codex so `hostrun_eval` continues to use
   native exec/progress display events.
 - [x] Ship a separate stdio MCP server for Claude and other MCP clients, with
@@ -197,10 +197,9 @@ belongs in `docs/wiki/systems/hostrun.md`.
 ## How it works
 
 - `docs/wiki/systems/hostrun.md` - intended system overview and runtime architecture.
-- `/home/osso/Repos/hostrun/JUST_BASH_SPIKE.md` - historical research notes from the just-bash fork investigation.
-- `/home/osso/Repos/hostrun/README.md` - standalone stdio MCP install notes for Claude Code.
-- `/home/osso/Repos/hostrun` - local standalone Hostrun package proof, including
-  standalone `cargo test` and MCP binary builds.
+- `https://github.com/Osso/hostrun` - public standalone Hostrun package and stdio MCP server.
+- `/home/osso/Repos/hostrun/JUST_BASH_SPIKE.md` - local checkout of historical research notes from the just-bash fork investigation.
+- `/home/osso/Repos/hostrun/README.md` - local checkout of standalone stdio MCP install notes for Claude Code.
 
 ## Implementation inventory
 
