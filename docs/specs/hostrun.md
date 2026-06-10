@@ -1,11 +1,38 @@
 # Hostrun
 
-Hostrun is Codex's stateful JavaScript host-execution runtime. Its source lives
-in `codex-rs/hostrun`, with app-server registration in `codex-rs/app-server`.
-It exposes a `hostrun_eval` tool when the experimental `hostrun` feature is
-enabled and contributes the model-visible library instructions for that tool at
-thread start. How the runtime is wired internally belongs in
-`docs/wiki/systems/hostrun.md`.
+Hostrun is a stateful JavaScript host-execution runtime. Its reusable runtime
+and stdio MCP server live in `codex-rs/hostrun`; Codex-specific extension/tool
+integration lives in `codex-rs/hostrun-adapter`, with app-server registration in
+`codex-rs/app-server`. Codex exposes a `hostrun_eval` tool when the experimental
+`hostrun` feature is enabled and contributes the model-visible library
+instructions for that tool at thread start. How the runtime is wired internally
+belongs in `docs/wiki/systems/hostrun.md`.
+
+## Extraction Boundary
+
+- [x] Keep Hostrun's core execution context independent from Codex tool APIs so
+  the QuickJS runtime can move to a standalone Hostrun repository.
+- [x] Keep `hostrun_eval` argument parsing and session dispatch in Hostrun-local
+  code shared by the Codex adapter and the stdio MCP server.
+- [x] Default the standalone stdio MCP server to pending approval for host
+  operations instead of auto-approving commands, filesystem writes, HTTP calls,
+  or remote mutations.
+- [x] Move Codex extension/tool integration into `codex-hostrun-adapter`, leaving
+  `codex-hostrun` free of `codex-extension-api` and `codex-tool-api`
+  dependencies.
+- [x] Document local stdio MCP installation for Claude Code in
+  `codex-rs/hostrun/README.md`.
+- [x] Provide `hostrun-mcp` as the standalone stdio MCP binary name, while
+  keeping `codex-hostrun-mcp` as a compatibility alias.
+- [x] Add standalone package metadata and a lift-out checklist to
+  `codex-rs/hostrun/README.md`.
+- [ ] Extract the core runtime into a standalone Hostrun package that can be
+  consumed by Codex and by non-Codex hosts.
+- [ ] Keep Codex's Hostrun adapter in Codex so `hostrun_eval` continues to use
+  native exec/progress display events.
+- [ ] Ship a separate stdio MCP server for Claude and other MCP clients, with
+  host-specific progress and approval behavior documented as different from the
+  Codex native adapter.
 
 ## What it must do
 
@@ -168,15 +195,18 @@ thread start. How the runtime is wired internally belongs in
 
 - `docs/wiki/systems/hostrun.md` - intended system overview and runtime architecture.
 - `codex-rs/hostrun/JUST_BASH_SPIKE.md` - historical research notes from the just-bash fork investigation.
+- `codex-rs/hostrun/README.md` - standalone stdio MCP install notes for Claude Code.
 
 ## Implementation inventory
 
 - `codex-rs/hostrun/src/lib.rs` - public Hostrun crate types and re-exports.
 - `codex-rs/hostrun/src/session.rs` - embedded QuickJS session, `ctx`, console capture, `tools.*`, and `cli.*` approval request generation.
-- `codex-rs/hostrun/src/tool_bundle.rs` - `hostrun_eval` tool schema and executor.
-- `codex-rs/hostrun/src/tool_contributor.rs` - feature-gated tool and prompt contribution.
+- `codex-rs/hostrun/src/eval_tool.rs` - shared `hostrun_eval` argument parsing and session dispatch.
+- `codex-rs/hostrun/src/mcp_server.rs` - standalone stdio MCP server for non-Codex hosts.
+- `codex-rs/hostrun-adapter/src/tool_bundle.rs` - Codex `hostrun_eval` tool schema and executor adapter.
+- `codex-rs/hostrun-adapter/src/tool_contributor.rs` - Codex feature-gated tool and prompt contribution.
 - `codex-rs/core/src/tools/handlers/extension_tools.rs` - transcript event handling for extension tools, including Hostrun eval display.
-- `codex-rs/app-server/src/app.rs` - app-server extension registry wiring for the experimental Hostrun feature.
+- `codex-rs/app-server/src/extensions.rs` - app-server extension registry wiring for the experimental Hostrun feature.
 - `codex-rs/hostrun/js/src/hostrun-session.ts` - earlier JavaScript QuickJS session prototype and tests.
 - `codex-rs/hostrun/js/src/runner.ts` - earlier JSON/JSONL runner prototype.
 
@@ -194,7 +224,15 @@ thread start. How the runtime is wired internally belongs in
   - `array_helpers_filter_and_transform_strings_without_mutating`
   - `fields_helper_formats_text_and_object_templates`
   - `fields_helper_groups_counts_uniques_and_sorts_by_selectors`
-- `codex-rs/hostrun/src/tool_bundle.rs`:
+- `codex-rs/hostrun/src/eval_tool.rs`:
+  - `parse_eval_arguments_accepts_code_and_optional_session`
+  - `parse_eval_arguments_rejects_missing_code`
+- `codex-rs/hostrun/src/mcp_server.rs`:
+  - `hostrun_eval_tool_schema_requires_code`
+  - `hostrun_eval_tool_schema_warns_against_common_wrong_calls`
+  - `hostrun_eval_reuses_session_state`
+  - `hostrun_mcp_returns_approval_requests_for_host_operations`
+- `codex-rs/hostrun-adapter/src/tool_bundle.rs`:
   - `hostrun_eval_tool_spec_accepts_session_id_and_code`
   - `missing_code_returns_model_visible_error`
   - `executor_returns_quickjs_eval_json`
@@ -202,7 +240,7 @@ thread start. How the runtime is wired internally belongs in
   - `executor_returns_approval_request_json`
   - `executor_returns_cli_approval_request_json`
   - `executor_captures_console_messages`
-- `codex-rs/hostrun/src/tool_contributor.rs`:
+- `codex-rs/hostrun-adapter/src/tool_contributor.rs`:
   - `contributor_returns_hostrun_eval_bundle`
   - `install_adds_hostrun_tool_contributor`
   - `managed_lifecycle_uses_existing_built_runner`

@@ -12,8 +12,8 @@ use codex_extension_api::PromptFragment;
 use codex_extension_api::ThreadStartContributor;
 use codex_extension_api::ToolBundle;
 use codex_extension_api::ToolContributor;
+use codex_hostrun::HostrunSessionStore;
 
-use crate::HostrunSessionStore;
 use crate::HostrunToolConfig;
 use crate::hostrun_tool_bundle;
 use crate::tool_bundle::hostrun_tool_bundle_with_sessions;

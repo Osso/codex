@@ -102,6 +102,7 @@ members = [
     "plugin",
     "model-provider",
     "hostrun",
+    "hostrun-adapter",
 ]
 default-members = ["cli"]
 resolver = "2"
@@ -160,6 +161,7 @@ codex-file-search = { path = "file-search" }
 codex-file-watcher = { path = "file-watcher" }
 codex-git-utils = { path = "git-utils" }
 codex-hostrun = { path = "hostrun" }
+codex-hostrun-adapter = { path = "hostrun-adapter" }
 codex-hooks = { path = "hooks" }
 codex-keyring-store = { path = "keyring-store" }
 codex-linux-sandbox = { path = "linux-sandbox" }

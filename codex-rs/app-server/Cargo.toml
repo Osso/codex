@@ -41,7 +41,7 @@ codex-external-agent-sessions = { workspace = true }
 codex-features = { workspace = true }
 codex-git-attribution = { workspace = true }
 codex-git-utils = { workspace = true }
-codex-hostrun = { workspace = true }
+codex-hostrun-adapter = { workspace = true }
 codex-shell-command = { workspace = true }
 codex-utils-cli = { workspace = true }
 codex-utils-pty = { workspace = true }

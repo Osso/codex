@@ -5,7 +5,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use codex_tool_api::ToolExecutionContext;
 use rquickjs::Context;
 use rquickjs::Ctx;
 use rquickjs::Function;
@@ -18,6 +17,7 @@ use serde_json::json;
 use crate::cli_approval;
 use crate::cli_execution;
 use crate::cli_payload;
+use crate::execution_context::HostrunExecutionContext;
 use crate::fs_capability::execute_fs_operation;
 use crate::fs_capability::fs_approval;
 use crate::http_capability::execute_http_request;
@@ -61,7 +61,7 @@ pub struct HostrunSession {
     capability_mode: HostCapabilityMode,
     cwd: Arc<Mutex<PathBuf>>,
     processes: Arc<Mutex<ProcessRegistry>>,
-    execution_context: Arc<Mutex<ToolExecutionContext>>,
+    execution_context: Arc<Mutex<HostrunExecutionContext>>,
 }
 
 impl HostrunSession {
@@ -94,7 +94,7 @@ impl HostrunSession {
         let cwd = canonicalize_cwd(cwd.as_ref())?;
         let cwd = Arc::new(Mutex::new(cwd));
         let processes = Arc::new(Mutex::new(ProcessRegistry::default()));
-        let execution_context = Arc::new(Mutex::new(ToolExecutionContext::default()));
+        let execution_context = Arc::new(Mutex::new(HostrunExecutionContext::default()));
         let interrupt_context = Arc::clone(&execution_context);
         runtime.set_interrupt_handler(Some(Box::new(move || {
             interrupt_context
@@ -114,17 +114,17 @@ impl HostrunSession {
     }
 
     pub fn eval(&self, code: &str) -> Result<HostrunEvalResult, HostrunSessionError> {
-        self.eval_with_context(code, ToolExecutionContext::default())
+        self.eval_with_context(code, HostrunExecutionContext::default())
     }
 
     pub fn eval_with_context(
         &self,
         code: &str,
-        execution_context: ToolExecutionContext,
+        execution_context: HostrunExecutionContext,
     ) -> Result<HostrunEvalResult, HostrunSessionError> {
         self.replace_execution_context(execution_context.clone())?;
         let result = self.eval_current_context(code);
-        self.replace_execution_context(ToolExecutionContext::default())?;
+        self.replace_execution_context(HostrunExecutionContext::default())?;
         if execution_context.is_cancelled() && result.is_err() {
             return Err(HostrunSessionError::Eval(
                 "Hostrun execution interrupted by user".to_string(),
@@ -141,7 +141,7 @@ impl HostrunSession {
 
     fn replace_execution_context(
         &self,
-        execution_context: ToolExecutionContext,
+        execution_context: HostrunExecutionContext,
     ) -> Result<(), HostrunSessionError> {
         *self.execution_context.lock().map_err(|error| {
             HostrunSessionError::Eval(format!("failed to lock execution context: {error}"))
@@ -222,7 +222,7 @@ struct HostCapabilityInvoker {
     capability_mode: HostCapabilityMode,
     cwd: Arc<Mutex<PathBuf>>,
     processes: Arc<Mutex<ProcessRegistry>>,
-    execution_context: Arc<Mutex<ToolExecutionContext>>,
+    execution_context: Arc<Mutex<HostrunExecutionContext>>,
 }
 
 impl HostCapabilityInvoker {
@@ -419,7 +419,7 @@ impl HostCapabilityInvoker {
             .ok_or_else(|| HostrunSessionError::Eval(format!("unknown Hostrun process: {id}")))
     }
 
-    fn current_execution_context(&self) -> Result<ToolExecutionContext, HostrunSessionError> {
+    fn current_execution_context(&self) -> Result<HostrunExecutionContext, HostrunSessionError> {
         self.execution_context
             .lock()
             .map_err(|error| {
@@ -613,14 +613,14 @@ impl HostrunSessionStore {
         session_id: &str,
         code: &str,
     ) -> Result<HostrunEvalResult, HostrunSessionError> {
-        self.eval_with_context(session_id, code, ToolExecutionContext::default())
+        self.eval_with_context(session_id, code, HostrunExecutionContext::default())
     }
 
     pub fn eval_with_context(
         &mut self,
         session_id: &str,
         code: &str,
-        execution_context: ToolExecutionContext,
+        execution_context: HostrunExecutionContext,
     ) -> Result<HostrunEvalResult, HostrunSessionError> {
         let session = match self.sessions.entry(session_id.to_string()) {
             Entry::Occupied(entry) => entry.into_mut(),

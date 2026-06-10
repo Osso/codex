@@ -5,6 +5,8 @@ mod cli_execution;
 mod cli_graph;
 mod cli_payload;
 mod cli_stream;
+mod eval_tool;
+mod execution_context;
 mod fs_capability;
 mod http_capability;
 pub mod mcp_server;
@@ -12,30 +14,27 @@ mod output_intent;
 mod process_registry;
 mod session;
 mod tmp_capability;
-mod tool_bundle;
-mod tool_contributor;
 
 use std::collections::BTreeMap;
 
 use serde::Deserialize;
 use serde::Serialize;
 
+pub use eval_tool::DEFAULT_HOSTRUN_SESSION_ID;
+pub use eval_tool::HOSTRUN_EVAL_TOOL_NAME;
+pub use eval_tool::HostrunEvalArguments;
+pub use eval_tool::HostrunEvalToolError;
+pub use eval_tool::parse_eval_arguments;
+pub use eval_tool::parse_eval_arguments_value;
+pub use eval_tool::run_eval_tool;
+pub use execution_context::HostrunExecutionContext;
+pub use execution_context::HostrunOutputDelta;
+pub use execution_context::HostrunOutputStream;
 pub use session::HostrunApprovalRequest;
 pub use session::HostrunEvalResult;
 pub use session::HostrunSession;
 pub use session::HostrunSessionError;
 pub use session::HostrunSessionStore;
-pub use tool_bundle::HostrunToolConfig;
-pub use tool_bundle::embedded_hostrun_tool_bundle;
-pub use tool_bundle::hostrun_tool_bundle;
-pub use tool_contributor::HOSTRUN_RUNNER_ENV;
-pub use tool_contributor::HostrunRunnerLifecycle;
-pub use tool_contributor::HostrunRunnerLifecycleError;
-pub use tool_contributor::HostrunToolContributor;
-pub use tool_contributor::install;
-pub use tool_contributor::install_feature_gated;
-pub use tool_contributor::install_from_env;
-pub use tool_contributor::install_managed;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 #[serde(transparent)]

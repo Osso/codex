@@ -3,10 +3,10 @@ name = "codex-hostrun"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Stateful QuickJS host-automation runtime with a stdio MCP server."
+readme = "README.md"
 
 [dependencies]
-codex-extension-api = { workspace = true }
-codex-tool-api = { workspace = true }
 rquickjs = { workspace = true }
 reqwest = { workspace = true, features = ["blocking", "json", "multipart"] }
 rmcp = { workspace = true, default-features = false, features = ["server"] }
@@ -15,7 +15,7 @@ serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 thiserror = { workspace = true }
 glob = { workspace = true }
-tokio = { workspace = true, features = ["io-util", "macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["io-std", "io-util", "macros", "rt-multi-thread"] }
 
 [dev-dependencies]
 tempfile = { workspace = true }
@@ -24,8 +24,12 @@ tempfile = { workspace = true }
 doctest = false
 
 [[bin]]
-name = "codex-hostrun-mcp"
+name = "hostrun-mcp"
 path = "src/bin/mcp.rs"
+
+[[bin]]
+name = "codex-hostrun-mcp"
+path = "src/bin/codex_hostrun_mcp.rs"
 
 [lints]
 workspace = true

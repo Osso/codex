@@ -1,9 +1,11 @@
 # Hostrun
 
-Hostrun is Codex's experimental stateful JavaScript runtime for readable host
-execution. When the `hostrun` feature is enabled, Codex contributes a
-`hostrun_eval` tool plus model-facing instructions that describe the Hostrun
-standard library.
+Hostrun is an experimental stateful JavaScript runtime for readable host
+execution. The reusable runtime and stdio MCP server live in
+`codex-rs/hostrun`. Codex-specific extension/tool integration lives in
+`codex-rs/hostrun-adapter`; when the `hostrun` feature is enabled, that adapter
+contributes a `hostrun_eval` tool plus model-facing instructions that describe
+the Hostrun standard library.
 
 ## Runtime Shape
 
@@ -11,8 +13,11 @@ Hostrun embeds QuickJS through `codex-rs/hostrun/src/session.rs`. A
 `HostrunSessionStore` keeps one persistent JavaScript context per Hostrun
 session id, so `globalThis.ctx` survives across later `hostrun_eval` calls and
 later assistant turns in the same Codex thread.
-The public tool schema exposes only `code`; the default session id is supplied
-by the tool executor.
+The shared eval tool path in `codex-rs/hostrun/src/eval_tool.rs` owns
+`hostrun_eval` argument parsing and session dispatch. The Codex adapter maps
+that path into Codex tool APIs and native exec/progress display events; the MCP
+server maps it into stdio MCP tool responses and MCP logging/progress
+notifications.
 
 The JavaScript standard library is bootstrapped from
 `codex-rs/hostrun/src/bootstrap.js`. It defines public helpers such as `fs`,
@@ -31,8 +36,9 @@ embedded capability bridge:
   approved session is dropped.
 
 In pending-approval mode, host operations return structured approval requests.
-In auto-approved test/tool execution mode, the same request payloads are
-executed after the outer tool invocation has passed Codex's approval layer.
+The standalone stdio MCP server uses this mode by default. In auto-approved
+Codex tool execution mode, the same request payloads are executed after the
+outer tool invocation has passed Codex's approval layer.
 
 ## Command Builders
 

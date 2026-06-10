@@ -10,14 +10,14 @@ use std::process::Stdio;
 use std::thread;
 use std::time::Duration;
 
-use codex_tool_api::ToolCallOutputDelta;
-use codex_tool_api::ToolExecutionContext;
 use serde_json::Value;
 use serde_json::json;
 
 use crate::cli_graph::insert_command_graph;
 use crate::cli_payload;
 use crate::cli_stream;
+use crate::execution_context::HostrunExecutionContext;
+use crate::execution_context::HostrunOutputDelta;
 use crate::fs_capability::resolve_path;
 use crate::output_intent::apply_output_intent;
 use crate::session::HostrunSessionError;
@@ -48,7 +48,7 @@ pub(crate) fn run_cli_process(
     stdin: Option<&Value>,
     env: Option<&Value>,
     cwd: &Path,
-    context: &ToolExecutionContext,
+    context: &HostrunExecutionContext,
 ) -> Result<CliProcessOutput, HostrunSessionError> {
     if stdin.and_then(stdin_type) == Some("stream") {
         return run_stream_cli_process(
@@ -125,7 +125,7 @@ pub(crate) fn write_cli_stdin(
 pub(crate) fn stdin_input(
     stdin: Option<&Value>,
     cwd: &Path,
-    context: &ToolExecutionContext,
+    context: &HostrunExecutionContext,
 ) -> Result<CliStdinInput, HostrunSessionError> {
     let Some(stdin) = stdin else {
         return Ok(CliStdinInput {
@@ -202,7 +202,7 @@ fn run_stream_cli_process(
     source: Option<&Value>,
     env: Option<&Value>,
     cwd: &Path,
-    context: &ToolExecutionContext,
+    context: &HostrunExecutionContext,
 ) -> Result<CliProcessOutput, HostrunSessionError> {
     let env = command_env(env)?;
     let source = cli_stream::stream_source(source)?;
@@ -236,7 +236,7 @@ fn run_stream_cli_process(
 pub(crate) fn wait_with_live_output(
     program: &str,
     mut child: Child,
-    context: &ToolExecutionContext,
+    context: &HostrunExecutionContext,
 ) -> Result<Output, HostrunSessionError> {
     let output_readers = spawn_output_readers(program, &mut child, context)?;
     let status = wait_for_child_status(program, &mut child, context)?;
@@ -257,7 +257,7 @@ struct OutputReaders {
 fn spawn_output_readers(
     program: &str,
     child: &mut Child,
-    context: &ToolExecutionContext,
+    context: &HostrunExecutionContext,
 ) -> Result<OutputReaders, HostrunSessionError> {
     let stdout = take_piped_output(child.stdout.take(), program, "stdout")?;
     let stderr = take_piped_output(child.stderr.take(), program, "stderr")?;
@@ -265,10 +265,10 @@ fn spawn_output_readers(
     let stderr_context = context.clone();
     Ok(OutputReaders {
         stdout: thread::spawn(move || {
-            read_live_output(stdout, stdout_context, ToolCallOutputDelta::stdout)
+            read_live_output(stdout, stdout_context, HostrunOutputDelta::stdout)
         }),
         stderr: thread::spawn(move || {
-            read_live_output(stderr, stderr_context, ToolCallOutputDelta::stderr)
+            read_live_output(stderr, stderr_context, HostrunOutputDelta::stderr)
         }),
     })
 }
@@ -284,7 +284,7 @@ fn take_piped_output<T>(
 fn wait_for_child_status(
     program: &str,
     child: &mut Child,
-    context: &ToolExecutionContext,
+    context: &HostrunExecutionContext,
 ) -> Result<ExitStatus, HostrunSessionError> {
     let mut interrupted = false;
     let status = loop {
@@ -316,8 +316,8 @@ fn wait_for_child_status(
 
 fn read_live_output<R>(
     mut reader: R,
-    context: ToolExecutionContext,
-    delta: fn(Vec<u8>) -> ToolCallOutputDelta,
+    context: HostrunExecutionContext,
+    delta: fn(Vec<u8>) -> HostrunOutputDelta,
 ) -> std::io::Result<Vec<u8>>
 where
     R: Read,
@@ -361,7 +361,7 @@ fn cli_command_status(program: &str, argv: &[String], status: ExitStatus) -> Cli
 fn stdin_bytes(
     stdin: &Value,
     cwd: &Path,
-    context: &ToolExecutionContext,
+    context: &HostrunExecutionContext,
 ) -> Result<(Vec<u8>, Vec<CliCommandStatus>), HostrunSessionError> {
     let stdin_type = stdin
         .get("type")
@@ -389,7 +389,7 @@ fn stdin_bytes(
 fn stream_stdin_bytes(
     source: Option<&Value>,
     cwd: &Path,
-    context: &ToolExecutionContext,
+    context: &HostrunExecutionContext,
 ) -> Result<(Vec<u8>, Vec<CliCommandStatus>), HostrunSessionError> {
     let source = source
         .ok_or_else(|| HostrunSessionError::Eval("stdin stream source is required".to_string()))?;

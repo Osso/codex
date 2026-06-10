@@ -1,18 +1,24 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use codex_hostrun::HOSTRUN_EVAL_TOOL_NAME;
+use codex_hostrun::HostrunEvalToolError;
+use codex_hostrun::HostrunExecutionContext;
+use codex_hostrun::HostrunOutputDelta;
+use codex_hostrun::HostrunOutputStream;
+use codex_hostrun::HostrunSessionStore;
+use codex_hostrun::parse_eval_arguments;
+use codex_hostrun::run_eval_tool;
 use codex_tool_api::FunctionToolSpec;
 use codex_tool_api::ToolBundle;
 use codex_tool_api::ToolCall;
+use codex_tool_api::ToolCallOutputDelta;
+use codex_tool_api::ToolCallOutputStream;
 use codex_tool_api::ToolError;
 use codex_tool_api::ToolExecutionContext;
 use codex_tool_api::ToolExecutor;
 use codex_tool_api::ToolFuture;
-use serde::Deserialize;
-use serde_json::Value;
 use serde_json::json;
-
-use crate::HostrunSessionStore;
 
 #[derive(Clone, Debug, Default)]
 pub struct HostrunToolConfig;
@@ -44,7 +50,7 @@ pub fn embedded_hostrun_tool_bundle() -> ToolBundle {
 
 fn hostrun_eval_spec() -> FunctionToolSpec {
     FunctionToolSpec {
-        name: "hostrun_eval".to_string(),
+        name: HOSTRUN_EVAL_TOOL_NAME.to_string(),
         description: concat!(
             "Evaluate JavaScript in a persistent Hostrun QuickJS session. ",
             "Use the contributed Hostrun instructions for available globals and host APIs."
@@ -77,44 +83,44 @@ impl ToolExecutor for HostrunToolExecutor {
         context: ToolExecutionContext,
     ) -> ToolFuture<'a> {
         Box::pin(async move {
-            let input = parse_eval_arguments(&call.arguments)?;
-            self.run_eval(&input, context)
+            let input = parse_eval_arguments(&call.arguments)
+                .map_err(tool_error_from_hostrun_eval_error)?;
+            run_eval_tool(&self.sessions, &input, hostrun_execution_context(context))
+                .map_err(tool_error_from_hostrun_eval_error)
         })
     }
 }
 
-impl HostrunToolExecutor {
-    fn run_eval(
-        &self,
-        input: &HostrunEvalArguments,
-        context: ToolExecutionContext,
-    ) -> Result<Value, ToolError> {
-        let mut sessions = self
-            .sessions
-            .lock()
-            .map_err(|_| ToolError::fatal("Hostrun session lock was poisoned"))?;
-        let result = sessions
-            .eval_with_context(
-                input.session_id.as_deref().unwrap_or("default"),
-                &input.code,
-                context,
-            )
-            .map_err(|error| ToolError::respond_to_model(error.to_string()))?;
+fn hostrun_execution_context(context: ToolExecutionContext) -> HostrunExecutionContext {
+    let cancellation_context = context.clone();
+    HostrunExecutionContext::new(move || cancellation_context.is_cancelled())
+        .with_output_sink(move |delta| context.emit_output(tool_output_delta(delta)))
+}
 
-        serde_json::to_value(result)
-            .map_err(|error| ToolError::fatal(format!("failed to encode Hostrun eval: {error}")))
+fn tool_error_from_hostrun_eval_error(error: HostrunEvalToolError) -> ToolError {
+    match error {
+        HostrunEvalToolError::SessionLockPoisoned | HostrunEvalToolError::Encode(_) => {
+            ToolError::fatal(error.to_string())
+        }
+        HostrunEvalToolError::InvalidArguments(message) => {
+            ToolError::respond_to_model(format!("invalid Hostrun arguments: {message}"))
+        }
+        HostrunEvalToolError::Eval(error) => ToolError::respond_to_model(error.to_string()),
     }
 }
 
-#[derive(Deserialize, serde::Serialize)]
-struct HostrunEvalArguments {
-    session_id: Option<String>,
-    code: String,
+fn tool_output_delta(delta: HostrunOutputDelta) -> ToolCallOutputDelta {
+    ToolCallOutputDelta {
+        stream: tool_output_stream(delta.stream),
+        chunk: delta.chunk,
+    }
 }
 
-fn parse_eval_arguments(arguments: &str) -> Result<HostrunEvalArguments, ToolError> {
-    serde_json::from_str(arguments)
-        .map_err(|error| ToolError::respond_to_model(format!("invalid Hostrun arguments: {error}")))
+fn tool_output_stream(stream: HostrunOutputStream) -> ToolCallOutputStream {
+    match stream {
+        HostrunOutputStream::Stdout => ToolCallOutputStream::Stdout,
+        HostrunOutputStream::Stderr => ToolCallOutputStream::Stderr,
+    }
 }
 
 #[cfg(test)]

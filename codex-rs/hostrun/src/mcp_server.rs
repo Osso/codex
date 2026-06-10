@@ -6,8 +6,6 @@ use std::sync::Mutex;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 
-use codex_tool_api::ToolCallOutputStream;
-use codex_tool_api::ToolExecutionContext;
 use rmcp::ErrorData as McpError;
 use rmcp::RoleServer;
 use rmcp::ServiceExt;
@@ -25,11 +23,17 @@ use rmcp::model::ServerCapabilities;
 use rmcp::model::ServerInfo;
 use rmcp::model::Tool;
 use rmcp::service::RequestContext;
-use serde::Deserialize;
 use serde_json::Value;
 use serde_json::json;
 
 use crate::HostrunSessionStore;
+use crate::eval_tool::HOSTRUN_EVAL_TOOL_NAME;
+use crate::eval_tool::HostrunEvalArguments;
+use crate::eval_tool::HostrunEvalToolError;
+use crate::eval_tool::parse_eval_arguments_value;
+use crate::eval_tool::run_eval_tool;
+use crate::execution_context::HostrunExecutionContext;
+use crate::execution_context::HostrunOutputStream;
 
 const HOSTRUN_EVAL_DESCRIPTION: &str = "\
 Evaluate synchronous JavaScript in a persistent Hostrun QuickJS session. \
@@ -71,7 +75,7 @@ pub struct HostrunMcpServer {
 impl HostrunMcpServer {
     pub fn new() -> Self {
         Self {
-            sessions: Arc::new(Mutex::new(HostrunSessionStore::new_auto_approve())),
+            sessions: Arc::new(Mutex::new(HostrunSessionStore::new())),
             tools: Arc::new(vec![hostrun_eval_tool()]),
         }
     }
@@ -87,22 +91,10 @@ impl HostrunMcpServer {
     fn eval_with_context(
         &self,
         args: HostrunEvalArgs,
-        execution_context: ToolExecutionContext,
+        execution_context: HostrunExecutionContext,
     ) -> Result<CallToolResult, McpError> {
-        let mut sessions = self
-            .sessions
-            .lock()
-            .map_err(|_| McpError::internal_error("Hostrun session lock was poisoned", None))?;
-        let result = sessions
-            .eval_with_context(
-                args.session_id.as_deref().unwrap_or("default"),
-                &args.code,
-                execution_context,
-            )
-            .map_err(|error| McpError::internal_error(error.to_string(), None))?;
-        let structured_content = serde_json::to_value(&result).map_err(|error| {
-            McpError::internal_error(format!("failed to encode Hostrun result: {error}"), None)
-        })?;
+        let structured_content =
+            run_eval_tool(&self.sessions, &args, execution_context).map_err(mcp_eval_error)?;
         let content_text = serde_json::to_string_pretty(&structured_content).map_err(|error| {
             McpError::internal_error(format!("failed to render Hostrun result: {error}"), None)
         })?;
@@ -154,7 +146,7 @@ impl ServerHandler for HostrunMcpServer {
         context: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
         match request.name.as_ref() {
-            "hostrun_eval" => self.eval(parse_eval_args(request.arguments)?, context),
+            HOSTRUN_EVAL_TOOL_NAME => self.eval(parse_eval_args(request.arguments)?, context),
             name => Err(McpError::invalid_params(
                 format!("unknown Hostrun tool: {name}"),
                 None,
@@ -163,12 +155,12 @@ impl ServerHandler for HostrunMcpServer {
     }
 }
 
-fn mcp_execution_context(context: RequestContext<RoleServer>) -> ToolExecutionContext {
+fn mcp_execution_context(context: RequestContext<RoleServer>) -> HostrunExecutionContext {
     let cancellation_token = context.ct.clone();
     let peer = context.peer.clone();
     let progress_token = context.meta.get_progress_token();
     let progress = Arc::new(AtomicU64::new(0));
-    ToolExecutionContext::new(move || cancellation_token.is_cancelled()).with_output_sink(
+    HostrunExecutionContext::new(move || cancellation_token.is_cancelled()).with_output_sink(
         move |delta| {
             spawn_mcp_output_notification(
                 peer.clone(),
@@ -181,10 +173,10 @@ fn mcp_execution_context(context: RequestContext<RoleServer>) -> ToolExecutionCo
     )
 }
 
-fn mcp_stream_name(stream: ToolCallOutputStream) -> &'static str {
+fn mcp_stream_name(stream: HostrunOutputStream) -> &'static str {
     match stream {
-        ToolCallOutputStream::Stdout => "stdout",
-        ToolCallOutputStream::Stderr => "stderr",
+        HostrunOutputStream::Stdout => "stdout",
+        HostrunOutputStream::Stderr => "stderr",
     }
 }
 
@@ -247,7 +239,7 @@ fn stdio() -> (tokio::io::Stdin, tokio::io::Stdout) {
 
 fn hostrun_eval_tool() -> Tool {
     let mut tool = Tool::new(
-        Cow::Borrowed("hostrun_eval"),
+        Cow::Borrowed(HOSTRUN_EVAL_TOOL_NAME),
         Cow::Borrowed(HOSTRUN_EVAL_DESCRIPTION),
         Arc::new(hostrun_eval_input_schema()),
     );
@@ -305,20 +297,26 @@ fn parse_eval_args(arguments: Option<JsonObject>) -> Result<HostrunEvalArgs, Mcp
         ));
     };
 
-    serde_json::from_value(Value::Object(arguments.into_iter().collect()))
+    parse_eval_arguments_value(Value::Object(arguments.into_iter().collect()))
         .map_err(|error| McpError::invalid_params(error.to_string(), None))
 }
 
-#[derive(Deserialize)]
-struct HostrunEvalArgs {
-    code: String,
-    session_id: Option<String>,
+type HostrunEvalArgs = HostrunEvalArguments;
+
+fn mcp_eval_error(error: HostrunEvalToolError) -> McpError {
+    match error {
+        HostrunEvalToolError::InvalidArguments(message) => McpError::invalid_params(message, None),
+        HostrunEvalToolError::SessionLockPoisoned
+        | HostrunEvalToolError::Eval(_)
+        | HostrunEvalToolError::Encode(_) => McpError::internal_error(error.to_string(), None),
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use codex_tool_api::ToolExecutionContext;
     use serde_json::json;
+
+    use crate::execution_context::HostrunExecutionContext;
 
     use super::HostrunEvalArgs;
     use super::HostrunMcpServer;
@@ -373,18 +371,48 @@ mod tests {
         let first = server
             .eval_with_context(
                 args("ctx.count = 1; ctx.count;"),
-                ToolExecutionContext::default(),
+                HostrunExecutionContext::default(),
             )
             .expect("first eval");
         let second = server
             .eval_with_context(
                 args("ctx.count += 1; ctx.count;"),
-                ToolExecutionContext::default(),
+                HostrunExecutionContext::default(),
             )
             .expect("second eval");
 
         assert_eq!(first.structured_content.unwrap()["value"], json!(1));
         assert_eq!(second.structured_content.unwrap()["value"], json!(2));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn hostrun_mcp_returns_approval_requests_for_host_operations() {
+        let server = HostrunMcpServer::new();
+
+        let result = server
+            .eval_with_context(
+                args("rclone.deletefile('spaces:bucket/probe.txt')"),
+                HostrunExecutionContext::default(),
+            )
+            .expect("eval returns approval request");
+        let structured_content = result.structured_content.expect("structured content");
+
+        assert_eq!(
+            structured_content,
+            json!({
+                "type": "needs_approval",
+                "executed": "",
+                "value": null,
+                "approval": {
+                    "id": "rclone.deletefile:spaces:bucket/probe.txt",
+                    "tool": "rclone.deletefile",
+                    "summary": "Delete spaces:bucket/probe.txt",
+                    "args": {
+                        "target": "spaces:bucket/probe.txt"
+                    }
+                }
+            })
+        );
     }
 
     fn args(code: &str) -> HostrunEvalArgs {

@@ -4,10 +4,10 @@ use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
-use codex_tool_api::ToolExecutionContext;
 use serde_json::json;
 
 use super::HostrunSession;
+use crate::execution_context::HostrunExecutionContext;
 
 #[test]
 fn approved_cli_command_captures_stdout_text() {
@@ -38,7 +38,7 @@ fn approved_cli_command_captures_stdout_text() {
 fn approved_cli_command_emits_live_stdout_chunks() {
     let session = HostrunSession::new_auto_approve().expect("session");
     let chunks = Arc::new(Mutex::new(Vec::new()));
-    let context = ToolExecutionContext::default().with_output_sink({
+    let context = HostrunExecutionContext::default().with_output_sink({
         let chunks = Arc::clone(&chunks);
         move |delta| chunks.lock().expect("chunks lock").push(delta.chunk)
     });
@@ -61,7 +61,7 @@ fn approved_cli_command_emits_live_stdout_chunks() {
 fn approved_cli_command_stops_when_execution_context_is_cancelled() {
     let session = HostrunSession::new_auto_approve().expect("session");
     let cancelled = Arc::new(AtomicBool::new(false));
-    let context = ToolExecutionContext::new({
+    let context = HostrunExecutionContext::new({
         let cancelled = Arc::clone(&cancelled);
         move || cancelled.load(Ordering::SeqCst)
     })

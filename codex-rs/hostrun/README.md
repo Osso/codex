@@ -4,6 +4,68 @@ Hostrun is a persistent QuickJS runtime for readable host-side automation in Cod
 
 It is meant to replace ad hoc shell snippets when JavaScript control flow, structured parsing, persistent scratch state, or approval-readable host capabilities are clearer than Bash.
 
+Codex-specific integration lives in `codex-hostrun-adapter`, not this crate.
+That adapter maps Hostrun output into Codex's native exec/progress display. MCP
+clients, including Claude Code, see Hostrun through MCP logging/progress
+notifications instead.
+
+## Claude Code MCP
+
+Build the MCP server binary:
+
+```sh
+cargo build -p codex-hostrun --bin hostrun-mcp
+```
+
+Add it to Claude Code as a local stdio MCP server:
+
+```sh
+claude mcp add --scope user hostrun -- /path/to/hostrun-mcp
+```
+
+For a local development checkout, point Claude at Cargo:
+
+```sh
+claude mcp add --scope user hostrun -- cargo run -p codex-hostrun --bin hostrun-mcp
+```
+
+Then verify it:
+
+```sh
+claude mcp list
+```
+
+Inside Claude Code, `/mcp` shows the server and its tool. Claude Code's MCP
+documentation describes local stdio servers as commands after the `--`
+separator and notes that user-scoped servers are available across projects:
+https://code.claude.com/docs/en/mcp
+
+The standalone MCP server defaults to pending approval for host operations.
+Calls such as filesystem writes, command execution, HTTP requests, and remote
+mutations return structured `needs_approval` results instead of executing
+automatically.
+
+## Standalone Repository Extraction
+
+This crate is shaped so it can move to a standalone Hostrun repository:
+
+- Runtime and MCP code live here, without `codex-extension-api` or
+  `codex-tool-api` dependencies.
+- Codex-specific tool contribution and native exec/progress display mapping live
+  in `codex-hostrun-adapter`.
+- `hostrun-mcp` is the standalone stdio MCP binary. `codex-hostrun-mcp` remains
+  as a compatibility alias while Hostrun still lives in the Codex workspace.
+
+Remaining lift-out work:
+
+- Move `codex-rs/hostrun` to the new repository.
+- Rename the package from `codex-hostrun` to `hostrun` in that repository.
+- Replace workspace dependency versions with normal dependency versions.
+- Keep `codex-hostrun-adapter` in Codex and point it at the standalone Hostrun
+  crate or repository.
+- Preserve focused verification: `cargo test -p hostrun`, `cargo build --bin
+  hostrun-mcp`, and Codex adapter progress-display tests.
+
 ## Runtime
 
 Hostrun evaluates synchronous JavaScript. Do not use `await`.
@@ -368,7 +430,7 @@ ctx.files.containing('hostrun').sorted();
 The crate builds the Claude Code MCP server binary:
 
 ```bash
-cargo build --release -p codex-hostrun --bin codex-hostrun-mcp
+cargo build --release -p codex-hostrun --bin hostrun-mcp
 ```
 
 Claude Code can register the built binary as the `hostrun` MCP server. The server exposes the `hostrun_eval` tool and contributes the runtime instructions above.
