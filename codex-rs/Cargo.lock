@@ -5931,7 +5931,7 @@ dependencies = [
 [[package]]
 name = "hostrun"
 version = "0.1.0"
-source = "git+https://github.com/Osso/hostrun?rev=ce3520caf77097091bd998dcbe061cc0c10c8ba5#ce3520caf77097091bd998dcbe061cc0c10c8ba5"
+source = "git+https://github.com/Osso/hostrun?rev=cae1baec8954df8fc8b0de1965784a83011157cc#cae1baec8954df8fc8b0de1965784a83011157cc"
 dependencies = [
  "glob",
  "reqwest",

@@ -161,7 +161,7 @@ codex-file-watcher = { path = "file-watcher" }
 codex-git-utils = { path = "git-utils" }
 codex-hostrun-adapter = { path = "hostrun-adapter" }
 codex-hooks = { path = "hooks" }
-hostrun = { git = "https://github.com/Osso/hostrun", rev = "ce3520caf77097091bd998dcbe061cc0c10c8ba5" }
+hostrun = { git = "https://github.com/Osso/hostrun", rev = "cae1baec8954df8fc8b0de1965784a83011157cc" }
 codex-keyring-store = { path = "keyring-store" }
 codex-linux-sandbox = { path = "linux-sandbox" }
 codex-login = { path = "login" }
