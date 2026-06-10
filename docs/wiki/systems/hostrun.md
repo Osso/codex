@@ -1,26 +1,26 @@
 # Hostrun
 
 Hostrun is an experimental stateful JavaScript runtime for readable host
-execution. The reusable runtime and stdio MCP server currently live in
-`codex-rs/hostrun`, with a standalone package proof in `/home/osso/Repos/hostrun`.
-Codex-specific extension/tool integration lives in `codex-rs/hostrun-adapter`;
-when the `hostrun` feature is enabled, that adapter contributes a `hostrun_eval`
-tool plus model-facing instructions that describe the Hostrun standard library.
+execution. The reusable runtime and stdio MCP server live in the standalone
+`/home/osso/Repos/hostrun` repository. Codex-specific extension/tool integration
+lives in `codex-rs/hostrun-adapter`; when the `hostrun` feature is enabled, that
+adapter contributes a `hostrun_eval` tool plus model-facing instructions that
+describe the Hostrun standard library.
 
 ## Runtime Shape
 
-Hostrun embeds QuickJS through `codex-rs/hostrun/src/session.rs`. A
+Hostrun embeds QuickJS through `/home/osso/Repos/hostrun/src/session.rs`. A
 `HostrunSessionStore` keeps one persistent JavaScript context per Hostrun
 session id, so `globalThis.ctx` survives across later `hostrun_eval` calls and
 later assistant turns in the same Codex thread.
-The shared eval tool path in `codex-rs/hostrun/src/eval_tool.rs` owns
+The shared eval tool path in `/home/osso/Repos/hostrun/src/eval_tool.rs` owns
 `hostrun_eval` argument parsing and session dispatch. The Codex adapter maps
 that path into Codex tool APIs and native exec/progress display events; the MCP
 server maps it into stdio MCP tool responses and MCP logging/progress
 notifications.
 
 The JavaScript standard library is bootstrapped from
-`codex-rs/hostrun/src/bootstrap.js`. It defines public helpers such as `fs`,
+`/home/osso/Repos/hostrun/src/bootstrap.js`. It defines public helpers such as `fs`,
 `tmp`, `cli`, `rclone`, `fd`, `rg`, `sqlite`, `kubectl`, `http`, `github`, `git`, `path`, string
 helpers, array helpers, table/field helpers, and structured data helpers.
 
@@ -111,6 +111,6 @@ committing.
 ## Specs And Tests
 
 The behavioral spec lives in `docs/specs/hostrun.md`. Most behavior is tested in
-`codex-rs/hostrun/src/*_tests.rs`; command execution tests cover captures,
+`/home/osso/Repos/hostrun/src/*_tests.rs`; command execution tests cover captures,
 redirects, stdin sources, stream piping, command graph status, and structured
 output parsing.

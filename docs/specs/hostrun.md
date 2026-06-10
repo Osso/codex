@@ -1,8 +1,8 @@
 # Hostrun
 
 Hostrun is a stateful JavaScript host-execution runtime. Its reusable runtime
-and stdio MCP server currently live in `codex-rs/hostrun`, with a standalone
-package proof in `/home/osso/Repos/hostrun`; Codex-specific extension/tool
+and stdio MCP server live in the standalone `/home/osso/Repos/hostrun`
+repository; Codex-specific extension/tool
 integration lives in `codex-rs/hostrun-adapter`, with app-server registration in
 `codex-rs/app-server`. Codex exposes a `hostrun_eval` tool when the experimental
 `hostrun` feature is enabled and contributes the model-visible library
@@ -19,19 +19,18 @@ belongs in `docs/wiki/systems/hostrun.md`.
   operations instead of auto-approving commands, filesystem writes, HTTP calls,
   or remote mutations.
 - [x] Move Codex extension/tool integration into `codex-hostrun-adapter`, leaving
-  `codex-hostrun` free of `codex-extension-api` and `codex-tool-api`
-  dependencies.
+  Hostrun free of `codex-extension-api` and `codex-tool-api` dependencies.
 - [x] Document local stdio MCP installation for Claude Code in
-  `codex-rs/hostrun/README.md`.
+  `/home/osso/Repos/hostrun/README.md`.
 - [x] Provide `hostrun-mcp` as the standalone stdio MCP binary name, while
   keeping `codex-hostrun-mcp` as a compatibility alias.
 - [x] Add standalone package metadata and a lift-out checklist to
-  `codex-rs/hostrun/README.md`.
+  `/home/osso/Repos/hostrun/README.md`.
 - [x] Create a local standalone Hostrun package proof at
   `/home/osso/Repos/hostrun` with normal dependency versions, package name
   `hostrun`, `hostrun-mcp`, and the `codex-hostrun-mcp` compatibility alias.
-- [ ] Point Codex's `codex-hostrun-adapter` at the standalone Hostrun package
-  once the external repository location is finalized.
+- [x] Point Codex's `codex-hostrun-adapter` at the standalone Hostrun package
+  with the workspace dependency `hostrun = { path = "../../hostrun" }`.
 - [x] Keep Codex's Hostrun adapter in Codex so `hostrun_eval` continues to use
   native exec/progress display events.
 - [x] Ship a separate stdio MCP server for Claude and other MCP clients, with
@@ -198,27 +197,27 @@ belongs in `docs/wiki/systems/hostrun.md`.
 ## How it works
 
 - `docs/wiki/systems/hostrun.md` - intended system overview and runtime architecture.
-- `codex-rs/hostrun/JUST_BASH_SPIKE.md` - historical research notes from the just-bash fork investigation.
-- `codex-rs/hostrun/README.md` - standalone stdio MCP install notes for Claude Code.
+- `/home/osso/Repos/hostrun/JUST_BASH_SPIKE.md` - historical research notes from the just-bash fork investigation.
+- `/home/osso/Repos/hostrun/README.md` - standalone stdio MCP install notes for Claude Code.
 - `/home/osso/Repos/hostrun` - local standalone Hostrun package proof, including
   standalone `cargo test` and MCP binary builds.
 
 ## Implementation inventory
 
-- `codex-rs/hostrun/src/lib.rs` - public Hostrun crate types and re-exports.
-- `codex-rs/hostrun/src/session.rs` - embedded QuickJS session, `ctx`, console capture, `tools.*`, and `cli.*` approval request generation.
-- `codex-rs/hostrun/src/eval_tool.rs` - shared `hostrun_eval` argument parsing and session dispatch.
-- `codex-rs/hostrun/src/mcp_server.rs` - standalone stdio MCP server for non-Codex hosts.
+- `/home/osso/Repos/hostrun/src/lib.rs` - public Hostrun crate types and re-exports.
+- `/home/osso/Repos/hostrun/src/session.rs` - embedded QuickJS session, `ctx`, console capture, `tools.*`, and `cli.*` approval request generation.
+- `/home/osso/Repos/hostrun/src/eval_tool.rs` - shared `hostrun_eval` argument parsing and session dispatch.
+- `/home/osso/Repos/hostrun/src/mcp_server.rs` - standalone stdio MCP server for non-Codex hosts.
 - `codex-rs/hostrun-adapter/src/tool_bundle.rs` - Codex `hostrun_eval` tool schema and executor adapter.
 - `codex-rs/hostrun-adapter/src/tool_contributor.rs` - Codex feature-gated tool and prompt contribution.
 - `codex-rs/core/src/tools/handlers/extension_tools.rs` - transcript event handling for extension tools, including Hostrun eval display.
 - `codex-rs/app-server/src/extensions.rs` - app-server extension registry wiring for the experimental Hostrun feature.
-- `codex-rs/hostrun/js/src/hostrun-session.ts` - earlier JavaScript QuickJS session prototype and tests.
-- `codex-rs/hostrun/js/src/runner.ts` - earlier JSON/JSONL runner prototype.
+- `/home/osso/Repos/hostrun/js/src/hostrun-session.ts` - earlier JavaScript QuickJS session prototype and tests.
+- `/home/osso/Repos/hostrun/js/src/runner.ts` - earlier JSON/JSONL runner prototype.
 
 ## Tests asserting this spec
 
-- `codex-rs/hostrun/src/session.rs`:
+- `/home/osso/Repos/hostrun/src/session.rs`:
   - `keeps_live_ctx_objects_across_evaluations`
   - `keeps_ctx_alive_after_normal_exception`
   - `builds_fs_write_approval_request`
@@ -226,14 +225,14 @@ belongs in `docs/wiki/systems/hostrun.md`.
   - `preserves_cli_command_arguments`
   - `captures_console_messages_and_echoes_executed_code`
   - `store_keeps_ctx_per_session`
-- `codex-rs/hostrun/src/session_tests.rs`:
+- `/home/osso/Repos/hostrun/src/session_tests.rs`:
   - `array_helpers_filter_and_transform_strings_without_mutating`
   - `fields_helper_formats_text_and_object_templates`
   - `fields_helper_groups_counts_uniques_and_sorts_by_selectors`
-- `codex-rs/hostrun/src/eval_tool.rs`:
+- `/home/osso/Repos/hostrun/src/eval_tool.rs`:
   - `parse_eval_arguments_accepts_code_and_optional_session`
   - `parse_eval_arguments_rejects_missing_code`
-- `codex-rs/hostrun/src/mcp_server.rs`:
+- `/home/osso/Repos/hostrun/src/mcp_server.rs`:
   - `hostrun_eval_tool_schema_requires_code`
   - `hostrun_eval_tool_schema_warns_against_common_wrong_calls`
   - `hostrun_eval_reuses_session_state`
@@ -254,7 +253,7 @@ belongs in `docs/wiki/systems/hostrun.md`.
   - `feature_gated_install_contributes_tool_and_instructions_when_enabled`
 - `codex-rs/core/src/tools/handlers/extension_tools.rs`:
   - `hostrun_extension_tool_emits_exec_events_with_code`
-- `codex-rs/hostrun/js/src/*.test.ts` - prototype tests for persistent `ctx`, approval flow, and fake rclone workflows.
+- `/home/osso/Repos/hostrun/js/src/*.test.ts` - prototype tests for persistent `ctx`, approval flow, and fake rclone workflows.
 - `/home/osso/Repos/hostrun`:
   - `cargo test`
   - `cargo build --bin hostrun-mcp`

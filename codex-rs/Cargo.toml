@@ -101,7 +101,6 @@ members = [
     "codex-experimental-api-macros",
     "plugin",
     "model-provider",
-    "hostrun",
     "hostrun-adapter",
 ]
 default-members = ["cli"]
@@ -162,7 +161,7 @@ codex-file-watcher = { path = "file-watcher" }
 codex-git-utils = { path = "git-utils" }
 codex-hostrun-adapter = { path = "hostrun-adapter" }
 codex-hooks = { path = "hooks" }
-hostrun = { package = "codex-hostrun", path = "hostrun" }
+hostrun = { path = "../../hostrun" }
 codex-keyring-store = { path = "keyring-store" }
 codex-linux-sandbox = { path = "linux-sandbox" }
 codex-login = { path = "login" }

@@ -4,6 +4,7 @@ mod tool_contributor;
 pub use tool_bundle::HostrunToolConfig;
 pub use tool_bundle::embedded_hostrun_tool_bundle;
 pub use tool_bundle::hostrun_tool_bundle;
+pub use tool_contributor::HOSTRUN_PACKAGE_DIR_ENV;
 pub use tool_contributor::HOSTRUN_RUNNER_ENV;
 pub use tool_contributor::HostrunRunnerLifecycle;
 pub use tool_contributor::HostrunRunnerLifecycleError;

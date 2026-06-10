@@ -19,7 +19,7 @@ use crate::hostrun_tool_bundle;
 use crate::tool_bundle::hostrun_tool_bundle_with_sessions;
 
 pub const HOSTRUN_RUNNER_ENV: &str = "CODEX_HOSTRUN_RUNNER";
-const HOSTRUN_JS_PACKAGE: &str = "@openai/codex-hostrun-js";
+pub const HOSTRUN_PACKAGE_DIR_ENV: &str = "CODEX_HOSTRUN_PACKAGE_DIR";
 const HOSTRUN_INSTRUCTIONS: &str = "\
 Hostrun is available through the `hostrun_eval` tool.
 
@@ -193,26 +193,38 @@ impl HostrunFeatureState {
 
 #[derive(Clone, Debug)]
 pub struct HostrunRunnerLifecycle {
-    workspace_root: PathBuf,
     package_dir: PathBuf,
 }
 
 impl HostrunRunnerLifecycle {
-    pub fn new(workspace_root: impl AsRef<Path>, package_dir: impl AsRef<Path>) -> Self {
+    pub fn new(package_root: impl AsRef<Path>) -> Self {
+        Self::from_package_root(package_root)
+    }
+
+    fn from_package_dir(package_dir: impl AsRef<Path>) -> Self {
         Self {
-            workspace_root: workspace_root.as_ref().to_path_buf(),
             package_dir: package_dir.as_ref().to_path_buf(),
         }
     }
 
     pub fn managed_package() -> Self {
-        let hostrun_crate = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let workspace_root = hostrun_crate
+        if let Some(package_root) = env::var_os(HOSTRUN_PACKAGE_DIR_ENV) {
+            return Self::from_package_root(package_root);
+        }
+
+        let adapter_crate = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let package_root = adapter_crate
             .parent()
             .and_then(Path::parent)
-            .map(Path::to_path_buf)
-            .unwrap_or_else(|| hostrun_crate.clone());
-        Self::new(workspace_root, hostrun_crate.join("js"))
+            .and_then(Path::parent)
+            .map(|repos_root| repos_root.join("hostrun"))
+            .unwrap_or(adapter_crate);
+        Self::from_package_root(package_root)
+    }
+
+    fn from_package_root(package_root: impl AsRef<Path>) -> Self {
+        let package_root = package_root.as_ref().to_path_buf();
+        Self::from_package_dir(package_root.join("js"))
     }
 
     pub fn runner_path(&self) -> PathBuf {
@@ -235,8 +247,8 @@ impl HostrunRunnerLifecycle {
 
     fn build_runner(&self) -> Result<(), HostrunRunnerLifecycleError> {
         let output = Command::new("npx")
-            .args(["pnpm", "--filter", HOSTRUN_JS_PACKAGE, "build"])
-            .current_dir(&self.workspace_root)
+            .args(["pnpm", "build"])
+            .current_dir(&self.package_dir)
             .output()
             .map_err(|source| HostrunRunnerLifecycleError::BuildSpawnFailed { source })?;
 
@@ -319,12 +331,12 @@ mod tests {
     #[test]
     fn managed_lifecycle_uses_existing_built_runner() {
         let temp_dir = TempDir::new().expect("temp dir");
-        let workspace_root = temp_dir.path().join("repo");
-        let package_dir = workspace_root.join("codex-rs").join("hostrun").join("js");
+        let package_root = temp_dir.path().join("hostrun");
+        let package_dir = package_root.join("js");
         let runner = package_dir.join("dist").join("cli.js");
         std::fs::create_dir_all(runner.parent().expect("runner parent")).expect("create dist");
         std::fs::write(&runner, "#!/usr/bin/env node\n").expect("write runner");
-        let lifecycle = HostrunRunnerLifecycle::new(&workspace_root, &package_dir);
+        let lifecycle = HostrunRunnerLifecycle::from_package_root(&package_root);
 
         assert_eq!(lifecycle.ensure_runner().expect("runner exists"), runner);
     }
