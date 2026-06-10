@@ -129,6 +129,13 @@ router.run(cli.hostname());
 router.cli(cli.cat('/etc/os-release')).text();
 ```
 
+For Windows remotes, use `tools.powershell(script, options)` to build a PowerShell command with `-EncodedCommand` so paths with spaces do not require nested shell escaping:
+
+```js
+const desktop = tools.ssh({ host: 'desktop' });
+desktop.run(tools.powershell("Test-Path 'C:\\World of Warcraft\\_retail_\\Interface\\AddOns'"));
+```
+
 Password auth is only enabled when `passwordMode: 'plain'` is explicit. That mode uses `sshpass -e` and redacts `SSHPASS` from approval metadata; it is meant for intentionally non-secret passwords such as `none`.
 
 ## Files

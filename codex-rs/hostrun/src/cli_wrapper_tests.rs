@@ -234,6 +234,39 @@ fn tools_ssh_cli_returns_lazy_builder_with_persistent_defaults() {
 }
 
 #[test]
+fn tools_powershell_composes_with_ssh_using_encoded_command() {
+    let session = HostrunSession::new().expect("session");
+
+    let result = session
+        .eval(
+            r#"tools.ssh({ host: 'desktop' })
+              .cli(tools.powershell("Test-Path 'C:\\World of Warcraft\\_retail_\\Interface\\AddOns'"))
+              .text();"#,
+        )
+        .expect("approval");
+
+    assert_eq!(
+        result.approval.expect("approval").args,
+        json!({
+            "program": "ssh",
+            "args": [
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ControlMaster=auto",
+                "-o",
+                "ControlPath=~/.ssh/hostrun-%C",
+                "-o",
+                "ControlPersist=120s",
+                "desktop",
+                "powershell -NoProfile -EncodedCommand VABlAHMAdAAtAFAAYQB0AGgAIAAnAEMAOgBcAFcAbwByAGwAZAAgAG8AZgAgAFcAYQByAGMAcgBhAGYAdABcAF8AcgBlAHQAYQBpAGwAXwBcAEkAbgB0AGUAcgBmAGEAYwBlAFwAQQBkAGQATwBuAHMAJwA="
+            ],
+            "stdout": { "type": "text" }
+        })
+    );
+}
+
+#[test]
 fn tools_ssh_opt_outs_disable_multiplex_and_batch_mode() {
     let session = HostrunSession::new().expect("session");
 

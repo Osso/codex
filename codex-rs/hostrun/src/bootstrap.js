@@ -1885,7 +1885,50 @@ globalThis.__hostrun_shellQuote = function (value) {
   return "'" + text.replace(/'/g, "'\\''") + "'";
 };
 
+globalThis.__hostrun_base64Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+globalThis.__hostrun_base64Encode = function (bytes) {
+  const alphabet = globalThis.__hostrun_base64Alphabet;
+  const output = [];
+  for (let index = 0; index < bytes.length; index += 3) {
+    const first = bytes[index];
+    const second = bytes[index + 1] ?? 0;
+    const third = bytes[index + 2] ?? 0;
+    const value = (first << 16) | (second << 8) | third;
+    output.push(alphabet[(value >> 18) & 0x3f]);
+    output.push(alphabet[(value >> 12) & 0x3f]);
+    output.push(index + 1 < bytes.length ? alphabet[(value >> 6) & 0x3f] : "=");
+    output.push(index + 2 < bytes.length ? alphabet[value & 0x3f] : "=");
+  }
+  return output.join("");
+};
+
+globalThis.__hostrun_utf16LeBytes = function (value) {
+  const text = String(value);
+  const output = [];
+  for (let index = 0; index < text.length; index += 1) {
+    const codeUnit = text.charCodeAt(index);
+    output.push(codeUnit & 0xff, codeUnit >> 8);
+  }
+  return output;
+};
+
+globalThis.__hostrun_powershellCommand = function (script, options = {}) {
+  const executable = options.executable === undefined || options.executable === null
+    ? "powershell"
+    : String(options.executable);
+  const args = [];
+  if (options.noProfile !== false) {
+    args.push("-NoProfile");
+  }
+  args.push("-EncodedCommand", globalThis.__hostrun_base64Encode(globalThis.__hostrun_utf16LeBytes(script)));
+  return globalThis.__hostrun_commandBuilder(executable, args, { remoteCommandStyle: "plain" });
+};
+
 globalThis.__hostrun_remoteCommand = function (state) {
+  if (state.remoteCommandStyle === "plain") {
+    return [state.program, ...(state.args ?? [])].map(String).join(" ");
+  }
   const command = [state.program, ...(state.args ?? [])]
     .map(globalThis.__hostrun_shellQuote)
     .join(" ");
@@ -1945,6 +1988,7 @@ globalThis.__hostrun_sshCommand = function (options, remoteState, defaults = {})
   delete commandOptions.program;
   delete commandOptions.args;
   delete commandOptions.cwd;
+  delete commandOptions.remoteCommandStyle;
   if (options.password !== undefined || options.passwordMode !== undefined) {
     if (options.passwordMode !== "plain") {
       throw new Error("tools.ssh password requires passwordMode: 'plain'");
@@ -1953,6 +1997,10 @@ globalThis.__hostrun_sshCommand = function (options, remoteState, defaults = {})
     return globalThis.__hostrun_commandBuilder("sshpass", ["-e", "ssh", ...sshArgs], commandOptions);
   }
   return globalThis.__hostrun_commandBuilder("ssh", sshArgs, commandOptions);
+};
+
+globalThis.tools.powershell = function (script, options = {}) {
+  return globalThis.__hostrun_powershellCommand(script, options);
 };
 
 globalThis.tools.ssh = function (options = {}) {
