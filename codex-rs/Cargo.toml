@@ -160,9 +160,9 @@ codex-install-context = { path = "install-context" }
 codex-file-search = { path = "file-search" }
 codex-file-watcher = { path = "file-watcher" }
 codex-git-utils = { path = "git-utils" }
-codex-hostrun = { path = "hostrun" }
 codex-hostrun-adapter = { path = "hostrun-adapter" }
 codex-hooks = { path = "hooks" }
+hostrun = { package = "codex-hostrun", path = "hostrun" }
 codex-keyring-store = { path = "keyring-store" }
 codex-linux-sandbox = { path = "linux-sandbox" }
 codex-login = { path = "login" }

@@ -1,14 +1,6 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use codex_hostrun::HOSTRUN_EVAL_TOOL_NAME;
-use codex_hostrun::HostrunEvalToolError;
-use codex_hostrun::HostrunExecutionContext;
-use codex_hostrun::HostrunOutputDelta;
-use codex_hostrun::HostrunOutputStream;
-use codex_hostrun::HostrunSessionStore;
-use codex_hostrun::parse_eval_arguments;
-use codex_hostrun::run_eval_tool;
 use codex_tool_api::FunctionToolSpec;
 use codex_tool_api::ToolBundle;
 use codex_tool_api::ToolCall;
@@ -18,6 +10,14 @@ use codex_tool_api::ToolError;
 use codex_tool_api::ToolExecutionContext;
 use codex_tool_api::ToolExecutor;
 use codex_tool_api::ToolFuture;
+use hostrun::HOSTRUN_EVAL_TOOL_NAME;
+use hostrun::HostrunEvalToolError;
+use hostrun::HostrunExecutionContext;
+use hostrun::HostrunOutputDelta;
+use hostrun::HostrunOutputStream;
+use hostrun::HostrunSessionStore;
+use hostrun::parse_eval_arguments;
+use hostrun::run_eval_tool;
 use serde_json::json;
 
 #[derive(Clone, Debug, Default)]

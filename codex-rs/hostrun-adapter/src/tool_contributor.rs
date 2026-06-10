@@ -12,7 +12,7 @@ use codex_extension_api::PromptFragment;
 use codex_extension_api::ThreadStartContributor;
 use codex_extension_api::ToolBundle;
 use codex_extension_api::ToolContributor;
-use codex_hostrun::HostrunSessionStore;
+use hostrun::HostrunSessionStore;
 
 use crate::HostrunToolConfig;
 use crate::hostrun_tool_bundle;
