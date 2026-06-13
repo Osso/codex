@@ -492,6 +492,45 @@ not done.
 
 ---
 
+## 17. Hostrun adapter and JS host automation tool
+
+**Purpose.** Expose Hostrun as a first-class Codex tool so agents can run
+stateful QuickJS automation with structured host helpers instead of composing
+fragile shell pipelines. The public model-facing tool is `hostrun_eval`; it
+keeps a per-thread session, persists `ctx` across calls, and contributes the
+Hostrun helper instructions only when the feature is enabled.
+
+**Behavior details worth preserving.**
+- `hostrun_eval` accepts `code` plus optional `session_id`; when omitted, calls
+  share the thread-scoped Hostrun session.
+- Tool execution bridges Hostrun approval JSON, output deltas, stdout/stderr
+  streams, and model-visible errors into the Codex tool runtime.
+- The adapter owns a reusable session store so repeated tool assembly does not
+  reset QuickJS state.
+- Hostrun helpers include CLI command builders, explicit stdout/stderr capture,
+  managed processes, stream piping, HTTP and filesystem helpers, tmux/browser/
+  git/GitHub helpers, SheetJS/XLSX loading, persistent cwd, and durable `ctx`.
+- The runner is now a standalone package (`codex-rs/hostrun-adapter`) pinned to
+  the public Hostrun source rather than embedded ad hoc shell glue.
+
+**Key files.**
+- `codex-rs/hostrun-adapter/src/tool_bundle.rs`
+- `codex-rs/hostrun-adapter/src/tool_contributor.rs`
+- `codex-rs/hostrun-adapter/Cargo.toml`
+- `docs/specs/hostrun.md`
+
+**Tests to re-run.**
+- `cargo test -p codex-hostrun-adapter`
+- `cargo test -p codex-core hostrun`
+
+**Rebase risk. HIGH.** This touches the tool contribution pipeline and approval
+surface. After a rebase, confirm the feature gate still hides Hostrun when
+disabled, `hostrun_eval` is the only public Hostrun tool name, session reuse
+survives repeated tool assembly, and approval-gated helpers still report
+structured approval requests rather than executing directly.
+
+---
+
 ## 18. PreToolUse command rewrites
 
 **Purpose.** Honor Claude's `hookSpecificOutput.updatedInput` field on
@@ -554,7 +593,46 @@ non-approval behavior, and their optional `updatedInput` rewrite pairing.
 
 ---
 
-## 19. Aggressive upstream-feature removals
+## 19. Resume picker SQLite-first listing
+
+**Purpose.** Keep `codex resume` picker startup proportional to SQLite row
+listing instead of repeatedly re-reading rollout heads for stable fields. The
+first user message and preview are immutable once captured, so the picker should
+trust completed state DB metadata for initial rows and reserve JSONL reads for
+fallback, repair, transcript preview, and actually resuming the selected thread.
+
+**Behavior details worth preserving.**
+- Normal local thread listing now asks SQLite first even when the caller did not
+  set `use_state_db_only`.
+- If SQLite returns a non-empty page, a cursor page, or the caller explicitly
+  requested state-DB-only behavior, the thread-store returns that page without
+  scanning rollout heads.
+- If SQLite cannot answer or returns an empty first page, the existing rollout
+  scan/repair path remains the fallback so older or incomplete stores still work.
+- `codex resume --last` remains the fast targeted lookup; plain `codex resume`
+  should no longer parse early JSONL lines for every picker row when state DB
+  metadata exists.
+- Full selected-session resume still loads that one rollout's complete history;
+  this section is only about picker/list discovery latency.
+
+**Key files.**
+- `codex-rs/thread-store/src/local/list_threads.rs`
+- `codex-rs/rollout/src/state_db.rs`
+- `codex-rs/rollout/src/recorder.rs`
+- `codex-rs/tui/src/resume_picker.rs`
+
+**Tests to re-run.**
+- `cargo test -p codex-thread-store local::list_threads`
+- `cargo test -p codex-tui resume_picker`
+
+**Rebase risk. Medium.** Upstream may keep the rollout recorder filesystem-first
+repair policy. Preserve the thread-store boundary behavior: picker/list callers
+should get DB-backed rows first, and rollout head parsing should be a fallback
+or lazy visible-row operation, not the initial rendering path.
+
+---
+
+## 20. Aggressive upstream-feature removals
 
 The fork has subtracted ~170K lines of upstream code that the OSS Linux-only
 fork doesn't ship. Each rebase has to re-delete these because upstream
@@ -642,6 +720,8 @@ Before declaring a rebase clean, walk this list:
 5. Regenerate protocol schemas if anything under
    `codex-rs/app-server-protocol/schema/` diverged.
 6. Smoke-test the fork's own features end-to-end: run a session with a
-   `SessionStart` hook, trigger `/run-plan`, spawn a subagent, exercise the WIP
-   permission prompt approval tool, and confirm `deploy.sh` still installs
-   cleanly.
+   `SessionStart` hook, trigger `/run-plan`, spawn a subagent, run one
+   stateful `hostrun_eval` call followed by a second call that reads `ctx`,
+   exercise the WIP permission prompt approval tool, open `codex resume` on a
+   large local session store to confirm picker rows render from SQLite, and
+   confirm `deploy.sh` still installs cleanly.

@@ -75,13 +75,31 @@ pub(super) async fn list_threads(
         })
         .collect::<Vec<_>>();
 
+    apply_thread_names(store, &mut items).await;
+
+    Ok(ThreadPage { items, next_cursor })
+}
+
+async fn apply_thread_names(store: &LocalThreadStore, items: &mut [crate::StoredThread]) {
     let thread_ids = items
         .iter()
         .map(|thread| thread.thread_id)
         .collect::<HashSet<_>>();
+    let names = load_thread_names(store, &thread_ids).await;
+    for thread in items {
+        if let Some(title) = names.get(&thread.thread_id).cloned() {
+            set_thread_name_from_title(thread, title);
+        }
+    }
+}
+
+async fn load_thread_names(
+    store: &LocalThreadStore,
+    thread_ids: &HashSet<ThreadId>,
+) -> HashMap<ThreadId, String> {
     let mut names = HashMap::<ThreadId, String>::with_capacity(thread_ids.len());
     if let Some(state_db_ctx) = store.state_db().await {
-        for &thread_id in &thread_ids {
+        for &thread_id in thread_ids {
             let Ok(Some(metadata)) = state_db_ctx.get_thread(thread_id).await else {
                 continue;
             };
@@ -92,19 +110,13 @@ pub(super) async fn list_threads(
     }
     if names.len() < thread_ids.len()
         && let Ok(legacy_names) =
-            find_thread_names_by_ids(store.config.codex_home.as_path(), &thread_ids).await
+            find_thread_names_by_ids(store.config.codex_home.as_path(), thread_ids).await
     {
         for (thread_id, title) in legacy_names {
             names.entry(thread_id).or_insert(title);
         }
     }
-    for thread in &mut items {
-        if let Some(title) = names.get(&thread.thread_id).cloned() {
-            set_thread_name_from_title(thread, title);
-        }
-    }
-
-    Ok(ThreadPage { items, next_cursor })
+    names
 }
 
 async fn list_rollout_threads(
@@ -116,70 +128,101 @@ async fn list_rollout_threads(
     sort_key: codex_rollout::ThreadSortKey,
     sort_direction: codex_rollout::SortDirection,
 ) -> ThreadStoreResult<codex_rollout::ThreadsPage> {
-    let page = if params.use_state_db_only && params.archived {
-        RolloutRecorder::list_archived_threads_from_state_db(
-            state_db,
-            config,
-            params.page_size,
-            cursor,
-            sort_key,
-            sort_direction,
-            params.allowed_sources.as_slice(),
-            params.model_providers.as_deref(),
-            params.cwd_filters.as_deref(),
-            default_model_provider_id,
-            params.search_term.as_deref(),
-        )
-        .await
-    } else if params.use_state_db_only {
-        RolloutRecorder::list_threads_from_state_db(
-            state_db,
-            config,
-            params.page_size,
-            cursor,
-            sort_key,
-            sort_direction,
-            params.allowed_sources.as_slice(),
-            params.model_providers.as_deref(),
-            params.cwd_filters.as_deref(),
-            default_model_provider_id,
-            params.search_term.as_deref(),
-        )
-        .await
-    } else if params.archived {
-        RolloutRecorder::list_archived_threads(
-            state_db,
-            config,
-            params.page_size,
-            cursor,
-            sort_key,
-            sort_direction,
-            params.allowed_sources.as_slice(),
-            params.model_providers.as_deref(),
-            params.cwd_filters.as_deref(),
-            default_model_provider_id,
-            params.search_term.as_deref(),
-        )
-        .await
-    } else {
-        RolloutRecorder::list_threads(
-            state_db,
-            config,
-            params.page_size,
-            cursor,
-            sort_key,
-            sort_direction,
-            params.allowed_sources.as_slice(),
-            params.model_providers.as_deref(),
-            params.cwd_filters.as_deref(),
-            default_model_provider_id,
-            params.search_term.as_deref(),
-        )
-        .await
+    if let Some(db_page) = list_state_db_threads(
+        state_db.as_deref(),
+        config,
+        params,
+        cursor,
+        sort_key,
+        sort_direction,
+    )
+    .await
+        && should_return_state_db_page(&db_page, params, cursor)
+    {
+        return Ok(db_page.into());
+    }
+
+    list_rollout_threads_from_recorder(
+        state_db,
+        config,
+        default_model_provider_id,
+        params,
+        cursor,
+        sort_key,
+        sort_direction,
+    )
+    .await
+}
+
+async fn list_rollout_threads_from_recorder(
+    state_db: Option<codex_rollout::StateDbHandle>,
+    config: &RolloutConfig,
+    default_model_provider_id: &str,
+    params: &ListThreadsParams,
+    cursor: Option<&codex_rollout::Cursor>,
+    sort_key: codex_rollout::ThreadSortKey,
+    sort_direction: codex_rollout::SortDirection,
+) -> ThreadStoreResult<codex_rollout::ThreadsPage> {
+    macro_rules! call_recorder {
+        ($method:ident) => {
+            RolloutRecorder::$method(
+                state_db,
+                config,
+                params.page_size,
+                cursor,
+                sort_key,
+                sort_direction,
+                params.allowed_sources.as_slice(),
+                params.model_providers.as_deref(),
+                params.cwd_filters.as_deref(),
+                default_model_provider_id,
+                params.search_term.as_deref(),
+            )
+            .await
+        };
+    }
+
+    let page = match (params.use_state_db_only, params.archived) {
+        (true, true) => call_recorder!(list_archived_threads_from_state_db),
+        (true, false) => call_recorder!(list_threads_from_state_db),
+        (false, true) => call_recorder!(list_archived_threads),
+        (false, false) => call_recorder!(list_threads),
     };
     page.map_err(|err| ThreadStoreError::Internal {
         message: format!("failed to list threads: {err}"),
     })
+}
+
+async fn list_state_db_threads(
+    state_db: Option<&codex_state::StateRuntime>,
+    config: &RolloutConfig,
+    params: &ListThreadsParams,
+    cursor: Option<&codex_rollout::Cursor>,
+    sort_key: codex_rollout::ThreadSortKey,
+    sort_direction: codex_rollout::SortDirection,
+) -> Option<codex_state::ThreadsPage> {
+    codex_rollout::state_db::list_threads_db(
+        state_db,
+        config.codex_home.as_path(),
+        params.page_size,
+        cursor,
+        sort_key,
+        sort_direction,
+        params.allowed_sources.as_slice(),
+        params.model_providers.as_deref(),
+        params.cwd_filters.as_deref(),
+        params.archived,
+        params.search_term.as_deref(),
+    )
+    .await
+}
+
+fn should_return_state_db_page(
+    db_page: &codex_state::ThreadsPage,
+    params: &ListThreadsParams,
+    cursor: Option<&codex_rollout::Cursor>,
+) -> bool {
+    !db_page.items.is_empty() || cursor.is_some() || params.use_state_db_only
 }
 
 #[cfg(test)]
@@ -298,6 +341,68 @@ mod tests {
         assert_eq!(
             page.items[0].first_user_message.as_deref(),
             Some("plain preview")
+        );
+    }
+
+    #[tokio::test]
+    async fn list_threads_uses_sqlite_preview_without_rollout_head_scan() {
+        let home = TempDir::new().expect("temp dir");
+        let config = test_config(home.path());
+        let uuid = Uuid::from_u128(104);
+        let thread_id = ThreadId::from_string(&uuid.to_string()).expect("valid thread id");
+        let rollout_path = home.path().join("rollout-db-backed-preview.jsonl");
+        fs::write(&rollout_path, "").expect("placeholder rollout file");
+
+        let runtime = codex_state::StateRuntime::init(
+            home.path().to_path_buf(),
+            config.default_model_provider_id.clone(),
+        )
+        .await
+        .expect("state db should initialize");
+        let store = LocalThreadStore::new(config.clone(), Some(runtime.clone()));
+        runtime
+            .mark_backfill_complete(/*last_watermark*/ None)
+            .await
+            .expect("backfill should be complete");
+        let created_at = Utc::now();
+        let mut builder = codex_state::ThreadMetadataBuilder::new(
+            thread_id,
+            rollout_path,
+            created_at,
+            SessionSource::Cli,
+        );
+        builder.model_provider = Some(config.default_model_provider_id.clone());
+        builder.cwd = home.path().to_path_buf();
+        builder.cli_version = Some("test_version".to_string());
+        let mut metadata = builder.build(config.default_model_provider_id.as_str());
+        metadata.first_user_message = Some("stable first message".to_string());
+        metadata.preview = metadata.first_user_message.clone();
+        runtime
+            .upsert_thread(&metadata)
+            .await
+            .expect("state db upsert should succeed");
+
+        let page = store
+            .list_threads(ListThreadsParams {
+                page_size: 10,
+                cursor: None,
+                sort_key: ThreadSortKey::UpdatedAt,
+                sort_direction: SortDirection::Desc,
+                allowed_sources: Vec::new(),
+                model_providers: None,
+                cwd_filters: None,
+                archived: false,
+                search_term: None,
+                use_state_db_only: false,
+            })
+            .await
+            .expect("thread listing");
+
+        assert_eq!(page.items.len(), 1);
+        assert_eq!(page.items[0].thread_id, thread_id);
+        assert_eq!(
+            page.items[0].first_user_message.as_deref(),
+            Some("stable first message")
         );
     }
 
