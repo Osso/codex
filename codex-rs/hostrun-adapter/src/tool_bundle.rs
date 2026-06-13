@@ -334,6 +334,33 @@ mod tests {
     }
 
     #[tokio::test(flavor = "current_thread")]
+    async fn executor_loads_sheetjs_through_tools_require() {
+        let bundle = embedded_hostrun_tool_bundle();
+
+        let output = bundle
+            .executor()
+            .execute(call(
+                "session-1",
+                r#"
+                const XLSX = tools.require('sheetjs');
+                const workbook = XLSX.utils.book_new();
+                const sheet = XLSX.utils.aoa_to_sheet([
+                  ['Name', 'Value'],
+                  ['alpha', 42]
+                ]);
+                XLSX.utils.book_append_sheet(workbook, sheet, 'Data');
+                const bytes = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+                const parsed = XLSX.read(bytes, { type: 'array' });
+                XLSX.utils.sheet_to_json(parsed.Sheets.Data, { header: 1 });
+                "#,
+            ))
+            .await
+            .expect("tool output");
+
+        assert_eq!(output["value"], json!([["Name", "Value"], ["alpha", 42]]));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
     async fn legacy_runner_config_is_ignored_by_embedded_runtime() {
         let bundle = hostrun_tool_bundle(HostrunToolConfig::new("/missing/runner.js"));
 

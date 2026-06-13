@@ -27,6 +27,7 @@ Hostrun evaluates synchronous JavaScript in a persistent QuickJS session:
 - Do not use `await`. Hostrun helpers return values directly in this runtime.
 - `ctx` persists across later `hostrun_eval` calls and across later assistant turns in the same Codex thread. Store scratch results there when later work should reuse them instead of recomputing.
 - `console.log`, `console.info`, `console.warn`, `console.error`, and `console.debug` are captured in the tool result.
+- `tools.require('sheetjs')` and `tools.require('xlsx')` lazily load the bundled SheetJS `xlsx` helper for spreadsheet reads/writes; the module is cached in `ctx` after first load.
 - Arrays have `.containing(needle)` plus non-mutating helpers such as `.notContaining()`, `.startsWith()`, `.endsWith()`, `.matching()`, `.glob()`, `.unique()`, `.sorted()`, `.reversed()`, `.groupBy()`, `.countBy()`, `.uniqueBy()`, and `.sortBy()`.
 - Strings expose shell-style helpers such as `.lines(start, end)`, `.head()`, `.tail()`, `.splitWords()`, `.splitColumn()`, `.cut(separator, fields)`, `.json()`, `.jsonl()`, `.yaml()`, `.toml()`, `.csv()`, `.tsv()`, `.lineCount()`, `.wordCount()`, `.byteCount()`, `.bytes()`, `.byteArray()`, and `.chars()`.
 - `path.*` and `date.*` provide small readable helpers for path transforms and UTC date parse/format/humanize workflows.
