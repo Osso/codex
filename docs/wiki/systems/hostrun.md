@@ -25,6 +25,18 @@ The JavaScript standard library is bootstrapped from
 `tmp`, `cli`, `rclone`, `fd`, `rg`, `sqlite`, `kubectl`, `http`, `github`, `git`, `path`, string
 helpers, array helpers, table/field helpers, and structured data helpers.
 
+Codex's built-in `hostrun_eval` does **not** use the installed
+`hostrun-mcp`/`codex-hostrun-mcp` binaries. It links the Rust `hostrun` crate via
+`codex-rs/Cargo.toml` and `codex-rs/hostrun-adapter`. If a Hostrun bootstrap
+change is needed inside Codex, update Codex's `hostrun` dependency and rebuild
+`/home/osso/.cargo/bin/codex`; rebuilding only the standalone MCP binaries leaves
+Codex sessions on the old embedded runtime.
+
+As of commit `4cbc3b0d24`, the local Codex fork points `hostrun` at the sibling
+`/home/osso/Repos/hostrun` checkout so local Hostrun changes such as
+`tools.require('sheetjs')` are picked up by `hostrun_eval`. The adapter regression
+test is `executor_loads_sheetjs_through_tools_require`.
+
 ## Approval Boundary
 
 JavaScript code does not directly touch the host. Host-facing helpers call the
