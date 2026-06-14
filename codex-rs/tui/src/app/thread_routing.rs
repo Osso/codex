@@ -789,6 +789,7 @@ impl App {
         thread_id: ThreadId,
         notification: ServerNotification,
     ) -> Result<()> {
+        self.sync_agent_navigation_for_notification(&notification);
         let inferred_session = self
             .infer_session_for_thread_notification(thread_id, &notification)
             .await;
@@ -831,6 +832,18 @@ impl App {
         }
         self.refresh_pending_thread_approvals().await;
         Ok(())
+    }
+
+    pub(super) fn sync_agent_navigation_for_notification(
+        &mut self,
+        notification: &ServerNotification,
+    ) {
+        if let ServerNotification::ThreadClosed(closed) = notification
+            && let Ok(thread_id) = ThreadId::from_string(closed.thread_id.as_str())
+        {
+            self.mark_agent_picker_thread_closed(thread_id);
+        }
+        self.cache_collab_receiver_threads_for_notification(notification);
     }
 
     /// Locally remembers receiver threads referenced by a collab notification.
@@ -1332,12 +1345,7 @@ impl App {
         );
         match event {
             ThreadBufferedEvent::Notification(notification) => {
-                if let ServerNotification::ThreadClosed(closed) = &notification
-                    && let Ok(thread_id) = ThreadId::from_string(closed.thread_id.as_str())
-                {
-                    self.mark_agent_picker_thread_closed(thread_id);
-                }
-                self.cache_collab_receiver_threads_for_notification(&notification);
+                self.sync_agent_navigation_for_notification(&notification);
                 self.chat_widget
                     .handle_server_notification(notification, /*replay_kind*/ None);
             }

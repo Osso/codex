@@ -367,7 +367,23 @@ fn waiting_end(
     agent_metadata: &mut impl FnMut(ThreadId) -> AgentMetadata,
 ) -> PlainHistoryCell {
     let details = wait_complete_lines(receiver_thread_ids, agents_states, agent_metadata);
-    collab_event(title_text("Finished waiting"), details)
+    collab_event(title_text(wait_end_title(agents_states)), details)
+}
+
+fn wait_end_title(agents_states: &std::collections::HashMap<String, CollabAgentState>) -> &str {
+    if agents_states.values().any(|state| {
+        matches!(
+            state.status,
+            CollabAgentStatus::Completed
+                | CollabAgentStatus::Errored
+                | CollabAgentStatus::Shutdown
+                | CollabAgentStatus::NotFound
+        )
+    }) {
+        "Finished waiting"
+    } else {
+        "Agent update received"
+    }
 }
 
 fn close_end(
@@ -753,6 +769,47 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n\n");
         assert_snapshot!("collab_agent_transcript", snapshot);
+    }
+
+    #[test]
+    fn wait_end_with_only_running_agents_renders_update_title() {
+        let sender_thread_id = ThreadId::from_string("00000000-0000-0000-0000-000000000001")
+            .expect("valid sender thread id");
+        let robie_id = ThreadId::from_string("00000000-0000-0000-0000-000000000002")
+            .expect("valid robie thread id");
+        let bob_id = ThreadId::from_string("00000000-0000-0000-0000-000000000003")
+            .expect("valid bob thread id");
+
+        let cell = tool_call_history_cell(
+            &ThreadItem::CollabAgentToolCall {
+                id: "call-wait".to_string(),
+                tool: CollabAgentTool::Wait,
+                status: CollabAgentToolCallStatus::Completed,
+                sender_thread_id: sender_thread_id.to_string(),
+                receiver_thread_ids: vec![robie_id.to_string(), bob_id.to_string()],
+                prompt: None,
+                model: None,
+                reasoning_effort: None,
+                agents_states: HashMap::from([
+                    (
+                        robie_id.to_string(),
+                        agent_state(CollabAgentStatus::Running, /*message*/ None),
+                    ),
+                    (
+                        bob_id.to_string(),
+                        agent_state(CollabAgentStatus::Running, /*message*/ None),
+                    ),
+                ]),
+            },
+            /*cached_spawn_request*/ None,
+            |thread_id| metadata_for(thread_id, robie_id, bob_id),
+        )
+        .expect("wait end item renders");
+
+        assert_eq!(
+            cell_to_text(&cell),
+            "• Agent update received\n  └ Robie [explorer]: Running\n    Bob [worker]: Running"
+        );
     }
 
     #[cfg(target_os = "macos")]
