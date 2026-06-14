@@ -1,4 +1,8 @@
 use super::*;
+use codex_app_server_protocol::HookErrorInfo;
+use codex_app_server_protocol::HooksListEntry;
+use codex_app_server_protocol::HooksListResponse;
+use codex_app_server_protocol::MarketplaceRemoveResponse;
 use codex_features::Stage;
 use pretty_assertions::assert_eq;
 

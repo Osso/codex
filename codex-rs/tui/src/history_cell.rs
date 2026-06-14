@@ -4032,14 +4032,14 @@ mod tests {
                 count: 4,
                 duration_ms: 1_200,
             },
-            responses_api_overhead_ms: 650,
-            responses_api_inference_time_ms: 1_940,
-            responses_api_engine_iapi_ttft_ms: 410,
-            responses_api_engine_service_ttft_ms: 460,
-            responses_api_engine_iapi_tbt_ms: 1_180,
-            responses_api_engine_service_tbt_ms: 1_240,
-            turn_ttft_ms: 0,
-            turn_ttfm_ms: 0,
+            responses_api_overhead_ms: 650.0,
+            responses_api_inference_time_ms: 1_940.0,
+            responses_api_engine_iapi_ttft_ms: 410.0,
+            responses_api_engine_service_ttft_ms: 460.0,
+            responses_api_engine_iapi_tbt_ms: 1_180.0,
+            responses_api_engine_service_tbt_ms: 1_240.0,
+            turn_ttft_ms: 0.0,
+            turn_ttfm_ms: 0.0,
         };
         let cell = FinalMessageSeparator::new(Some(12), Some(summary));
         let rendered = render_lines(&cell.display_lines(/*width*/ 600));

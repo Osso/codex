@@ -149,6 +149,7 @@ mod session_state;
 mod shimmer;
 mod skills_helpers;
 mod slash_command;
+mod slash_command_handler;
 mod startup_hooks_review;
 mod status;
 mod status_indicator_widget;
@@ -1611,12 +1612,22 @@ mod tests {
     use super::*;
     use crate::legacy_core::config::ConfigBuilder;
     use crate::legacy_core::config::ConfigOverrides;
+    use crate::session_resume::read_session_cwd;
     use codex_app_server_protocol::AskForApproval;
     use codex_app_server_protocol::ClientRequest;
     use codex_app_server_protocol::RequestId;
     use codex_app_server_protocol::ThreadStartParams;
     use codex_app_server_protocol::ThreadStartResponse;
     use codex_config::config_toml::ProjectConfig;
+    use codex_protocol::config_types::ReasoningSummary as ReasoningSummaryConfig;
+    use codex_protocol::protocol::AskForApproval as ProtocolAskForApproval;
+    use codex_protocol::protocol::RolloutItem;
+    use codex_protocol::protocol::RolloutLine;
+    use codex_protocol::protocol::SandboxPolicy;
+    use codex_protocol::protocol::SessionMeta;
+    use codex_protocol::protocol::SessionMetaLine;
+    use codex_protocol::protocol::SessionSource;
+    use codex_protocol::protocol::TurnContextItem;
     use pretty_assertions::assert_eq;
     use serial_test::serial;
     use tempfile::TempDir;
@@ -1626,6 +1637,31 @@ mod tests {
             .codex_home(temp_dir.path().to_path_buf())
             .build()
             .await
+    }
+
+    fn build_turn_context(config: &Config, cwd: PathBuf) -> TurnContextItem {
+        TurnContextItem {
+            turn_id: None,
+            trace_id: None,
+            cwd,
+            current_date: None,
+            timezone: None,
+            approval_policy: ProtocolAskForApproval::Never,
+            sandbox_policy: SandboxPolicy::DangerFullAccess,
+            permission_profile: None,
+            network: None,
+            file_system_sandbox_policy: None,
+            model: config.model.clone().unwrap_or_default(),
+            personality: None,
+            collaboration_mode: None,
+            realtime_active: None,
+            effort: None,
+            summary: ReasoningSummaryConfig::Auto,
+            user_instructions: None,
+            developer_instructions: None,
+            final_output_json_schema: None,
+            truncation_policy: None,
+        }
     }
 
     async fn start_test_embedded_app_server(
@@ -2025,10 +2061,12 @@ mod tests {
 
     #[tokio::test]
     async fn read_session_cwd_returns_none_without_sqlite_or_rollout_path() -> std::io::Result<()> {
-        let temp_dir = TempDir::new()?;
-        let config = build_config(&temp_dir).await?;
-
-        let cwd = read_session_cwd(&config, ThreadId::new(), /*path*/ None).await;
+        let cwd = read_session_cwd(
+            /*state_db_ctx*/ None,
+            ThreadId::new(),
+            /*path*/ None,
+        )
+        .await;
 
         assert_eq!(cwd, None);
         Ok(())
@@ -2301,7 +2339,6 @@ trust_level = "untrusted"
     #[tokio::test]
     async fn read_session_cwd_falls_back_to_session_meta() -> std::io::Result<()> {
         let temp_dir = TempDir::new()?;
-        let config = build_config(&temp_dir).await?;
         let session_cwd = temp_dir.path().join("session");
         std::fs::create_dir_all(&session_cwd)?;
 
@@ -2323,9 +2360,13 @@ trust_level = "untrusted"
         );
         std::fs::write(&rollout_path, text)?;
 
-        let cwd = read_session_cwd(&config, ThreadId::new(), Some(&rollout_path))
-            .await
-            .expect("expected cwd");
+        let cwd = read_session_cwd(
+            /*state_db_ctx*/ None,
+            ThreadId::new(),
+            Some(&rollout_path),
+        )
+        .await
+        .expect("expected cwd");
         assert_eq!(cwd, session_cwd);
         Ok(())
     }
@@ -2333,7 +2374,7 @@ trust_level = "untrusted"
     #[tokio::test]
     async fn read_session_cwd_prefers_sqlite_when_thread_id_present() -> std::io::Result<()> {
         let temp_dir = TempDir::new()?;
-        let mut config = build_config(&temp_dir).await?;
+        let config = build_config(&temp_dir).await?;
         let thread_id = ThreadId::new();
         let rollout_cwd = temp_dir.path().join("rollout-cwd");
         let sqlite_cwd = temp_dir.path().join("sqlite-cwd");
@@ -2377,7 +2418,7 @@ trust_level = "untrusted"
             .await
             .map_err(std::io::Error::other)?;
 
-        let cwd = read_session_cwd(&config, thread_id, Some(&rollout_path))
+        let cwd = read_session_cwd(Some(&runtime), thread_id, Some(&rollout_path))
             .await
             .expect("expected cwd");
         assert_eq!(cwd, sqlite_cwd);

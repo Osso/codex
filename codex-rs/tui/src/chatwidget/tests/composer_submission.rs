@@ -1047,7 +1047,7 @@ async fn plain_up_recalls_history_when_no_queued_messages_exist() {
     chat.handle_key_event(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
 
     assert_eq!(chat.bottom_pane.composer_text(), "repeat me".to_string());
-    assert!(chat.queued_user_messages.is_empty());
+    assert!(chat.input_queue.queued_user_messages.is_empty());
 }
 
 #[test]

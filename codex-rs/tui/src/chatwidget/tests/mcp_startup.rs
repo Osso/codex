@@ -79,7 +79,7 @@ async fn mcp_startup_resets_status_elapsed_when_agent_turn_is_already_running() 
         id: "mcp-1".into(),
         msg: EventMsg::McpStartupUpdate(McpStartupUpdateEvent {
             server: "regex-replace".into(),
-            status: McpStartupStatus::Starting,
+            status: codex_protocol::protocol::McpStartupStatus::Starting,
         }),
     });
 

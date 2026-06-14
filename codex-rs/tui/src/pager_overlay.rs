@@ -978,6 +978,10 @@ mod tests {
             self.lines.clone()
         }
 
+        fn raw_lines(&self) -> Vec<Line<'static>> {
+            self.lines.clone()
+        }
+
         fn desired_transcript_height(&self, _width: u16) -> u16 {
             self.desired_height_calls.fetch_add(1, Ordering::Relaxed);
             1
@@ -1130,7 +1134,7 @@ mod tests {
         let cell_a = Arc::new(CountingHeightCell::new("alpha"));
         let cell_b = Arc::new(CountingHeightCell::new("beta"));
         let cells: Vec<Arc<dyn HistoryCell>> = vec![cell_a.clone(), cell_b.clone()];
-        let mut overlay = TranscriptOverlay::new(cells);
+        let mut overlay = TranscriptOverlay::new(cells, default_pager_keymap());
         let area = Rect::new(0, 0, 40, 10);
         let mut buf = Buffer::empty(area);
 
@@ -1304,7 +1308,7 @@ mod tests {
         );
 
         assert_eq!(
-            overlay.highlight_cell,
+            overlay.highlight_cell.get(),
             Some(2),
             "highlight inside consolidated range should point to replacement cell",
         );
@@ -1331,7 +1335,7 @@ mod tests {
         );
 
         assert_eq!(
-            overlay.highlight_cell,
+            overlay.highlight_cell.get(),
             Some(4),
             "highlight after consolidated range should shift left by removed cells",
         );

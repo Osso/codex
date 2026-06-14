@@ -111,7 +111,7 @@ pub(crate) async fn resolve_cwd_for_resume_or_fork(
     Ok(ResolveCwdOutcome::Continue(Some(history_cwd)))
 }
 
-async fn read_session_cwd(
+pub(crate) async fn read_session_cwd(
     state_db_ctx: Option<&StateRuntime>,
     thread_id: ThreadId,
     path: Option<&Path>,

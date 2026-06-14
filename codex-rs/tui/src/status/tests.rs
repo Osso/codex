@@ -24,7 +24,6 @@ use codex_app_server_protocol::PermissionProfileFileSystemPermissions;
 use codex_app_server_protocol::PermissionProfileNetworkPermissions;
 use codex_app_server_protocol::RateLimitSnapshot;
 use codex_app_server_protocol::RateLimitWindow;
-use codex_model_provider_info::ModelProviderAwsAuthInfo;
 use codex_model_provider_info::ModelProviderInfo;
 use codex_protocol::ThreadId;
 use codex_protocol::config_types::ApprovalsReviewer;
@@ -522,13 +521,9 @@ async fn status_model_provider_uses_bedrock_runtime_base_url() {
     let temp_home = TempDir::new().expect("temp home");
     let mut config = test_config(&temp_home).await;
     config.model_provider_id = "amazon-bedrock".to_string();
-    config.model_provider =
-        ModelProviderInfo::create_amazon_bedrock_provider(Some(ModelProviderAwsAuthInfo {
-            profile: None,
-            region: Some("eu-west-1".to_string()),
-        }));
-    config.model_provider.base_url =
-        Some("https://bedrock-mantle.us-east-1.api.aws/openai/v1".to_string());
+    config.model_provider = ModelProviderInfo::create_openai_provider(Some(
+        "https://bedrock-mantle.us-east-1.api.aws/openai/v1".to_string(),
+    ));
     let usage = TokenUsage::default();
     let captured_at = chrono::Local
         .with_ymd_and_hms(2024, 1, 2, 3, 4, 5)

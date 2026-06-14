@@ -2204,8 +2204,8 @@ async fn runtime_metrics_websocket_timing_logs_and_final_separator_sums_totals()
 
     chat.on_task_started();
     chat.apply_runtime_metrics_delta(RuntimeMetricsSummary {
-        responses_api_engine_iapi_ttft_ms: 120,
-        responses_api_engine_service_tbt_ms: 50,
+        responses_api_engine_iapi_ttft_ms: 120.0,
+        responses_api_engine_service_tbt_ms: 50.0,
         ..RuntimeMetricsSummary::default()
     });
 
@@ -2218,7 +2218,7 @@ async fn runtime_metrics_websocket_timing_logs_and_final_separator_sums_totals()
     assert!(first_log.contains("TBT: 50ms (service)"));
 
     chat.apply_runtime_metrics_delta(RuntimeMetricsSummary {
-        responses_api_engine_iapi_ttft_ms: 80,
+        responses_api_engine_iapi_ttft_ms: 80.0,
         ..RuntimeMetricsSummary::default()
     });
 

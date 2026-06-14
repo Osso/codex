@@ -22,6 +22,32 @@ fn complete_turn_with_message(chat: &mut ChatWidget, turn_id: &str, message: Opt
     handle_turn_completed(chat, turn_id, /*duration_ms*/ None);
 }
 
+fn turn_complete_event(turn_id: &str, message: Option<&str>) -> TurnCompleteEvent {
+    TurnCompleteEvent {
+        turn_id: turn_id.to_string(),
+        last_agent_message: message.map(str::to_string),
+        completed_at: None,
+        duration_ms: None,
+        time_to_first_token_ms: None,
+    }
+}
+
+fn assert_next_spec_validation_prompt(op_rx: &mut tokio::sync::mpsc::UnboundedReceiver<Op>) {
+    match next_submit_op(op_rx) {
+        Op::UserTurn { items, .. } => {
+            let expected_text = include_str!("../../../prompt_for_spec_validation_command.md");
+            assert_eq!(
+                items,
+                vec![UserInput::Text {
+                    text: expected_text.to_string(),
+                    text_elements: Vec::new(),
+                }]
+            );
+        }
+        other => panic!("expected spec validation prompt, got {other:?}"),
+    }
+}
+
 fn submit_composer_text(chat: &mut ChatWidget, text: &str) {
     chat.bottom_pane
         .set_composer_text(text.to_string(), Vec::new(), Vec::new());
@@ -172,7 +198,7 @@ async fn queued_slash_review_with_args_restores_for_edit() {
         chat.bottom_pane.composer_text(),
         "/review check regressions"
     );
-    assert!(chat.queued_user_messages.is_empty());
+    assert!(chat.input_queue.queued_user_messages.is_empty());
 }
 
 #[tokio::test]
@@ -196,7 +222,7 @@ async fn queued_slash_review_restored_for_edit_is_not_auto_submitted() {
         chat.bottom_pane.composer_text(),
         "/review check regressions"
     );
-    assert!(chat.queued_user_messages.is_empty());
+    assert!(chat.input_queue.queued_user_messages.is_empty());
 
     chat.handle_codex_event(Event {
         id: "turn-complete".into(),
@@ -270,6 +296,28 @@ async fn queued_empty_bang_shell_reports_help_when_dequeued_and_drains_next_inpu
         other => panic!("expected queued message after empty shell command, got {other:?}"),
     }
     assert!(chat.input_queue.queued_user_messages.is_empty());
+}
+
+#[tokio::test]
+async fn spec_validation_slash_command_submits_validation_prompt() {
+    let (mut chat, _rx, mut op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
+    chat.thread_id = Some(ThreadId::new());
+    chat.bottom_pane.set_task_running(/*running*/ false);
+
+    chat.dispatch_command(SlashCommand::SpecValidation);
+
+    assert_next_spec_validation_prompt(&mut op_rx);
+}
+
+#[tokio::test]
+async fn spec_validation_text_slash_command_submits_validation_prompt() {
+    let (mut chat, _rx, mut op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
+    chat.thread_id = Some(ThreadId::new());
+    chat.bottom_pane.set_task_running(/*running*/ false);
+
+    submit_composer_text(&mut chat, "/spec-validation");
+
+    assert_next_spec_validation_prompt(&mut op_rx);
 }
 
 #[tokio::test]

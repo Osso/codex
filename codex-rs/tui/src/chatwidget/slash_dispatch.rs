@@ -13,6 +13,8 @@ use crate::bottom_pane::slash_commands::BuiltinCommandFlags;
 use crate::bottom_pane::slash_commands::ServiceTierCommand;
 use crate::bottom_pane::slash_commands::SlashCommandItem;
 use crate::bottom_pane::slash_commands::find_slash_command;
+use crate::slash_command_handler::SlashCommandAction;
+use crate::slash_command_handler::SlashCommandHandler;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum SlashCommandDispatchSource {
@@ -160,6 +162,25 @@ impl ChatWidget {
         }
     }
 
+    fn dispatch_slash_command_handler(&mut self, handler: SlashCommandHandler) {
+        match handler.action {
+            SlashCommandAction::SubmitPrompt(prompt) => {
+                self.submit_user_message(prompt.to_string().into());
+            }
+        }
+    }
+
+    fn dispatch_registered_slash_command_handler(&mut self, cmd: SlashCommand) {
+        let Some(handler) = crate::slash_command_handler::handler_for(cmd) else {
+            self.add_error_message(format!(
+                "Internal error: missing /{} command handler.",
+                cmd.command()
+            ));
+            return;
+        };
+        self.dispatch_slash_command_handler(handler);
+    }
+
     fn report_run_plan_read_error(
         &mut self,
         plan_filename: &str,
@@ -239,8 +260,10 @@ impl ChatWidget {
                     self.add_info_message(message, /*hint*/ None);
                     return;
                 }
-                const INIT_PROMPT: &str = include_str!("../../prompt_for_init_command.md");
-                self.submit_user_message(INIT_PROMPT.to_string().into());
+                self.dispatch_registered_slash_command_handler(cmd);
+            }
+            SlashCommand::SpecValidation => {
+                self.dispatch_registered_slash_command_handler(cmd);
             }
             SlashCommand::Compact => {
                 self.clear_token_usage();
@@ -994,6 +1017,7 @@ impl ChatWidget {
             | SlashCommand::Resume
             | SlashCommand::Fork
             | SlashCommand::Init
+            | SlashCommand::SpecValidation
             | SlashCommand::Compact
             | SlashCommand::Review
             | SlashCommand::Model

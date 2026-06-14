@@ -30,6 +30,8 @@ pub enum SlashCommand {
     Hooks,
     #[strum(serialize = "run-plan")]
     RunPlan,
+    #[strum(serialize = "spec-validation")]
+    SpecValidation,
     Review,
     Rename,
     New,
@@ -83,6 +85,7 @@ impl SlashCommand {
             SlashCommand::RunPlan => {
                 "set PLAN_FILE and work on next plan item (optional: /run-plan <file>)"
             }
+            SlashCommand::SpecValidation => "validate each docs/specs/*.md file separately",
             SlashCommand::Review => "review my current changes and find issues",
             SlashCommand::Rename => "rename the current thread",
             SlashCommand::Resume => "resume a saved chat",
@@ -190,6 +193,7 @@ impl SlashCommand {
             | SlashCommand::Memories
             | SlashCommand::Review
             | SlashCommand::RunPlan
+            | SlashCommand::SpecValidation
             | SlashCommand::Plan
             | SlashCommand::Clear
             | SlashCommand::Logout
@@ -208,9 +212,9 @@ impl SlashCommand {
             | SlashCommand::Ps
             | SlashCommand::Stop
             | SlashCommand::Goal
+            | SlashCommand::AutoReview
             | SlashCommand::Permissions
             | SlashCommand::Approvals
-            | SlashCommand::AutoReview
             | SlashCommand::Mcp
             | SlashCommand::Apps
             | SlashCommand::Plugins
@@ -291,6 +295,21 @@ mod tests {
         assert_eq!(
             SlashCommand::RunPlan.description(),
             "set PLAN_FILE and work on next plan item (optional: /run-plan <file>)"
+        );
+    }
+
+    #[test]
+    fn spec_validation_command_is_registered() {
+        assert_eq!(
+            SlashCommand::from_str("spec-validation"),
+            Ok(SlashCommand::SpecValidation)
+        );
+        assert!(
+            built_in_slash_commands().contains(&("spec-validation", SlashCommand::SpecValidation))
+        );
+        assert_eq!(
+            SlashCommand::SpecValidation.description(),
+            "validate each docs/specs/*.md file separately"
         );
     }
 

@@ -61,7 +61,7 @@ mod status_surface_preview;
 mod title_setup;
 pub(crate) use action_required_title::ACTION_REQUIRED_PREVIEW_PREFIX;
 pub(crate) use action_required_title::build_action_required_title_text;
-use app_link_view::AppLinkElicitationTarget;
+pub(crate) use app_link_view::AppLinkElicitationTarget;
 use app_link_view::AppLinkSuggestionType;
 pub(crate) use app_link_view::AppLinkView;
 pub(crate) use app_link_view::AppLinkViewParams;
