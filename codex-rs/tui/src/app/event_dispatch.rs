@@ -728,10 +728,10 @@ impl App {
             }
             AppEvent::OpenFullAccessConfirmation {
                 preset,
-                return_to_permissions,
+                return_to_sandbox,
             } => {
                 self.chat_widget
-                    .open_full_access_confirmation(preset, return_to_permissions);
+                    .open_full_access_confirmation(preset, return_to_sandbox);
             }
             AppEvent::OpenWorldWritableWarningConfirmation {
                 preset,
@@ -1637,8 +1637,8 @@ impl App {
                     self.chat_widget.add_error_message(err);
                 }
             }
-            AppEvent::OpenPermissionsPopup => {
-                self.chat_widget.open_permissions_popup();
+            AppEvent::OpenSandboxPopup => {
+                self.chat_widget.open_sandbox_popup();
             }
             AppEvent::OpenReviewBranchPicker(cwd) => {
                 self.chat_widget.show_review_branch_picker(&cwd).await;

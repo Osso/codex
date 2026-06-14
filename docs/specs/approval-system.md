@@ -27,21 +27,24 @@ those requests, and how no-prompt modes behave. The core contract lives in
 - [ ] Support user-reviewed approvals for `on-request`.
 - [ ] Support LLM-approved approvals as `on-request` with the approval reviewer
   set to the auto-reviewer/guardian path.
-- [ ] Show LLM-approved mode as an explicit `/approvals` choice, separate from
+- [x] Show LLM-approved mode as an explicit `/approvals` choice, separate from
   both `never` and `auto-approve`.
 - [ ] Do not run the LLM-approved reviewer when an action has already been
   approved by a hook, cached approval, or explicit policy decision.
 
 ### Presets and UI
 
-- [ ] Provide `/approvals` as a slash command that opens the approval preset
+- [x] Provide `/approvals` as a slash command that opens the approval preset
   selector.
-- [ ] Keep `/permissions` available for the combined permission/profile
-  selector.
-- [ ] Include at least these user-visible choices in the approval selector:
-  normal ask/default, LLM approved, no prompts/reject, and full
-  auto-approve/full access.
-- [ ] Avoid labels that make `never` sound like approval by default.
+- [x] Provide `/sandbox` as a slash command that opens the sandbox/profile
+  selector without changing approval behavior.
+- [x] Remove `/permissions` from the slash-command surface so approval behavior
+  and sandbox access are not presented as one combined mode.
+- [x] Include at least these user-visible choices in the approval selector:
+  Ask Me, LLM Approved, Never Ask/Deny, and Auto Approve.
+- [x] Include at least these user-visible choices in the sandbox selector:
+  Read Only where supported, Default/Workspace Write, and Full Access.
+- [x] Avoid labels that make `never` sound like approval by default.
 
 ### Hooks and external approval engines
 
@@ -81,11 +84,12 @@ those requests, and how no-prompt modes behave. The core contract lives in
   escalation prompt handling.
 - `codex-rs/core/src/hook_runtime.rs` and `codex-rs/core/src/session/turn.rs`
   — hook permission-mode compatibility payloads.
-- `codex-rs/tui/src/slash_command.rs` — `/approvals` command registration.
+- `codex-rs/tui/src/slash_command.rs` — `/approvals` and `/sandbox` command
+  registration.
 - `codex-rs/tui/src/chatwidget/slash_dispatch.rs` — slash-command dispatch to
-  the approvals popup.
-- `codex-rs/tui/src/chatwidget.rs` — approval preset rendering and selection
-  actions.
+  the approvals and sandbox popups.
+- `codex-rs/tui/src/chatwidget.rs` — approval and sandbox selector rendering
+  and selection actions.
 - `/syncthing/Sync/Projects/claude/claude-bash-hook/src/main.rs` — hook-side
   Codex approval-policy compatibility.
 - `/syncthing/Sync/Projects/claude/claude-bash-hook/src/tool_handlers.rs` —
@@ -103,7 +107,7 @@ those requests, and how no-prompt modes behave. The core contract lives in
 ## Known gaps (current cycle)
 
 - [ ] Add or update tests for `auto-approve` vs `never` core behavior.
-- [ ] Add or update tests for `/approvals` and the explicit LLM Approved preset.
+- [x] Add or update tests for `/approvals` and the explicit LLM Approved preset.
 - [ ] Add or update tests proving hook-approved actions skip LLM-approved review.
 - [ ] Regenerate config, app-server, hook, and TUI snapshot fixtures after the
   final approval contract is implemented.

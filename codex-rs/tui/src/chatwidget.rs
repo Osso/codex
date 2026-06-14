@@ -7672,19 +7672,107 @@ impl ChatWidget {
             .send(AppEvent::PersistModelSelection { model, effort });
     }
 
-    /// Open the permissions popup.
+    /// Open the approval mode popup.
     pub(crate) fn open_approvals_popup(&mut self) {
-        self.open_permissions_popup();
-    }
-
-    /// Open a popup to choose the permissions mode.
-    pub(crate) fn open_permissions_popup(&mut self) {
-        let include_read_only = cfg!(target_os = "windows");
         let current_approval =
             AskForApproval::from(self.config.permissions.approval_policy.value());
-        let current_permission_profile = self.config.permissions.permission_profile();
-        let guardian_approval_enabled = self.config.features.enabled(Feature::GuardianApproval);
         let current_review_policy = self.config.approvals_reviewer;
+        let guardian_approval_enabled = self.config.features.enabled(Feature::GuardianApproval);
+
+        let approval_disabled_reason = |approval: AskForApproval| {
+            self.config
+                .permissions
+                .approval_policy
+                .can_set(&approval.to_core())
+                .err()
+                .map(|err| err.to_string())
+        };
+
+        let mut items = vec![
+            SelectionItem {
+                name: "Ask Me".to_string(),
+                description: Some(
+                    "Ask before approval-required actions and route requests to you.".to_string(),
+                ),
+                is_current: current_approval == AskForApproval::OnRequest
+                    && current_review_policy == ApprovalsReviewer::User,
+                actions: Self::approval_policy_actions(
+                    AskForApproval::OnRequest,
+                    "Ask Me".to_string(),
+                    ApprovalsReviewer::User,
+                ),
+                dismiss_on_select: true,
+                disabled_reason: approval_disabled_reason(AskForApproval::OnRequest),
+                ..Default::default()
+            },
+            SelectionItem {
+                name: "Never Ask, Deny".to_string(),
+                description: Some(
+                    "Reject approval-required actions instead of showing a prompt.".to_string(),
+                ),
+                is_current: current_approval == AskForApproval::Never,
+                actions: Self::approval_policy_actions(
+                    AskForApproval::Never,
+                    "Never Ask, Deny".to_string(),
+                    ApprovalsReviewer::User,
+                ),
+                dismiss_on_select: true,
+                disabled_reason: approval_disabled_reason(AskForApproval::Never),
+                ..Default::default()
+            },
+            SelectionItem {
+                name: "Auto Approve".to_string(),
+                description: Some(
+                    "Treat approval-required actions as approved without a prompt.".to_string(),
+                ),
+                is_current: current_approval == AskForApproval::AutoApprove,
+                actions: Self::approval_policy_actions(
+                    AskForApproval::AutoApprove,
+                    "Auto Approve".to_string(),
+                    ApprovalsReviewer::User,
+                ),
+                dismiss_on_select: true,
+                disabled_reason: approval_disabled_reason(AskForApproval::AutoApprove),
+                ..Default::default()
+            },
+        ];
+
+        if guardian_approval_enabled {
+            items.insert(
+                1,
+                SelectionItem {
+                    name: "LLM Approved".to_string(),
+                    description: Some(
+                        "Route eligible approval requests to the LLM reviewer instead of prompting you."
+                            .to_string(),
+                    ),
+                    is_current: current_approval == AskForApproval::OnRequest
+                        && current_review_policy == ApprovalsReviewer::AutoReview,
+                    actions: Self::approval_policy_actions(
+                        AskForApproval::OnRequest,
+                        "LLM Approved".to_string(),
+                        ApprovalsReviewer::AutoReview,
+                    ),
+                    dismiss_on_select: true,
+                    disabled_reason: approval_disabled_reason(AskForApproval::OnRequest),
+                    ..Default::default()
+                },
+            );
+        }
+
+        self.bottom_pane.show_selection_view(SelectionViewParams {
+            title: Some("Update Approvals".to_string()),
+            footer_hint: Some(standard_popup_hint_line()),
+            items,
+            header: Box::new(()),
+            ..Default::default()
+        });
+    }
+
+    /// Open a popup to choose the sandbox mode.
+    pub(crate) fn open_sandbox_popup(&mut self) {
+        let include_read_only = cfg!(target_os = "windows");
+        let current_permission_profile = self.config.permissions.permission_profile();
         let mut items: Vec<SelectionItem> = Vec::new();
         let presets: Vec<ApprovalPreset> = builtin_approval_presets();
 
@@ -7700,18 +7788,8 @@ impl ChatWidget {
         let show_elevate_sandbox_hint =
             windows_degraded_sandbox_enabled && presets.iter().any(|preset| preset.id == "auto");
 
-        let guardian_disabled_reason = |enabled: bool| {
-            let mut next_features = self.config.features.get().clone();
-            next_features.set_enabled(Feature::GuardianApproval, enabled);
-            self.config
-                .features
-                .can_set(&next_features)
-                .err()
-                .map(|err| err.to_string())
-        };
-
         for preset in presets.into_iter() {
-            if !include_read_only && preset.id == "read-only" {
+            if (!include_read_only && preset.id == "read-only") || preset.id == "no-prompts" {
                 continue;
             }
             let base_name = if preset.id == "auto" && windows_degraded_sandbox_enabled {
@@ -7719,21 +7797,21 @@ impl ChatWidget {
             } else {
                 preset.label.to_string()
             };
-            let preset_approval = AskForApproval::from(preset.approval);
-            let base_description =
-                Some(preset.description.replace(" (Identical to Agent mode)", ""));
-            let approval_disabled_reason = match self
-                .config
-                .permissions
-                .approval_policy
-                .can_set(&preset.approval)
-            {
-                Ok(()) => None,
-                Err(err) => Some(err.to_string()),
-            };
-            let default_disabled_reason = approval_disabled_reason
-                .clone()
-                .or_else(|| guardian_disabled_reason(false));
+            let base_description = Some(
+                match preset.id {
+                    "read-only" => {
+                        "Codex can read files but cannot write to the workspace by default."
+                    }
+                    "auto" => {
+                        "Codex can read and edit files in the workspace and allowed temp directories."
+                    }
+                    "full-access" => {
+                        "Codex runs without sandbox restrictions on filesystem or network access."
+                    }
+                    _ => "Custom sandbox profile.",
+                }
+                .to_string(),
+            );
             let requires_confirmation = preset.id == "full-access"
                 && !self
                     .config
@@ -7745,7 +7823,7 @@ impl ChatWidget {
                 vec![Box::new(move |tx| {
                     tx.send(AppEvent::OpenFullAccessConfirmation {
                         preset: preset_clone.clone(),
-                        return_to_permissions: !include_read_only,
+                        return_to_sandbox: true,
                     });
                 })]
             } else if preset.id == "auto" {
@@ -7786,90 +7864,34 @@ impl ChatWidget {
                             });
                         })]
                     } else {
-                        Self::approval_preset_actions(
-                            preset_approval,
+                        Self::sandbox_profile_actions(
                             preset.permission_profile.clone(),
                             base_name.clone(),
-                            ApprovalsReviewer::User,
                         )
                     }
                 }
                 #[cfg(not(target_os = "windows"))]
                 {
-                    Self::approval_preset_actions(
-                        preset_approval,
+                    Self::sandbox_profile_actions(
                         preset.permission_profile.clone(),
                         base_name.clone(),
-                        ApprovalsReviewer::User,
                     )
                 }
             } else {
-                Self::approval_preset_actions(
-                    preset_approval,
-                    preset.permission_profile.clone(),
-                    base_name.clone(),
-                    ApprovalsReviewer::User,
-                )
+                Self::sandbox_profile_actions(preset.permission_profile.clone(), base_name.clone())
             };
-            if preset.id == "auto" {
-                items.push(SelectionItem {
-                    name: base_name.clone(),
-                    description: base_description.clone(),
-                    is_current: current_review_policy == ApprovalsReviewer::User
-                        && Self::preset_matches_current(
-                            current_approval,
-                            &current_permission_profile,
-                            self.config.cwd.as_path(),
-                            &preset,
-                        ),
-                    actions: default_actions,
-                    dismiss_on_select: true,
-                    disabled_reason: default_disabled_reason,
-                    ..Default::default()
-                });
-
-                if guardian_approval_enabled {
-                    items.push(SelectionItem {
-                        name: "LLM Approved".to_string(),
-                        description: Some(
-                            "Same workspace-write permissions as Default, but eligible approvals are routed to the LLM reviewer instead of the user."
-                                .to_string(),
-                        ),
-                        is_current: current_review_policy == ApprovalsReviewer::AutoReview
-                            && Self::preset_matches_current(
-                                current_approval,
-                                &current_permission_profile,
-                                self.config.cwd.as_path(),
-                                &preset,
-                            ),
-                        actions: Self::approval_preset_actions(
-                            preset_approval,
-                            preset.permission_profile.clone(),
-                            "LLM Approved".to_string(),
-                            ApprovalsReviewer::AutoReview,
-                        ),
-                        dismiss_on_select: true,
-                        disabled_reason: approval_disabled_reason
-                            .or_else(|| guardian_disabled_reason(true)),
-                        ..Default::default()
-                    });
-                }
-            } else {
-                items.push(SelectionItem {
-                    name: base_name,
-                    description: base_description,
-                    is_current: Self::preset_matches_current(
-                        current_approval,
-                        &current_permission_profile,
-                        self.config.cwd.as_path(),
-                        &preset,
-                    ),
-                    actions: default_actions,
-                    dismiss_on_select: true,
-                    disabled_reason: default_disabled_reason,
-                    ..Default::default()
-                });
-            }
+            items.push(SelectionItem {
+                name: base_name,
+                description: base_description,
+                is_current: Self::permission_profile_matches_current(
+                    &current_permission_profile,
+                    self.config.cwd.as_path(),
+                    &preset,
+                ),
+                actions: default_actions,
+                dismiss_on_select: true,
+                ..Default::default()
+            });
         }
 
         let footer_note = show_elevate_sandbox_hint.then(|| {
@@ -7882,7 +7904,7 @@ impl ChatWidget {
         });
 
         self.bottom_pane.show_selection_view(SelectionViewParams {
-            title: Some("Update Model Permissions".to_string()),
+            title: Some("Update Sandbox".to_string()),
             footer_note,
             footer_hint: Some(standard_popup_hint_line()),
             items,
@@ -7989,19 +8011,17 @@ impl ChatWidget {
         self.bottom_pane.show_view(Box::new(view));
     }
 
-    fn approval_preset_actions(
+    fn approval_policy_actions(
         approval: AskForApproval,
-        permission_profile: PermissionProfile,
         label: String,
         approvals_reviewer: ApprovalsReviewer,
     ) -> Vec<SelectionAction> {
         vec![Box::new(move |tx| {
-            let permission_profile_clone = permission_profile.clone();
             tx.send(AppEvent::CodexOp(AppCommand::override_turn_context(
                 /*cwd*/ None,
                 Some(approval),
                 Some(approvals_reviewer),
-                Some(permission_profile_clone.clone()),
+                /*permission_profile*/ None,
                 /*windows_sandbox_level*/ None,
                 /*model*/ None,
                 /*effort*/ None,
@@ -8011,17 +8031,46 @@ impl ChatWidget {
                 /*personality*/ None,
             )));
             tx.send(AppEvent::UpdateAskForApprovalPolicy(approval));
-            tx.send(AppEvent::UpdatePermissionProfile(permission_profile_clone));
             tx.send(AppEvent::UpdateApprovalsReviewer(approvals_reviewer));
             tx.send(AppEvent::InsertHistoryCell(Box::new(
                 history_cell::new_info_event(
-                    format!("Permissions updated to {label}"),
+                    format!("Approvals updated to {label}"),
                     /*hint*/ None,
                 ),
             )));
         })]
     }
 
+    fn sandbox_profile_actions(
+        permission_profile: PermissionProfile,
+        label: String,
+    ) -> Vec<SelectionAction> {
+        vec![Box::new(move |tx| {
+            let permission_profile_clone = permission_profile.clone();
+            tx.send(AppEvent::CodexOp(AppCommand::override_turn_context(
+                /*cwd*/ None,
+                /*approval_policy*/ None,
+                /*approvals_reviewer*/ None,
+                Some(permission_profile_clone.clone()),
+                /*windows_sandbox_level*/ None,
+                /*model*/ None,
+                /*effort*/ None,
+                /*summary*/ None,
+                /*service_tier*/ None,
+                /*collaboration_mode*/ None,
+                /*personality*/ None,
+            )));
+            tx.send(AppEvent::UpdatePermissionProfile(permission_profile_clone));
+            tx.send(AppEvent::InsertHistoryCell(Box::new(
+                history_cell::new_info_event(
+                    format!("Sandbox updated to {label}"),
+                    /*hint*/ None,
+                ),
+            )));
+        })]
+    }
+
+    #[cfg(test)]
     fn preset_matches_current(
         current_approval: AskForApproval,
         current_permission_profile: &PermissionProfile,
@@ -8033,6 +8082,14 @@ impl ChatWidget {
             return false;
         }
 
+        Self::permission_profile_matches_current(current_permission_profile, cwd, preset)
+    }
+
+    fn permission_profile_matches_current(
+        current_permission_profile: &PermissionProfile,
+        cwd: &std::path::Path,
+        preset: &ApprovalPreset,
+    ) -> bool {
         match preset.id {
             "full-access" => matches!(current_permission_profile, PermissionProfile::Disabled),
             "read-only" => {
@@ -8102,15 +8159,14 @@ impl ChatWidget {
     pub(crate) fn open_full_access_confirmation(
         &mut self,
         preset: ApprovalPreset,
-        return_to_permissions: bool,
+        return_to_sandbox: bool,
     ) {
         let selected_name = preset.label.to_string();
-        let approval = AskForApproval::from(preset.approval);
         let permission_profile = preset.permission_profile;
         let mut header_children: Vec<Box<dyn Renderable>> = Vec::new();
         let title_line = Line::from("Enable full access?").bold();
         let info_line = Line::from(vec![
-            "When Codex runs with full access, it can edit any file on your computer and run commands with network, without your approval. "
+            "When Codex runs with full sandbox access, it can edit any file on your computer and run commands with network access. "
                 .into(),
             "Exercise caution when enabling full access. This significantly increases the risk of data loss, leaks, or unexpected behavior."
                 .fg(Color::Red),
@@ -8121,30 +8177,22 @@ impl ChatWidget {
         ));
         let header = ColumnRenderable::with(header_children);
 
-        let mut accept_actions = Self::approval_preset_actions(
-            approval,
-            permission_profile.clone(),
-            selected_name.clone(),
-            ApprovalsReviewer::User,
-        );
+        let mut accept_actions =
+            Self::sandbox_profile_actions(permission_profile.clone(), selected_name.clone());
         accept_actions.push(Box::new(|tx| {
             tx.send(AppEvent::UpdateFullAccessWarningAcknowledged(true));
         }));
 
-        let mut accept_and_remember_actions = Self::approval_preset_actions(
-            approval,
-            permission_profile,
-            selected_name,
-            ApprovalsReviewer::User,
-        );
+        let mut accept_and_remember_actions =
+            Self::sandbox_profile_actions(permission_profile, selected_name);
         accept_and_remember_actions.push(Box::new(|tx| {
             tx.send(AppEvent::UpdateFullAccessWarningAcknowledged(true));
             tx.send(AppEvent::PersistFullAccessWarningAcknowledged);
         }));
 
         let deny_actions: Vec<SelectionAction> = vec![Box::new(move |tx| {
-            if return_to_permissions {
-                tx.send(AppEvent::OpenPermissionsPopup);
+            if return_to_sandbox {
+                tx.send(AppEvent::OpenSandboxPopup);
             } else {
                 tx.send(AppEvent::OpenApprovalsPopup);
             }
@@ -8190,12 +8238,9 @@ impl ChatWidget {
         extra_count: usize,
         failed_scan: bool,
     ) {
-        let (approval, permission_profile) = match &preset {
-            Some(p) => (
-                Some(AskForApproval::from(p.approval)),
-                Some(p.permission_profile.clone()),
-            ),
-            None => (None, None),
+        let permission_profile = match &preset {
+            Some(p) => Some(p.permission_profile.clone()),
+            None => None,
         };
         let mut header_children: Vec<Box<dyn Renderable>> = Vec::new();
         let describe_profile = |profile: &PermissionProfile| {
@@ -8250,18 +8295,16 @@ impl ChatWidget {
         // re-trigger the warning.
         let mut accept_actions: Vec<SelectionAction> = Vec::new();
         // Suppress the immediate re-scan only when a preset will be applied via
-        // /permissions, to avoid duplicate warnings from the ensuing policy change.
+        // /sandbox, to avoid duplicate warnings from the ensuing policy change.
         if preset.is_some() {
             accept_actions.push(Box::new(|tx| {
                 tx.send(AppEvent::SkipNextWorldWritableScan);
             }));
         }
-        if let (Some(approval), Some(permission_profile)) = (approval, permission_profile.clone()) {
-            accept_actions.extend(Self::approval_preset_actions(
-                approval,
+        if let Some(permission_profile) = permission_profile.clone() {
+            accept_actions.extend(Self::sandbox_profile_actions(
                 permission_profile,
                 mode_label.to_string(),
-                ApprovalsReviewer::User,
             ));
         }
 
@@ -8270,12 +8313,10 @@ impl ChatWidget {
             tx.send(AppEvent::UpdateWorldWritableWarningAcknowledged(true));
             tx.send(AppEvent::PersistWorldWritableWarningAcknowledged);
         }));
-        if let (Some(approval), Some(permission_profile)) = (approval, permission_profile) {
-            accept_and_remember_actions.extend(Self::approval_preset_actions(
-                approval,
+        if let Some(permission_profile) = permission_profile {
+            accept_and_remember_actions.extend(Self::sandbox_profile_actions(
                 permission_profile,
                 mode_label.to_string(),
-                ApprovalsReviewer::User,
             ));
         }
 

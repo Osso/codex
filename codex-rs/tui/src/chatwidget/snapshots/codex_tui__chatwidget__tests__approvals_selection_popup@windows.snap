@@ -1,17 +1,15 @@
 ---
-source: tui/src/chatwidget/tests.rs
+source: tui/src/chatwidget/tests/permissions.rs
+assertion_line: 62
 expression: popup
 ---
-  Update Model Permissions
+  Update Approvals
 
-› 1. Read Only (current)  Codex can read files in the current workspace.
-                          Approval is required to edit files or access the
-                          internet.
-  2. Default              Codex can read and edit files in the current
-                          workspace, and run commands. Approval is required to
-                          access the internet or edit other files.
-  3. Full Access          Codex can edit files outside this workspace and
-                          access the internet without asking for approval.
-                          Exercise caution when using.
+› 1. Ask Me (current)  Ask before approval-required actions and route requests
+                       to you.
+  2. Never Ask, Deny   Reject approval-required actions instead of showing a
+                       prompt.
+  3. Auto Approve      Treat approval-required actions as approved without a
+                       prompt.
 
   Press enter to confirm or esc to go back

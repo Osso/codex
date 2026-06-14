@@ -14,8 +14,8 @@ pub enum SlashCommand {
     // more frequently used commands should be listed first.
     Model,
     Ide,
-    Permissions,
     Approvals,
+    Sandbox,
     Keymap,
     Vim,
     #[strum(serialize = "setup-default-sandbox")]
@@ -100,6 +100,7 @@ impl SlashCommand {
             SlashCommand::Hooks => "view and manage lifecycle hooks",
             SlashCommand::Status => "show current session configuration and token usage",
             SlashCommand::Approvals => "choose how approval requests are handled",
+            SlashCommand::Sandbox => "choose what Codex is allowed to access",
             SlashCommand::DebugConfig => "show config layers and requirement sources for debugging",
             SlashCommand::Title => "configure which items appear in the terminal title",
             SlashCommand::Statusline => "configure which items appear in the status line",
@@ -118,7 +119,6 @@ impl SlashCommand {
             SlashCommand::Collab => "change collaboration mode (experimental)",
             SlashCommand::Agent | SlashCommand::MultiAgents => "switch the active agent thread",
             SlashCommand::Side => "start a side conversation in an ephemeral fork",
-            SlashCommand::Permissions => "choose what Codex is allowed to do",
             SlashCommand::Keymap => "remap TUI shortcuts",
             SlashCommand::Vim => "toggle Vim mode for the composer",
             SlashCommand::ElevateSandbox => "set up elevated agent sandbox",
@@ -213,8 +213,8 @@ impl SlashCommand {
             | SlashCommand::Stop
             | SlashCommand::Goal
             | SlashCommand::AutoReview
-            | SlashCommand::Permissions
             | SlashCommand::Approvals
+            | SlashCommand::Sandbox
             | SlashCommand::Mcp
             | SlashCommand::Apps
             | SlashCommand::Plugins
@@ -274,10 +274,20 @@ mod tests {
         assert!(SlashCommand::Title.available_during_task());
         assert!(SlashCommand::Statusline.available_during_task());
         assert!(SlashCommand::Raw.available_during_task());
-        assert!(SlashCommand::Permissions.available_during_task());
         assert!(SlashCommand::Approvals.available_during_task());
+        assert!(SlashCommand::Sandbox.available_during_task());
         assert!(SlashCommand::Raw.available_in_side_conversation());
         assert!(SlashCommand::Raw.supports_inline_args());
+    }
+
+    #[test]
+    fn permissions_command_is_removed() {
+        assert!(SlashCommand::from_str("permissions").is_err());
+        assert!(
+            built_in_slash_commands()
+                .iter()
+                .all(|(command, _)| *command != "permissions")
+        );
     }
 
     #[test]

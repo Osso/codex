@@ -318,9 +318,9 @@ struct AutoReviewMode {
 }
 
 /// Enabling the Auto-review experiment in the TUI should also switch the
-/// current `/permissions` settings to the matching Auto-review mode. Users
-/// can still change `/permissions` afterward; this just assumes that opting into
-/// the experiment means they want Auto-review enabled immediately.
+/// current `/approvals` reviewer to the matching Auto-review mode. Users can
+/// still change `/approvals` afterward; this just assumes that opting into the
+/// experiment means they want Auto-review enabled immediately.
 fn auto_review_mode() -> AutoReviewMode {
     AutoReviewMode {
         approval_policy: AskForApproval::OnRequest,

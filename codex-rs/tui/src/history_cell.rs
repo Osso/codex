@@ -1535,8 +1535,8 @@ pub(crate) fn new_session_info(
             ]),
             Line::from(vec![
                 "  ".into(),
-                "/permissions".into(),
-                " - choose what Codex is allowed to do".dim(),
+                "/sandbox".into(),
+                " - choose what Codex is allowed to access".dim(),
             ]),
             Line::from(vec![
                 "  ".into(),

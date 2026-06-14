@@ -576,12 +576,12 @@ pub(crate) enum AppEvent {
     /// Open the confirmation prompt before enabling full access mode.
     OpenFullAccessConfirmation {
         preset: ApprovalPreset,
-        return_to_permissions: bool,
+        return_to_sandbox: bool,
     },
 
     /// Open the Windows world-writable directories warning.
     /// If `preset` is `Some`, the confirmation will apply the provided
-    /// approval/sandbox configuration on Continue; if `None`, it performs no
+    /// sandbox configuration on Continue; if `None`, it performs no
     /// policy change and only acknowledges/dismisses the warning.
     #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
     OpenWorldWritableWarningConfirmation {
@@ -753,8 +753,8 @@ pub(crate) enum AppEvent {
     /// Notify that the manage skills popup was closed.
     ManageSkillsClosed,
 
-    /// Re-open the permissions presets popup.
-    OpenPermissionsPopup,
+    /// Re-open the sandbox presets popup.
+    OpenSandboxPopup,
 
     /// Open the branch picker option from the review popup.
     OpenReviewBranchPicker(PathBuf),

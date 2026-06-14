@@ -142,7 +142,7 @@ async fn full_access_confirmation_popup_snapshot() {
         .into_iter()
         .find(|preset| preset.id == "full-access")
         .expect("full access preset");
-    chat.open_full_access_confirmation(preset, /*return_to_permissions*/ false);
+    chat.open_full_access_confirmation(preset, /*return_to_sandbox*/ false);
 
     let popup = render_bottom_popup(&chat, /*width*/ 80);
     assert_chatwidget_snapshot!("full_access_confirmation_popup", popup);
@@ -245,7 +245,7 @@ async fn approvals_popup_navigation_skips_disabled() {
     // Ensure the popup remains open and no selection actions were sent.
     let screen = render_bottom_popup(&chat, /*width*/ 80);
     assert!(
-        screen.contains("Update Model Permissions"),
+        screen.contains("Update Approvals"),
         "popup should remain open after selecting a disabled entry"
     );
     assert!(
@@ -285,7 +285,7 @@ async fn approvals_popup_navigation_skips_disabled() {
 }
 
 #[tokio::test]
-async fn permissions_selection_emits_history_cell_when_selection_changes() {
+async fn sandbox_selection_emits_history_cell_when_selection_changes() {
     let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
     #[cfg(target_os = "windows")]
     {
@@ -294,7 +294,7 @@ async fn permissions_selection_emits_history_cell_when_selection_changes() {
     }
     chat.config.notices.hide_full_access_warning = Some(true);
 
-    chat.open_permissions_popup();
+    chat.open_sandbox_popup();
     chat.handle_key_event(KeyEvent::from(KeyCode::Down));
     chat.handle_key_event(KeyEvent::from(KeyCode::Enter));
 
@@ -302,17 +302,17 @@ async fn permissions_selection_emits_history_cell_when_selection_changes() {
     assert_eq!(
         cells.len(),
         1,
-        "expected one permissions selection history cell"
+        "expected one sandbox selection history cell"
     );
     let rendered = lines_to_single_string(&cells[0]);
     assert!(
-        rendered.contains("Permissions updated to"),
-        "expected permissions selection history message, got: {rendered}"
+        rendered.contains("Sandbox updated to"),
+        "expected sandbox selection history message, got: {rendered}"
     );
 }
 
 #[tokio::test]
-async fn permissions_selection_history_snapshot_after_mode_switch() {
+async fn sandbox_selection_history_snapshot_after_mode_switch() {
     let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
     #[cfg(target_os = "windows")]
     {
@@ -322,7 +322,7 @@ async fn permissions_selection_history_snapshot_after_mode_switch() {
     chat.set_feature_enabled(Feature::GuardianApproval, /*enabled*/ false);
     chat.config.notices.hide_full_access_warning = Some(true);
 
-    chat.open_permissions_popup();
+    chat.open_sandbox_popup();
     chat.handle_key_event(KeyEvent::from(KeyCode::Down));
     #[cfg(target_os = "windows")]
     chat.handle_key_event(KeyEvent::from(KeyCode::Down));
@@ -331,13 +331,13 @@ async fn permissions_selection_history_snapshot_after_mode_switch() {
     let cells = drain_insert_history(&mut rx);
     assert_eq!(cells.len(), 1, "expected one mode-switch history cell");
     assert_chatwidget_snapshot!(
-        "permissions_selection_history_after_mode_switch",
+        "sandbox_selection_history_after_mode_switch",
         lines_to_single_string(&cells[0])
     );
 }
 
 #[tokio::test]
-async fn permissions_selection_history_snapshot_full_access_to_default() {
+async fn sandbox_selection_history_snapshot_full_access_to_default() {
     let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
     #[cfg(target_os = "windows")]
     {
@@ -355,12 +355,8 @@ async fn permissions_selection_history_snapshot_full_access_to_default() {
         .set_permission_profile(PermissionProfile::Disabled)
         .expect("set permission profile");
 
-    chat.open_permissions_popup();
-    let popup = render_bottom_popup(&chat, /*width*/ 120);
+    chat.open_sandbox_popup();
     chat.handle_key_event(KeyEvent::from(KeyCode::Up));
-    if popup.contains("Auto-review") {
-        chat.handle_key_event(KeyEvent::from(KeyCode::Up));
-    }
     chat.handle_key_event(KeyEvent::from(KeyCode::Enter));
 
     let cells = drain_insert_history(&mut rx);
@@ -368,19 +364,19 @@ async fn permissions_selection_history_snapshot_full_access_to_default() {
     #[cfg(target_os = "windows")]
     insta::with_settings!({ snapshot_suffix => "windows" }, {
         assert_chatwidget_snapshot!(
-            "permissions_selection_history_full_access_to_default",
+            "sandbox_selection_history_full_access_to_default",
             lines_to_single_string(&cells[0])
         );
     });
     #[cfg(not(target_os = "windows"))]
     assert_chatwidget_snapshot!(
-        "permissions_selection_history_full_access_to_default",
+        "sandbox_selection_history_full_access_to_default",
         lines_to_single_string(&cells[0])
     );
 }
 
 #[tokio::test]
-async fn permissions_selection_emits_history_cell_when_current_is_selected() {
+async fn sandbox_selection_emits_history_cell_when_current_is_selected() {
     let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
     #[cfg(target_os = "windows")]
     {
@@ -397,24 +393,24 @@ async fn permissions_selection_emits_history_cell_when_current_is_selected() {
         .set_permission_profile(PermissionProfile::workspace_write())
         .expect("set permission profile");
 
-    chat.open_permissions_popup();
+    chat.open_sandbox_popup();
     chat.handle_key_event(KeyEvent::from(KeyCode::Enter));
 
     let cells = drain_insert_history(&mut rx);
     assert_eq!(
         cells.len(),
         1,
-        "expected history cell even when selecting current permissions"
+        "expected history cell even when selecting current sandbox"
     );
     let rendered = lines_to_single_string(&cells[0]);
     assert!(
-        rendered.contains("Permissions updated to"),
-        "expected permissions update history message, got: {rendered}"
+        rendered.contains("Sandbox updated to"),
+        "expected sandbox update history message, got: {rendered}"
     );
 }
 
 #[tokio::test]
-async fn permissions_selection_hides_auto_review_when_feature_disabled() {
+async fn sandbox_selection_does_not_show_auto_review() {
     let (mut chat, _rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
     #[cfg(target_os = "windows")]
     {
@@ -424,18 +420,17 @@ async fn permissions_selection_hides_auto_review_when_feature_disabled() {
     chat.set_feature_enabled(Feature::GuardianApproval, /*enabled*/ false);
     chat.config.notices.hide_full_access_warning = Some(true);
 
-    chat.open_permissions_popup();
+    chat.open_sandbox_popup();
     let popup = render_bottom_popup(&chat, /*width*/ 120);
 
     assert!(
-        !popup.contains("Auto-review"),
-        "expected Auto-review to stay hidden until the feature is enabled: {popup}"
+        !popup.contains("LLM Approved"),
+        "expected LLM Approved to stay out of the sandbox popup: {popup}"
     );
 }
 
 #[tokio::test]
-async fn permissions_selection_hides_auto_review_when_feature_disabled_even_if_auto_review_is_active()
- {
+async fn sandbox_selection_does_not_show_auto_review_even_if_auto_review_is_active() {
     let (mut chat, _rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
     #[cfg(target_os = "windows")]
     {
@@ -455,17 +450,17 @@ async fn permissions_selection_hides_auto_review_when_feature_disabled_even_if_a
         .set_permission_profile(PermissionProfile::workspace_write())
         .expect("set permission profile");
 
-    chat.open_permissions_popup();
+    chat.open_sandbox_popup();
     let popup = render_bottom_popup(&chat, /*width*/ 120);
 
     assert!(
-        !popup.contains("Auto-review"),
-        "expected Auto-review to stay hidden when the feature is disabled: {popup}"
+        !popup.contains("LLM Approved"),
+        "expected LLM Approved to stay out of the sandbox popup: {popup}"
     );
 }
 
 #[tokio::test]
-async fn permissions_selection_marks_auto_review_current_after_session_configured() {
+async fn approvals_selection_marks_llm_approved_current_after_session_configured() {
     let (mut chat, _rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
     #[cfg(target_os = "windows")]
     {
@@ -498,17 +493,17 @@ async fn permissions_selection_marks_auto_review_current_after_session_configure
         rollout_path: Some(PathBuf::new()),
     });
 
-    chat.open_permissions_popup();
+    chat.open_approvals_popup();
     let popup = render_bottom_popup(&chat, /*width*/ 120);
 
     assert!(
-        popup.contains("Auto-review (current)"),
-        "expected Auto-review to be current after SessionConfigured sync: {popup}"
+        popup.contains("LLM Approved (current)"),
+        "expected LLM Approved to be current after SessionConfigured sync: {popup}"
     );
 }
 
 #[tokio::test]
-async fn permissions_selection_marks_auto_review_current_with_custom_workspace_write_details() {
+async fn approvals_selection_marks_llm_approved_current_with_custom_workspace_write_details() {
     let (mut chat, _rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
     #[cfg(target_os = "windows")]
     {
@@ -545,17 +540,17 @@ async fn permissions_selection_marks_auto_review_current_with_custom_workspace_w
         rollout_path: Some(PathBuf::new()),
     });
 
-    chat.open_permissions_popup();
+    chat.open_approvals_popup();
     let popup = render_bottom_popup(&chat, /*width*/ 120);
 
     assert!(
-        popup.contains("Auto-review (current)"),
-        "expected Auto-review to be current even with custom workspace-write details: {popup}"
+        popup.contains("LLM Approved (current)"),
+        "expected LLM Approved to be current even with custom workspace-write details: {popup}"
     );
 }
 
 #[tokio::test]
-async fn permissions_selection_can_disable_auto_review() {
+async fn approvals_selection_can_disable_llm_approved() {
     let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
     #[cfg(target_os = "windows")]
     {
@@ -573,8 +568,9 @@ async fn permissions_selection_can_disable_auto_review() {
         .permissions
         .set_permission_profile(PermissionProfile::workspace_write())
         .expect("set permission profile");
+    chat.set_approvals_reviewer(ApprovalsReviewer::AutoReview);
 
-    chat.open_permissions_popup();
+    chat.open_approvals_popup();
     chat.handle_key_event(KeyEvent::from(KeyCode::Up));
     chat.handle_key_event(KeyEvent::from(KeyCode::Enter));
 
@@ -584,18 +580,18 @@ async fn permissions_selection_can_disable_auto_review() {
             event,
             AppEvent::UpdateApprovalsReviewer(ApprovalsReviewer::User)
         )),
-        "expected selecting Default from Auto-review to switch back to manual approval review: {events:?}"
+        "expected selecting Ask Me from LLM Approved to switch back to manual approval review: {events:?}"
     );
     assert!(
         !events
             .iter()
             .any(|event| matches!(event, AppEvent::UpdateFeatureFlags { .. })),
-        "expected permissions selection to leave feature flags unchanged: {events:?}"
+        "expected approvals selection to leave feature flags unchanged: {events:?}"
     );
 }
 
 #[tokio::test]
-async fn permissions_selection_sends_approvals_reviewer_in_override_turn_context() {
+async fn approvals_selection_sends_approvals_reviewer_in_override_turn_context() {
     let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
     #[cfg(target_os = "windows")]
     {
@@ -615,13 +611,13 @@ async fn permissions_selection_sends_approvals_reviewer_in_override_turn_context
         .expect("set permission profile");
     chat.set_approvals_reviewer(ApprovalsReviewer::User);
 
-    chat.open_permissions_popup();
+    chat.open_approvals_popup();
     let popup = render_bottom_popup(&chat, /*width*/ 120);
     assert!(
         popup
             .lines()
             .any(|line| line.contains("(current)") && line.contains('›')),
-        "expected permissions popup to open with the current preset selected: {popup}"
+        "expected approvals popup to open with the current preset selected: {popup}"
     );
 
     chat.handle_key_event(KeyEvent::from(KeyCode::Down));
@@ -629,8 +625,8 @@ async fn permissions_selection_sends_approvals_reviewer_in_override_turn_context
     assert!(
         popup
             .lines()
-            .any(|line| line.contains("Auto-review") && line.contains('›')),
-        "expected one Down from Default to select Auto-review: {popup}"
+            .any(|line| line.contains("LLM Approved") && line.contains('›')),
+        "expected one Down from Ask Me to select LLM Approved: {popup}"
     );
     chat.handle_key_event(KeyEvent::from(KeyCode::Enter));
 
@@ -647,7 +643,7 @@ async fn permissions_selection_sends_approvals_reviewer_in_override_turn_context
             cwd: None,
             approval_policy: Some(AskForApproval::OnRequest),
             approvals_reviewer: Some(ApprovalsReviewer::AutoReview),
-            permission_profile: Some(PermissionProfile::workspace_write()),
+            permission_profile: None,
             windows_sandbox_level: None,
             model: None,
             effort: None,
@@ -660,7 +656,7 @@ async fn permissions_selection_sends_approvals_reviewer_in_override_turn_context
 }
 
 #[tokio::test]
-async fn permissions_full_access_history_cell_emitted_only_after_confirmation() {
+async fn sandbox_full_access_history_cell_emitted_only_after_confirmation() {
     let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
     #[cfg(target_os = "windows")]
     {
@@ -670,7 +666,7 @@ async fn permissions_full_access_history_cell_emitted_only_after_confirmation() 
     chat.set_feature_enabled(Feature::GuardianApproval, /*enabled*/ false);
     chat.config.notices.hide_full_access_warning = None;
 
-    chat.open_permissions_popup();
+    chat.open_sandbox_popup();
     chat.handle_key_event(KeyEvent::from(KeyCode::Down));
     #[cfg(target_os = "windows")]
     chat.handle_key_event(KeyEvent::from(KeyCode::Down));
@@ -685,9 +681,9 @@ async fn permissions_full_access_history_cell_emitted_only_after_confirmation() 
             }
             AppEvent::OpenFullAccessConfirmation {
                 preset,
-                return_to_permissions,
+                return_to_sandbox,
             } => {
-                open_confirmation_event = Some((preset, return_to_permissions));
+                open_confirmation_event = Some((preset, return_to_sandbox));
             }
             _ => {}
         }
@@ -698,9 +694,9 @@ async fn permissions_full_access_history_cell_emitted_only_after_confirmation() 
             "did not expect history cell before confirming full access"
         );
     }
-    let (preset, return_to_permissions) =
+    let (preset, return_to_sandbox) =
         open_confirmation_event.expect("expected full access confirmation event");
-    chat.open_full_access_confirmation(preset, return_to_permissions);
+    chat.open_full_access_confirmation(preset, return_to_sandbox);
 
     let popup = render_bottom_popup(&chat, /*width*/ 80);
     assert!(
@@ -721,7 +717,7 @@ async fn permissions_full_access_history_cell_emitted_only_after_confirmation() 
         lines_to_single_string(&cells_after_confirmation[0])
     };
     assert!(
-        rendered.contains("Permissions updated to Full Access"),
+        rendered.contains("Sandbox updated to Full Access"),
         "expected full access update history message, got: {rendered}"
     );
 }

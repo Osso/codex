@@ -1958,7 +1958,7 @@ async fn update_feature_flags_enabling_guardian_selects_auto_review() -> Result<
         .map(|line| line.to_string())
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(rendered.contains("Permissions updated to Auto-review"));
+    assert!(rendered.contains("Approvals updated to Auto-review"));
 
     let config = std::fs::read_to_string(codex_home.path().join("config.toml"))?;
     assert!(config.contains("guardian_approval = true"));
@@ -2048,7 +2048,7 @@ async fn update_feature_flags_disabling_guardian_clears_review_policy_and_restor
         .map(|line| line.to_string())
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(rendered.contains("Permissions updated to Default"));
+    assert!(rendered.contains("Approvals updated to Default"));
 
     let config = std::fs::read_to_string(codex_home.path().join("config.toml"))?;
     assert!(!config.contains("guardian_approval = true"));
@@ -2329,7 +2329,7 @@ guardian_approval = true
         .map(|line| line.to_string())
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(rendered.contains("Permissions updated to Default"));
+    assert!(rendered.contains("Approvals updated to Default"));
 
     let config = std::fs::read_to_string(codex_home.path().join("config.toml"))?;
     assert!(!config.contains("guardian_approval = true"));
@@ -2392,10 +2392,10 @@ async fn update_feature_flags_disabling_guardian_in_profile_keeps_inherited_non_
             AppEvent::InsertHistoryCell(cell) => cell
                 .display_lines(/*width*/ 120)
                 .iter()
-                .any(|line| line.to_string().contains("Permissions updated to")),
+                .any(|line| line.to_string().contains("Approvals updated to")),
             _ => false,
         }),
-        "blocking disable with inherited guardian review should not emit a permissions history update: {app_events:?}"
+        "blocking disable with inherited guardian review should not emit an approvals history update: {app_events:?}"
     );
 
     let config = std::fs::read_to_string(codex_home.path().join("config.toml"))?;

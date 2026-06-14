@@ -323,11 +323,11 @@ impl ChatWidget {
             SlashCommand::Agent | SlashCommand::MultiAgents => {
                 self.app_event_tx.send(AppEvent::OpenAgentPicker);
             }
-            SlashCommand::Permissions => {
-                self.open_permissions_popup();
-            }
             SlashCommand::Approvals => {
                 self.open_approvals_popup();
+            }
+            SlashCommand::Sandbox => {
+                self.open_sandbox_popup();
             }
             SlashCommand::Vim => {
                 self.toggle_vim_mode_and_notify();
@@ -1030,8 +1030,8 @@ impl ChatWidget {
             | SlashCommand::Keymap
             | SlashCommand::Agent
             | SlashCommand::MultiAgents
-            | SlashCommand::Permissions
             | SlashCommand::Approvals
+            | SlashCommand::Sandbox
             | SlashCommand::ElevateSandbox
             | SlashCommand::SandboxReadRoot
             | SlashCommand::Experimental

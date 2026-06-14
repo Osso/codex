@@ -395,8 +395,7 @@ async fn assert_cancelled_queued_menu_drains_next_input(command: &str, expected_
 #[tokio::test]
 async fn queued_slash_menu_cancel_drains_next_input() {
     assert_cancelled_queued_menu_drains_next_input("/model", "Select Model").await;
-    assert_cancelled_queued_menu_drains_next_input("/permissions", "Update Model Permissions")
-        .await;
+    assert_cancelled_queued_menu_drains_next_input("/sandbox", "Update Sandbox").await;
 }
 
 #[tokio::test]
@@ -405,15 +404,15 @@ async fn queued_slash_menu_selection_drains_next_input() {
     chat.thread_id = Some(ThreadId::new());
     handle_turn_started(&mut chat, "turn-1");
 
-    queue_composer_text_with_tab(&mut chat, "/permissions");
+    queue_composer_text_with_tab(&mut chat, "/sandbox");
     queue_composer_text_with_tab(&mut chat, "hello after selection");
 
     complete_turn_with_message(&mut chat, "turn-1", Some("done"));
 
     let popup = render_bottom_popup(&chat, /*width*/ 80);
     assert!(
-        popup.contains("Update Model Permissions"),
-        "expected permissions menu to open; popup:\n{popup}"
+        popup.contains("Update Sandbox"),
+        "expected sandbox menu to open; popup:\n{popup}"
     );
 
     chat.handle_key_event(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
@@ -426,7 +425,7 @@ async fn queued_slash_menu_selection_drains_next_input() {
                 text_elements: Vec::new(),
             }]
         ),
-        other => panic!("expected queued message after permissions selection, got {other:?}"),
+        other => panic!("expected queued message after sandbox selection, got {other:?}"),
     }
     assert!(chat.input_queue.queued_user_messages.is_empty());
 }
@@ -1252,32 +1251,30 @@ async fn unavailable_slash_command_is_available_from_local_recall() {
 }
 
 #[tokio::test]
-async fn permissions_commands_open_while_task_running() {
+async fn approval_and_sandbox_commands_open_while_task_running() {
     let (mut approvals_chat, _approvals_rx, _approvals_op_rx) =
         make_chatwidget_manual(/*model_override*/ None).await;
     approvals_chat
         .bottom_pane
         .set_task_running(/*running*/ true);
 
-    submit_composer_text(&mut approvals_chat, "/approvals");
+    approvals_chat.dispatch_command(SlashCommand::Approvals);
 
     let approvals_popup = render_bottom_popup(&approvals_chat, /*width*/ 80);
     assert!(
-        approvals_popup.contains("Update Model Permissions"),
+        approvals_popup.contains("Update Approvals"),
         "expected approvals popup to open, got: {approvals_popup:?}"
     );
 
-    let (mut permissions_chat, _permissions_rx, _permissions_op_rx) =
+    let (mut sandbox_chat, _sandbox_rx, _sandbox_op_rx) =
         make_chatwidget_manual(/*model_override*/ None).await;
-    permissions_chat
-        .bottom_pane
-        .set_task_running(/*running*/ true);
-    submit_composer_text(&mut permissions_chat, "/permissions");
+    sandbox_chat.bottom_pane.set_task_running(/*running*/ true);
+    sandbox_chat.dispatch_command(SlashCommand::Sandbox);
 
-    let permissions_popup = render_bottom_popup(&permissions_chat, /*width*/ 80);
+    let sandbox_popup = render_bottom_popup(&sandbox_chat, /*width*/ 80);
     assert!(
-        permissions_popup.contains("Update Model Permissions"),
-        "expected permissions popup to open, got: {permissions_popup:?}"
+        sandbox_popup.contains("Update Sandbox"),
+        "expected sandbox popup to open, got: {sandbox_popup:?}"
     );
 }
 
