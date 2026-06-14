@@ -1204,6 +1204,36 @@ async fn unavailable_slash_command_is_available_from_local_recall() {
 }
 
 #[tokio::test]
+async fn permissions_commands_open_while_task_running() {
+    let (mut approvals_chat, _approvals_rx, _approvals_op_rx) =
+        make_chatwidget_manual(/*model_override*/ None).await;
+    approvals_chat
+        .bottom_pane
+        .set_task_running(/*running*/ true);
+
+    submit_composer_text(&mut approvals_chat, "/approvals");
+
+    let approvals_popup = render_bottom_popup(&approvals_chat, /*width*/ 80);
+    assert!(
+        approvals_popup.contains("Update Model Permissions"),
+        "expected approvals popup to open, got: {approvals_popup:?}"
+    );
+
+    let (mut permissions_chat, _permissions_rx, _permissions_op_rx) =
+        make_chatwidget_manual(/*model_override*/ None).await;
+    permissions_chat
+        .bottom_pane
+        .set_task_running(/*running*/ true);
+    submit_composer_text(&mut permissions_chat, "/permissions");
+
+    let permissions_popup = render_bottom_popup(&permissions_chat, /*width*/ 80);
+    assert!(
+        permissions_popup.contains("Update Model Permissions"),
+        "expected permissions popup to open, got: {permissions_popup:?}"
+    );
+}
+
+#[tokio::test]
 async fn no_op_stub_slash_command_is_available_from_local_recall() {
     let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
 

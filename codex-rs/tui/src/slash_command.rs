@@ -182,12 +182,10 @@ impl SlashCommand {
             | SlashCommand::Compact
             | SlashCommand::Model
             | SlashCommand::Personality
-            | SlashCommand::Permissions
             | SlashCommand::Keymap
             | SlashCommand::Vim
             | SlashCommand::ElevateSandbox
             | SlashCommand::SandboxReadRoot
-            | SlashCommand::Approvals
             | SlashCommand::Experimental
             | SlashCommand::Memories
             | SlashCommand::Review
@@ -210,6 +208,8 @@ impl SlashCommand {
             | SlashCommand::Ps
             | SlashCommand::Stop
             | SlashCommand::Goal
+            | SlashCommand::Permissions
+            | SlashCommand::Approvals
             | SlashCommand::AutoReview
             | SlashCommand::Mcp
             | SlashCommand::Apps
@@ -270,6 +270,8 @@ mod tests {
         assert!(SlashCommand::Title.available_during_task());
         assert!(SlashCommand::Statusline.available_during_task());
         assert!(SlashCommand::Raw.available_during_task());
+        assert!(SlashCommand::Permissions.available_during_task());
+        assert!(SlashCommand::Approvals.available_during_task());
         assert!(SlashCommand::Raw.available_in_side_conversation());
         assert!(SlashCommand::Raw.supports_inline_args());
     }
