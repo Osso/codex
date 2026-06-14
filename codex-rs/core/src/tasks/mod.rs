@@ -504,6 +504,9 @@ impl Session {
             // in-flight approval wait can surface as a model-visible rejection before TurnAborted.
             active_turn.clear_pending().await;
         }
+        if reason == TurnAbortReason::Interrupted {
+            self.clear_queued_response_items_for_next_turn().await;
+        }
         if reason == TurnAbortReason::Interrupted && aborted_turn {
             self.maybe_start_turn_for_pending_work().await;
         }

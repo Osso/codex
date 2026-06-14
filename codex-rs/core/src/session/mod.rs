@@ -3277,6 +3277,10 @@ impl Session {
         std::mem::take(&mut *self.idle_pending_input.lock().await)
     }
 
+    pub(crate) async fn clear_queued_response_items_for_next_turn(&self) {
+        self.idle_pending_input.lock().await.clear();
+    }
+
     pub(crate) async fn has_queued_response_items_for_next_turn(&self) -> bool {
         !self.idle_pending_input.lock().await.is_empty()
     }
