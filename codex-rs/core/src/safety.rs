@@ -47,6 +47,7 @@ pub fn assess_patch_safety(
     match policy {
         AskForApproval::OnFailure
         | AskForApproval::Never
+        | AskForApproval::AutoApprove
         | AskForApproval::OnRequest
         | AskForApproval::Granular(_) => {
             // Continue to see if this can be auto-approved.

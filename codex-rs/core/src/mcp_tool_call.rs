@@ -626,7 +626,7 @@ async fn maybe_request_codex_apps_auth_elicitation(
     }
 
     match turn_context.approval_policy.value() {
-        AskForApproval::Never => return result,
+        AskForApproval::Never | AskForApproval::AutoApprove => return result,
         AskForApproval::Granular(granular_config) if !granular_config.allows_mcp_elicitations() => {
             return result;
         }

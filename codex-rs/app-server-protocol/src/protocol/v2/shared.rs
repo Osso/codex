@@ -176,6 +176,7 @@ pub enum AskForApproval {
         mcp_elicitations: bool,
     },
     Never,
+    AutoApprove,
 }
 
 impl AskForApproval {
@@ -198,6 +199,7 @@ impl AskForApproval {
                 mcp_elicitations,
             }),
             AskForApproval::Never => CoreAskForApproval::Never,
+            AskForApproval::AutoApprove => CoreAskForApproval::AutoApprove,
         }
     }
 }
@@ -216,6 +218,7 @@ impl From<CoreAskForApproval> for AskForApproval {
                 mcp_elicitations: granular_config.mcp_elicitations,
             },
             CoreAskForApproval::Never => AskForApproval::Never,
+            CoreAskForApproval::AutoApprove => AskForApproval::AutoApprove,
         }
     }
 }

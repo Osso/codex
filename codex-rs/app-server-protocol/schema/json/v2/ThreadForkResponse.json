@@ -77,7 +77,8 @@
             "untrusted",
             "on-failure",
             "on-request",
-            "never"
+            "never",
+            "auto-approve"
           ],
           "type": "string"
         },

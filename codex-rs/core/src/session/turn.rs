@@ -522,8 +522,9 @@ pub(crate) async fn run_turn(
                 if !needs_follow_up {
                     last_agent_message = sampling_request_last_agent_message;
                     let stop_hook_permission_mode = match turn_context.approval_policy.value() {
-                        AskForApproval::Never => "bypassPermissions",
-                        AskForApproval::UnlessTrusted
+                        AskForApproval::AutoApprove => "bypassPermissions",
+                        AskForApproval::Never
+                        | AskForApproval::UnlessTrusted
                         | AskForApproval::OnFailure
                         | AskForApproval::OnRequest
                         | AskForApproval::Granular(_) => "default",

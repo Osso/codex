@@ -178,6 +178,7 @@ pub(crate) fn prompt_is_rejected_by_policy(
 ) -> Option<&'static str> {
     match approval_policy {
         AskForApproval::Never => Some(PROMPT_CONFLICT_REASON),
+        AskForApproval::AutoApprove => None,
         AskForApproval::OnFailure => None,
         AskForApproval::OnRequest => None,
         AskForApproval::UnlessTrusted => None,
@@ -374,6 +375,7 @@ impl ExecPolicyManager {
                 } else {
                     None
                 },
+                pre_approved: false,
             },
         }
     }
@@ -682,18 +684,8 @@ pub(crate) fn render_decision_for_unmatched_command(
     };
     if command_is_dangerous || environment_lacks_sandbox_protections {
         return match approval_policy {
-            AskForApproval::Never => {
-                let sandbox_is_explicitly_disabled = matches!(
-                    permission_profile,
-                    PermissionProfile::Disabled | PermissionProfile::External { .. }
-                );
-                if sandbox_is_explicitly_disabled {
-                    // If the sandbox is explicitly disabled, we should allow the command to run
-                    Decision::Allow
-                } else {
-                    Decision::Forbidden
-                }
-            }
+            AskForApproval::Never => Decision::Forbidden,
+            AskForApproval::AutoApprove => Decision::Allow,
             AskForApproval::OnFailure
             | AskForApproval::OnRequest
             | AskForApproval::UnlessTrusted
@@ -702,7 +694,7 @@ pub(crate) fn render_decision_for_unmatched_command(
     }
 
     match approval_policy {
-        AskForApproval::Never | AskForApproval::OnFailure => {
+        AskForApproval::Never | AskForApproval::AutoApprove | AskForApproval::OnFailure => {
             // We allow the command to run, relying on the sandbox for
             // protection.
             Decision::Allow

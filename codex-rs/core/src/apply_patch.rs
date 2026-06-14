@@ -52,6 +52,7 @@ pub(crate) async fn apply_patch(
             exec_approval_requirement: ExecApprovalRequirement::Skip {
                 bypass_sandbox: false,
                 proposed_execpolicy_amendment: None,
+                pre_approved: false,
             },
         }),
         SafetyCheck::AskUser => {

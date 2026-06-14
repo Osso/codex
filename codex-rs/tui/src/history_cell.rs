@@ -1584,7 +1584,7 @@ fn has_yolo_permissions(
     permission_profile: &PermissionProfile,
 ) -> bool {
     let permission_profile = AppServerPermissionProfile::from(permission_profile.clone());
-    approval_policy == AskForApproval::Never
+    approval_policy == AskForApproval::AutoApprove
         && matches!(
             permission_profile,
             AppServerPermissionProfile::Disabled
@@ -5015,7 +5015,7 @@ mod tests {
         .into();
 
         assert!(has_yolo_permissions(
-            AskForApproval::Never,
+            AskForApproval::AutoApprove,
             &permission_profile
         ));
     }
@@ -5028,7 +5028,7 @@ mod tests {
         .into();
 
         assert!(!has_yolo_permissions(
-            AskForApproval::Never,
+            AskForApproval::AutoApprove,
             &permission_profile
         ));
     }

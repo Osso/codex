@@ -136,8 +136,8 @@ impl ToolOrchestrator {
             default_exec_approval_requirement(approval_policy, &file_system_sandbox_policy)
         });
         match &requirement {
-            ExecApprovalRequirement::Skip { .. } => {
-                if strict_auto_review {
+            ExecApprovalRequirement::Skip { pre_approved, .. } => {
+                if strict_auto_review && !pre_approved {
                     let guardian_review_id = Some(new_guardian_review_id());
                     let approval_ctx = ApprovalCtx {
                         session: &tool_ctx.session,

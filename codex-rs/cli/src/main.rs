@@ -1629,7 +1629,7 @@ async fn run_debug_prompt_input_command(
     }
 
     let approval_policy = if shared.dangerously_bypass_approvals_and_sandbox {
-        Some(AskForApproval::Never)
+        Some(AskForApproval::AutoApprove)
     } else {
         interactive.approval_policy.map(Into::into)
     };

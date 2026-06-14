@@ -2078,6 +2078,13 @@ impl Session {
                     strict_auto_review: false,
                 });
             }
+            AskForApproval::AutoApprove => {
+                return Some(RequestPermissionsResponse {
+                    permissions: args.permissions,
+                    scope: PermissionGrantScope::Turn,
+                    strict_auto_review: false,
+                });
+            }
             AskForApproval::Granular(granular_config)
                 if !granular_config.allows_request_permissions() =>
             {

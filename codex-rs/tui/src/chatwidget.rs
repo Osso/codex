@@ -8049,9 +8049,9 @@ impl ChatWidget {
 
                 if guardian_approval_enabled {
                     items.push(SelectionItem {
-                        name: "Auto-review".to_string(),
+                        name: "LLM Approved".to_string(),
                         description: Some(
-                            "Same workspace-write permissions as Default, but eligible `on-request` approvals are routed through the auto-reviewer subagent."
+                            "Same workspace-write permissions as Default, but eligible approvals are routed to the LLM reviewer instead of the user."
                                 .to_string(),
                         ),
                         is_current: current_review_policy == ApprovalsReviewer::AutoReview
@@ -8064,7 +8064,7 @@ impl ChatWidget {
                         actions: Self::approval_preset_actions(
                             preset_approval,
                             preset.permission_profile.clone(),
-                            "Auto-review".to_string(),
+                            "LLM Approved".to_string(),
                             ApprovalsReviewer::AutoReview,
                         ),
                         dismiss_on_select: true,

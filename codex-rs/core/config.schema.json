@@ -273,6 +273,13 @@
             "never"
           ],
           "type": "string"
+        },
+        {
+          "description": "Never ask the user to approve commands because approval-required actions are treated as approved.",
+          "enum": [
+            "auto-approve"
+          ],
+          "type": "string"
         }
       ]
     },
@@ -436,6 +443,9 @@
             "fast_mode": {
               "type": "boolean"
             },
+            "general_analytics": {
+              "type": "boolean"
+            },
             "goals": {
               "type": "boolean"
             },
@@ -443,6 +453,9 @@
               "type": "boolean"
             },
             "hooks": {
+              "type": "boolean"
+            },
+            "hostrun": {
               "type": "boolean"
             },
             "image_detail_original": {
@@ -475,7 +488,6 @@
             "multi_agent": {
               "type": "boolean"
             },
-
             "multi_agent_v2": {
               "$ref": "#/definitions/FeatureToml_for_MultiAgentV2ConfigToml"
             },
@@ -2508,6 +2520,11 @@
           "description": "Enable animations (welcome screen, shimmer effects, spinners). Defaults to `true`.",
           "type": "boolean"
         },
+        "code_color": {
+          "default": null,
+          "description": "Foreground color for inline code in markdown text (e.g. \"#E6B450\").",
+          "type": "string"
+        },
         "keymap": {
           "allOf": [
             {
@@ -2627,7 +2644,6 @@
           },
           "description": "Keybinding overrides for the TUI.\n\nThis supports rebinding selected actions globally and by context. Context bindings take precedence over `global` bindings."
         },
-
         "model_availability_nux": {
           "allOf": [
             {
@@ -2695,6 +2711,11 @@
           "default": true,
           "description": "Color status line items with colors derived from the active syntax theme. Defaults to `true`.",
           "type": "boolean"
+        },
+        "strong_color": {
+          "default": null,
+          "description": "Foreground color for bold/strong markdown text (e.g. \"#E6B450\").",
+          "type": "string"
         },
         "terminal_resize_reflow_max_rows": {
           "default": null,
@@ -4050,6 +4071,9 @@
         "fast_mode": {
           "type": "boolean"
         },
+        "general_analytics": {
+          "type": "boolean"
+        },
         "goals": {
           "type": "boolean"
         },
@@ -4057,6 +4081,9 @@
           "type": "boolean"
         },
         "hooks": {
+          "type": "boolean"
+        },
+        "hostrun": {
           "type": "boolean"
         },
         "image_detail_original": {
@@ -4089,7 +4116,6 @@
         "multi_agent": {
           "type": "boolean"
         },
-
         "multi_agent_v2": {
           "$ref": "#/definitions/FeatureToml_for_MultiAgentV2ConfigToml"
         },

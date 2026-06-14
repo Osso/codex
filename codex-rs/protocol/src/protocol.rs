@@ -923,6 +923,10 @@ pub enum AskForApproval {
     /// Never ask the user to approve commands. Failures are immediately returned
     /// to the model, and never escalated to the user for approval.
     Never,
+
+    /// Never ask the user to approve commands because approval-required actions
+    /// are treated as approved.
+    AutoApprove,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, TS)]

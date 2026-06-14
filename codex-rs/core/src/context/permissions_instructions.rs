@@ -15,6 +15,8 @@ use std::path::Path;
 use std::sync::LazyLock;
 
 const APPROVAL_POLICY_NEVER: &str = include_str!("prompts/permissions/approval_policy/never.md");
+const APPROVAL_POLICY_AUTO_APPROVE: &str =
+    include_str!("prompts/permissions/approval_policy/auto_approve.md");
 const APPROVAL_POLICY_UNLESS_TRUSTED: &str =
     include_str!("prompts/permissions/approval_policy/unless_trusted.md");
 const APPROVAL_POLICY_ON_FAILURE: &str =
@@ -216,6 +218,7 @@ fn approval_text(
     };
     let text = match approval_policy {
         AskForApproval::Never => APPROVAL_POLICY_NEVER.to_string(),
+        AskForApproval::AutoApprove => APPROVAL_POLICY_AUTO_APPROVE.to_string(),
         AskForApproval::UnlessTrusted => {
             with_request_permissions_tool(APPROVAL_POLICY_UNLESS_TRUSTED)
         }
@@ -231,6 +234,7 @@ fn approval_text(
 
     if approvals_reviewer == ApprovalsReviewer::AutoReview
         && approval_policy != AskForApproval::Never
+        && approval_policy != AskForApproval::AutoApprove
     {
         format!("{text}\n\n{AUTO_REVIEW_APPROVAL_SUFFIX}")
     } else {

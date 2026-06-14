@@ -36,10 +36,17 @@ pub fn builtin_approval_presets() -> Vec<ApprovalPreset> {
             permission_profile: PermissionProfile::workspace_write(),
         },
         ApprovalPreset {
+            id: "no-prompts",
+            label: "No Prompts",
+            description: "Codex can read and edit files in the current workspace, and run commands. Approval-required actions are rejected instead of shown.",
+            approval: AskForApproval::Never,
+            permission_profile: PermissionProfile::workspace_write(),
+        },
+        ApprovalPreset {
             id: "full-access",
             label: "Full Access",
             description: "Codex can edit files outside this workspace and access the internet without asking for approval. Exercise caution when using.",
-            approval: AskForApproval::Never,
+            approval: AskForApproval::AutoApprove,
             permission_profile: PermissionProfile::Disabled,
         },
     ]

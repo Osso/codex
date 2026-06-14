@@ -168,6 +168,8 @@ pub(crate) enum ExecApprovalRequirement {
         /// Proposed execpolicy amendment to skip future approvals for similar commands
         /// Only applies if the command fails to run in sandbox and codex prompts the user to run outside the sandbox.
         proposed_execpolicy_amendment: Option<ExecPolicyAmendment>,
+        /// True when a pre-tool hook explicitly approved this request.
+        pre_approved: bool,
     },
     /// Approval required for this tool call.
     NeedsApproval {
@@ -196,7 +198,7 @@ impl ExecApprovalRequirement {
     }
 }
 
-/// - Never, OnFailure: do not ask
+/// - Never, AutoApprove, OnFailure: do not ask
 /// - OnRequest: ask unless filesystem access is unrestricted
 /// - Granular: ask unless filesystem access is unrestricted, but auto-reject
 ///   when granular sandbox approval is disabled.
@@ -206,7 +208,7 @@ pub(crate) fn default_exec_approval_requirement(
     file_system_sandbox_policy: &FileSystemSandboxPolicy,
 ) -> ExecApprovalRequirement {
     let needs_approval = match policy {
-        AskForApproval::Never | AskForApproval::OnFailure => false,
+        AskForApproval::Never | AskForApproval::AutoApprove | AskForApproval::OnFailure => false,
         AskForApproval::OnRequest | AskForApproval::Granular(_) => {
             matches!(
                 file_system_sandbox_policy.kind,
@@ -235,6 +237,7 @@ pub(crate) fn default_exec_approval_requirement(
         ExecApprovalRequirement::Skip {
             bypass_sandbox: false,
             proposed_execpolicy_amendment: None,
+            pre_approved: false,
         }
     }
 }
@@ -248,6 +251,7 @@ pub(crate) fn apply_pre_tool_use_approval(
         ExecApprovalRequirement::Skip {
             bypass_sandbox: false,
             proposed_execpolicy_amendment: None,
+            pre_approved: true,
         }
     } else if approval_required {
         ExecApprovalRequirement::NeedsApproval {
@@ -329,7 +333,7 @@ pub(crate) trait Approvable<Req> {
             // We do not ask one more time
             return true;
         }
-        matches!(policy, AskForApproval::Never)
+        matches!(policy, AskForApproval::AutoApprove)
     }
 
     /// Return `Some(_)` to specify a custom exec approval requirement, or `None`
@@ -348,6 +352,7 @@ pub(crate) trait Approvable<Req> {
     fn wants_no_sandbox_approval(&self, policy: AskForApproval) -> bool {
         match policy {
             AskForApproval::OnFailure => true,
+            AskForApproval::AutoApprove => true,
             AskForApproval::UnlessTrusted => true,
             AskForApproval::Never => false,
             AskForApproval::OnRequest => false,

@@ -24,6 +24,10 @@ pub enum ApprovalModeCliArg {
     /// Never ask for user approval
     /// Execution failures are immediately returned to the model.
     Never,
+
+    /// Never ask for user approval because approval-required actions are
+    /// treated as approved.
+    AutoApprove,
 }
 
 impl From<ApprovalModeCliArg> for AskForApproval {
@@ -33,6 +37,7 @@ impl From<ApprovalModeCliArg> for AskForApproval {
             ApprovalModeCliArg::OnFailure => AskForApproval::OnFailure,
             ApprovalModeCliArg::OnRequest => AskForApproval::OnRequest,
             ApprovalModeCliArg::Never => AskForApproval::Never,
+            ApprovalModeCliArg::AutoApprove => AskForApproval::AutoApprove,
         }
     }
 }

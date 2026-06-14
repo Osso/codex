@@ -348,7 +348,7 @@ async fn permissions_selection_history_snapshot_full_access_to_default() {
     chat.config
         .permissions
         .approval_policy
-        .set(AskForApproval::Never.to_core())
+        .set(AskForApproval::AutoApprove.to_core())
         .expect("set approval policy");
     chat.config
         .permissions
