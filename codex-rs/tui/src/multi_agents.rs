@@ -375,6 +375,7 @@ fn wait_end_title(agents_states: &std::collections::HashMap<String, CollabAgentS
         matches!(
             state.status,
             CollabAgentStatus::Completed
+                | CollabAgentStatus::Interrupted
                 | CollabAgentStatus::Errored
                 | CollabAgentStatus::Shutdown
                 | CollabAgentStatus::NotFound
@@ -959,6 +960,16 @@ mod tests {
         .expect("resume item renders");
 
         assert_snapshot!("collab_resume_interrupted", cell_to_text(&cell));
+    }
+
+    #[test]
+    fn interrupted_wait_end_is_finished_waiting() {
+        let states = HashMap::from([(
+            "00000000-0000-0000-0000-000000000002".to_string(),
+            agent_state(CollabAgentStatus::Interrupted, /*message*/ None),
+        )]);
+
+        assert_eq!(wait_end_title(&states), "Finished waiting");
     }
 
     fn agent_state(status: CollabAgentStatus, message: Option<&str>) -> CollabAgentState {

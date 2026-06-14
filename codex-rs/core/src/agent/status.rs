@@ -26,3 +26,7 @@ pub(crate) fn agent_status_is_terminal(status: &AgentStatus) -> bool {
         AgentStatus::PendingInit | AgentStatus::Running | AgentStatus::Interrupted
     )
 }
+
+pub(crate) fn agent_status_is_active(status: &AgentStatus) -> bool {
+    matches!(status, AgentStatus::PendingInit | AgentStatus::Running)
+}

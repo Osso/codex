@@ -3,6 +3,7 @@ use crate::agent::registry::AgentMetadata;
 use crate::agent::registry::AgentRegistry;
 use crate::agent::role::DEFAULT_ROLE_NAME;
 use crate::agent::role::resolve_role_config;
+use crate::agent::status::agent_status_is_active;
 use crate::agent::status::agent_status_is_terminal;
 use crate::codex_thread::ThreadConfigSnapshot;
 use crate::session::emit_subagent_session_started;
@@ -1071,7 +1072,7 @@ impl AgentControl {
             let status = match control.subscribe_status(child_thread_id).await {
                 Ok(mut status_rx) => {
                     let mut status = status_rx.borrow().clone();
-                    while !agent_status_is_terminal(&status) {
+                    while agent_status_is_active(&status) {
                         if status_rx.changed().await.is_err() {
                             status = control.get_status(child_thread_id).await;
                             break;
@@ -1082,7 +1083,7 @@ impl AgentControl {
                 }
                 Err(_) => control.get_status(child_thread_id).await,
             };
-            if !agent_status_is_terminal(&status) {
+            if agent_status_is_active(&status) {
                 return;
             }
 

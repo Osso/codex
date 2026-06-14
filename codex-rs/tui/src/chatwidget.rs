@@ -3921,9 +3921,7 @@ impl ChatWidget {
                 metadata.agent_role,
                 matches!(
                     state.status,
-                    CollabAgentStatus::PendingInit
-                        | CollabAgentStatus::Running
-                        | CollabAgentStatus::Interrupted
+                    CollabAgentStatus::PendingInit | CollabAgentStatus::Running
                 ),
             );
         }
@@ -6487,7 +6485,6 @@ impl ChatWidget {
                             ev.status,
                             codex_protocol::protocol::AgentStatus::PendingInit
                                 | codex_protocol::protocol::AgentStatus::Running
-                                | codex_protocol::protocol::AgentStatus::Interrupted
                         ),
                     );
                 }
@@ -6503,7 +6500,6 @@ impl ChatWidget {
                         ev.status,
                         codex_protocol::protocol::AgentStatus::PendingInit
                             | codex_protocol::protocol::AgentStatus::Running
-                            | codex_protocol::protocol::AgentStatus::Interrupted
                     ),
                 );
                 self.on_collab_event(multi_agents::interaction_end(ev))

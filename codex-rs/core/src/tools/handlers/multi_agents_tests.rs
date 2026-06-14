@@ -1303,7 +1303,7 @@ async fn multi_agent_v2_followup_task_rejects_legacy_items_field() {
 }
 
 #[tokio::test]
-async fn multi_agent_v2_interrupted_turn_does_not_notify_parent() {
+async fn multi_agent_v2_interrupted_turn_notifies_parent() {
     let (mut session, mut turn) = make_session_and_context().await;
     let manager = thread_manager();
     let root = manager
@@ -1356,27 +1356,39 @@ async fn multi_agent_v2_interrupted_turn_does_not_notify_parent() {
         )
         .await;
 
-    let notifications = manager
-        .captured_ops()
-        .into_iter()
-        .filter_map(|(id, op)| {
-            (id == root.thread_id)
-                .then_some(op)
-                .and_then(|op| match op {
-                    Op::InterAgentCommunication { communication }
-                        if communication.author.as_str() == "/root/worker"
-                            && communication.recipient == AgentPath::root()
-                            && communication.other_recipients.is_empty()
-                            && !communication.trigger_turn =>
-                    {
-                        Some(communication.content)
-                    }
-                    _ => None,
+    let notifications = timeout(Duration::from_secs(5), async {
+        loop {
+            let notifications = manager
+                .captured_ops()
+                .into_iter()
+                .filter_map(|(id, op)| {
+                    (id == root.thread_id)
+                        .then_some(op)
+                        .and_then(|op| match op {
+                            Op::InterAgentCommunication { communication }
+                                if communication.author.as_str() == "/root/worker"
+                                    && communication.recipient == AgentPath::root()
+                                    && communication.other_recipients.is_empty()
+                                    && !communication.trigger_turn =>
+                            {
+                                Some(communication.content)
+                            }
+                            _ => None,
+                        })
                 })
-        })
-        .collect::<Vec<_>>();
+                .collect::<Vec<_>>();
+            if !notifications.is_empty() {
+                break notifications;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("interrupted worker should notify its parent");
 
-    assert_eq!(notifications, Vec::<String>::new());
+    assert_eq!(notifications.len(), 1);
+    assert!(notifications[0].contains("\"agent_path\":\"/root/worker\""));
+    assert!(notifications[0].contains("\"status\":\"interrupted\""));
 }
 
 #[tokio::test]
