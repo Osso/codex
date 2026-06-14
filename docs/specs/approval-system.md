@@ -108,6 +108,10 @@ those requests, and how no-prompt modes behave. The core contract lives in
 - [ ] Regenerate config, app-server, hook, and TUI snapshot fixtures after the
   final approval contract is implemented.
 
+## Rebase risk
+
+**HIGH.** The approval contract spans the core `AskForApproval` wire/config enum, the app-server v2 mirror, CLI approval-policy parsing, the shared approval presets, the orchestrator approval/reviewer/sandbox flow, and the `claude-bash-hook` compatibility layer — all surfaces upstream edits frequently. After a rebase, re-verify the `never` vs `auto-approve` split survives across protocol, config, CLI, app-server, and TUI; that `--dangerously-bypass-approvals-and-sandbox` still maps to `auto-approve` (not `never`); and that hook `allow` decisions still short-circuit both the human prompt and the LLM-approved reviewer. Related: `docs/specs/permission-prompt-tool.md` and `docs/specs/pre-tool-use-rewrites.md`.
+
 ## Out of scope
 
 - Replacing the hook rule engine with Codex-native rule matching.

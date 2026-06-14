@@ -93,6 +93,10 @@ harnesses. Source lives in `codex-rs/core/src/permission_prompt.rs` and
 
 None — feature is shipped (commit `531e371da6 Add MCP permission prompt approval flow`).
 
+## Rebase risk
+
+**HIGH.** Touches the approval loop, config editing, MCP tool surface, and shared CLI options. Shipped in commit `531e371da6`. Use the "What it must do" bullets as the conformance checklist after resolving merges; if any bullet's test fails, the merge is not done. Re-run after rebase: `cargo test -p codex-core permission_prompt`, `cargo test -p codex-core session::tests`, `cargo test -p codex-exec cli_tests`, `cargo test -p codex-core config::edit_tests`.
+
 ## Out of scope
 
 - Reimplementing Claude Code's full rule-matching syntax. Current implementation does exact `ruleContent` equality only; globbing/regex matching can land later.

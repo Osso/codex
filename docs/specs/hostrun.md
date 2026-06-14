@@ -271,6 +271,10 @@ belongs in `docs/wiki/systems/hostrun.md`.
 - [x] Update contributed Hostrun instructions after the command builder API is implemented, keeping instructions aligned with tested behavior.
 - [x] Add `docs/wiki/systems/hostrun.md` with architecture details once the command builder design stabilizes.
 
+## Rebase risk
+
+**HIGH.** Touches the tool contribution pipeline and approval surface. After a rebase, confirm: the feature gate still hides Hostrun when disabled; `hostrun_eval` is the only public Hostrun tool name; session reuse survives repeated tool assembly; and approval-gated helpers still report structured approval requests rather than executing directly. Re-run: `cargo test -p codex-hostrun-adapter`, `cargo test -p codex-core hostrun`.
+
 ## Out of scope
 
 - Shell compatibility. Hostrun command execution is argv/graph based and should not try to parse arbitrary shell syntax.

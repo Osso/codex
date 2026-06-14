@@ -139,6 +139,14 @@ These are improvements promoted from PLAN.md; they are not yet shipped.
       non-interactive operations so automated `git rebase --continue`
       cannot open an editor.
 
+## Rebase risk
+
+**HIGH.** Upstream still ships v1 multi-agent alongside v2. After a rebase:
+1. Re-delete the v1 directory + handler imports + the 5 `ToolHandlerKind::*V1` variants + `Feature::LegacyMultiAgentV1` (removed in commit `583ed3144a`).
+2. Verify v2 spawn / send_message / wait / list / close still pass after the registry-plan three-way merge.
+3. Re-generate schemas if upstream touched `protocol/v2.rs`.
+4. Cross-check the "What it must do" bullets against the post-rebase test names.
+
 ## Out of scope
 
 - Reviving the deprecated v1 multi-agent tool surface. v1 was
