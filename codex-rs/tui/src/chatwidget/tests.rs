@@ -157,9 +157,6 @@ pub(super) use codex_protocol::plan_tool::UpdatePlanArgs;
 pub(super) use codex_protocol::protocol::TurnCompleteEvent;
 pub(super) use codex_protocol::request_permissions::RequestPermissionProfile;
 pub(super) use codex_protocol::user_input::TextElement;
-pub(super) use codex_terminal_detection::Multiplexer;
-pub(super) use codex_terminal_detection::TerminalInfo;
-pub(super) use codex_terminal_detection::TerminalName;
 pub(super) use codex_utils_absolute_path::AbsolutePathBuf;
 pub(super) use codex_utils_approval_presets::builtin_approval_presets;
 pub(super) use crossterm::event::KeyCode;
@@ -169,7 +166,6 @@ pub(super) use insta::assert_snapshot;
 pub(super) use serde_json::json;
 #[cfg(target_os = "windows")]
 pub(super) use serial_test::serial;
-pub(super) use std::collections::BTreeMap;
 pub(super) use std::collections::HashMap;
 pub(super) use std::path::PathBuf;
 pub(super) use tempfile::NamedTempFile;
@@ -210,6 +206,63 @@ macro_rules! assert_chatwidget_snapshot {
             );
         });
     }};
+}
+
+#[test]
+fn running_collab_agents_label_collapses_anonymous_agents() {
+    let agents = HashMap::from([
+        (
+            ThreadId::from_string("00000000-0000-0000-0000-000000000001").expect("valid thread id"),
+            AgentMetadata::default(),
+        ),
+        (
+            ThreadId::from_string("00000000-0000-0000-0000-000000000002").expect("valid thread id"),
+            AgentMetadata::default(),
+        ),
+        (
+            ThreadId::from_string("00000000-0000-0000-0000-000000000003").expect("valid thread id"),
+            AgentMetadata::default(),
+        ),
+        (
+            ThreadId::from_string("00000000-0000-0000-0000-000000000004").expect("valid thread id"),
+            AgentMetadata::default(),
+        ),
+    ]);
+
+    assert_eq!(running_collab_agents_label(&agents), "4 agents");
+}
+
+#[test]
+fn running_collab_agents_label_keeps_named_agents_and_counts_anonymous_overflow() {
+    let agents = HashMap::from([
+        (
+            ThreadId::from_string("00000000-0000-0000-0000-000000000001").expect("valid thread id"),
+            AgentMetadata {
+                agent_nickname: Some("Scout".to_string()),
+                agent_role: Some("explorer".to_string()),
+            },
+        ),
+        (
+            ThreadId::from_string("00000000-0000-0000-0000-000000000002").expect("valid thread id"),
+            AgentMetadata::default(),
+        ),
+        (
+            ThreadId::from_string("00000000-0000-0000-0000-000000000003").expect("valid thread id"),
+            AgentMetadata {
+                agent_nickname: Some("Builder".to_string()),
+                agent_role: Some("worker".to_string()),
+            },
+        ),
+        (
+            ThreadId::from_string("00000000-0000-0000-0000-000000000004").expect("valid thread id"),
+            AgentMetadata::default(),
+        ),
+    ]);
+
+    assert_eq!(
+        running_collab_agents_label(&agents),
+        "Scout [explorer], Builder [worker], +2"
+    );
 }
 
 mod app_server;

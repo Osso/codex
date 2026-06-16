@@ -222,25 +222,53 @@ fn queued_message_edit_hint_binding(
 fn running_collab_agents_label(agents: &HashMap<ThreadId, AgentMetadata>) -> String {
     const MAX_VISIBLE_AGENTS: usize = 3;
 
-    let mut labels = agents
+    let mut agents_by_thread_id = agents
         .iter()
         .map(|(thread_id, metadata)| (thread_id.to_string(), metadata))
         .collect::<Vec<_>>();
-    labels.sort_by(|(left_thread_id, _), (right_thread_id, _)| left_thread_id.cmp(right_thread_id));
-    let mut labels = labels
-        .into_iter()
-        .take(MAX_VISIBLE_AGENTS)
-        .map(|(_, metadata)| {
-            multi_agents::format_agent_picker_item_name(
-                metadata.agent_nickname.as_deref(),
-                metadata.agent_role.as_deref(),
-                /*is_primary*/ false,
-            )
-        })
-        .collect::<Vec<_>>();
-    let hidden_count = agents.len().saturating_sub(MAX_VISIBLE_AGENTS);
-    if hidden_count > 0 {
-        labels.push(format!("+{hidden_count}"));
+    agents_by_thread_id
+        .sort_by(|(left_thread_id, _), (right_thread_id, _)| left_thread_id.cmp(right_thread_id));
+
+    let mut labels = Vec::new();
+    let mut anonymous_agents = 0usize;
+    let mut hidden_agents = 0usize;
+    for (_, metadata) in agents_by_thread_id {
+        let has_label = metadata
+            .agent_nickname
+            .as_deref()
+            .is_some_and(|nickname| !nickname.trim().is_empty())
+            || metadata
+                .agent_role
+                .as_deref()
+                .is_some_and(|role| !role.trim().is_empty());
+        if !has_label {
+            anonymous_agents += 1;
+            continue;
+        }
+
+        if labels.len() >= MAX_VISIBLE_AGENTS {
+            hidden_agents += 1;
+            continue;
+        }
+
+        labels.push(multi_agents::format_agent_picker_item_name(
+            metadata.agent_nickname.as_deref(),
+            metadata.agent_role.as_deref(),
+            /*is_primary*/ false,
+        ));
+    }
+
+    if labels.is_empty() && anonymous_agents > 0 {
+        match anonymous_agents {
+            1 => labels.push("Agent".to_string()),
+            count => labels.push(format!("{count} agents")),
+        }
+    } else {
+        hidden_agents += anonymous_agents;
+    }
+
+    if hidden_agents > 0 {
+        labels.push(format!("+{hidden_agents}"));
     }
     labels.join(", ")
 }
@@ -5846,7 +5874,7 @@ impl ChatWidget {
             /*final_output_json_schema*/ None,
             collaboration_mode,
             personality,
-            pending_steer_id.clone(),
+            pending_steer_id,
         );
 
         if !self.submit_op(op.clone()) {
