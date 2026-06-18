@@ -33,6 +33,10 @@ const CURRENT_THREAD_SECTION_TOKEN_BUDGET: usize = 1_200;
 const RECENT_WORK_SECTION_TOKEN_BUDGET: usize = 2_200;
 const WORKSPACE_SECTION_TOKEN_BUDGET: usize = 1_600;
 const NOTES_SECTION_TOKEN_BUDGET: usize = 300;
+const DEFAULT_STARTUP_CONTEXT_TOKEN_BUDGET: usize = CURRENT_THREAD_SECTION_TOKEN_BUDGET
+    + RECENT_WORK_SECTION_TOKEN_BUDGET
+    + WORKSPACE_SECTION_TOKEN_BUDGET
+    + NOTES_SECTION_TOKEN_BUDGET;
 pub(crate) const REALTIME_TURN_TOKEN_BUDGET: usize = 300;
 const MAX_RECENT_THREADS: usize = 40;
 const MAX_RECENT_WORK_GROUPS: usize = 8;
@@ -62,66 +66,155 @@ pub(crate) async fn build_realtime_startup_context(
     let config = sess.get_config().await;
     let cwd = config.cwd.clone();
     let history = sess.clone_history().await;
-    let current_thread_section = build_current_thread_section(history.raw_items());
+    let section_budgets = StartupContextSectionBudgets::scaled_to(budget_tokens);
+    let current_thread_section =
+        build_current_thread_section(history.raw_items(), section_budgets.current_thread);
     let recent_threads = load_recent_threads(sess).await;
     let recent_work_section = build_recent_work_section(&cwd, &recent_threads).await;
     let workspace_section = build_workspace_section_with_user_root(&cwd, home_dir()).await;
+    let section_presence = StartupContextSectionPresence::from_sections(
+        &current_thread_section,
+        &recent_work_section,
+        &workspace_section,
+    );
 
-    if current_thread_section.is_none()
-        && recent_work_section.is_none()
-        && workspace_section.is_none()
-    {
+    if !section_presence.has_any_source() {
         debug!("realtime startup context unavailable; skipping injection");
         return None;
     }
 
-    let mut parts = vec![STARTUP_CONTEXT_HEADER.to_string()];
-
-    let has_current_thread_section = current_thread_section.is_some();
-    let has_recent_work_section = recent_work_section.is_some();
-    let has_workspace_section = workspace_section.is_some();
-
-    if let Some(section) = format_section(
-        "Current Thread",
+    let parts = render_startup_context_parts(
         current_thread_section,
-        CURRENT_THREAD_SECTION_TOKEN_BUDGET,
-    ) {
-        parts.push(section);
-    }
-    if let Some(section) = format_section(
-        "Recent Work",
         recent_work_section,
-        RECENT_WORK_SECTION_TOKEN_BUDGET,
-    ) {
-        parts.push(section);
-    }
-    if let Some(section) = format_section(
-        "Machine / Workspace Map",
         workspace_section,
-        WORKSPACE_SECTION_TOKEN_BUDGET,
-    ) {
-        parts.push(section);
-    }
-    if let Some(section) = format_section(
-        "Notes",
-        Some("Built at realtime startup from the current thread history, local thread metadata, and a bounded local workspace scan. This excludes repo memory instructions, AGENTS files, project-doc prompt blends, and memory summaries.".to_string()),
-        NOTES_SECTION_TOKEN_BUDGET,
-    ) {
-        parts.push(section);
-    }
+        section_budgets,
+    );
 
     let context = format_startup_context_blob(&parts.join("\n\n"));
-    debug!(
-        approx_tokens = approx_token_count(&context),
-        requested_budget_tokens = budget_tokens,
-        bytes = context.len(),
-        has_current_thread_section,
-        has_recent_work_section,
-        has_workspace_section,
-        "built realtime startup context"
-    );
+    log_startup_context_build(&context, budget_tokens, section_presence);
     info!("realtime startup context: {context}");
     Some(context)
+}
+
+fn log_startup_context_build(
+    context: &str,
+    budget_tokens: usize,
+    section_presence: StartupContextSectionPresence,
+) {
+    debug!(
+        approx_tokens = approx_token_count(context),
+        requested_budget_tokens = budget_tokens,
+        bytes = context.len(),
+        has_current_thread_section = section_presence.has_current_thread,
+        has_recent_work_section = section_presence.has_recent_work,
+        has_workspace_section = section_presence.has_workspace,
+        "built realtime startup context"
+    );
+}
+
+#[derive(Clone, Copy, Debug)]
+struct StartupContextSectionPresence {
+    has_current_thread: bool,
+    has_recent_work: bool,
+    has_workspace: bool,
+}
+
+impl StartupContextSectionPresence {
+    fn from_sections(
+        current_thread_section: &Option<String>,
+        recent_work_section: &Option<String>,
+        workspace_section: &Option<String>,
+    ) -> Self {
+        Self {
+            has_current_thread: current_thread_section.is_some(),
+            has_recent_work: recent_work_section.is_some(),
+            has_workspace: workspace_section.is_some(),
+        }
+    }
+
+    fn has_any_source(self) -> bool {
+        self.has_current_thread || self.has_recent_work || self.has_workspace
+    }
+}
+
+fn render_startup_context_parts(
+    current_thread_section: Option<String>,
+    recent_work_section: Option<String>,
+    workspace_section: Option<String>,
+    section_budgets: StartupContextSectionBudgets,
+) -> Vec<String> {
+    let mut parts = vec![STARTUP_CONTEXT_HEADER.to_string()];
+    push_startup_context_section(
+        &mut parts,
+        "Current Thread",
+        current_thread_section,
+        section_budgets.current_thread,
+    );
+    push_startup_context_section(
+        &mut parts,
+        "Recent Work",
+        recent_work_section,
+        section_budgets.recent_work,
+    );
+    push_startup_context_section(
+        &mut parts,
+        "Machine / Workspace Map",
+        workspace_section,
+        section_budgets.workspace,
+    );
+    push_startup_context_section(
+        &mut parts,
+        "Notes",
+        Some("Built at realtime startup from the current thread history, local thread metadata, and a bounded local workspace scan. This excludes repo memory instructions, AGENTS files, project-doc prompt blends, and memory summaries.".to_string()),
+        section_budgets.notes,
+    );
+    parts
+}
+
+fn push_startup_context_section(
+    parts: &mut Vec<String>,
+    title: &str,
+    content: Option<String>,
+    budget_tokens: usize,
+) {
+    if let Some(section) = format_section(title, content, budget_tokens) {
+        parts.push(section);
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct StartupContextSectionBudgets {
+    current_thread: usize,
+    recent_work: usize,
+    workspace: usize,
+    notes: usize,
+}
+
+impl StartupContextSectionBudgets {
+    fn scaled_to(total_budget_tokens: usize) -> Self {
+        Self {
+            current_thread: scaled_section_budget(
+                CURRENT_THREAD_SECTION_TOKEN_BUDGET,
+                total_budget_tokens,
+            ),
+            recent_work: scaled_section_budget(
+                RECENT_WORK_SECTION_TOKEN_BUDGET,
+                total_budget_tokens,
+            ),
+            workspace: scaled_section_budget(WORKSPACE_SECTION_TOKEN_BUDGET, total_budget_tokens),
+            notes: scaled_section_budget(NOTES_SECTION_TOKEN_BUDGET, total_budget_tokens),
+        }
+    }
+}
+
+fn scaled_section_budget(default_section_budget: usize, total_budget_tokens: usize) -> usize {
+    if total_budget_tokens == 0 {
+        return 0;
+    }
+
+    default_section_budget
+        .saturating_mul(total_budget_tokens)
+        .div_ceil(DEFAULT_STARTUP_CONTEXT_TOKEN_BUDGET)
 }
 
 async fn load_recent_threads(sess: &Session) -> Vec<StoredThread> {
@@ -204,7 +297,7 @@ async fn build_recent_work_section(
     (!sections.is_empty()).then(|| sections.join("\n\n"))
 }
 
-fn build_current_thread_section(items: &[ResponseItem]) -> Option<String> {
+fn build_current_thread_section(items: &[ResponseItem], budget_tokens: usize) -> Option<String> {
     let mut turns = Vec::new();
     let mut current_user = Vec::new();
     let mut current_assistant = Vec::new();
@@ -253,8 +346,7 @@ fn build_current_thread_section(items: &[ResponseItem]) -> Option<String> {
     let mut lines = vec![
         "Most recent user/assistant turns from this exact thread. Use them for continuity when responding.".to_string(),
     ];
-    let mut remaining_budget =
-        CURRENT_THREAD_SECTION_TOKEN_BUDGET.saturating_sub(approx_token_count(&lines.join("\n")));
+    let mut remaining_budget = budget_tokens.saturating_sub(approx_token_count(&lines.join("\n")));
     let mut retained_turn_count = 0;
 
     for (index, (user_messages, assistant_messages)) in turns.into_iter().rev().enumerate() {

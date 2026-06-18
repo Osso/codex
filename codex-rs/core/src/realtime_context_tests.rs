@@ -105,7 +105,7 @@ fn current_thread_section_includes_short_turns_newest_first_until_budget() {
     ];
 
     assert_eq!(
-        build_current_thread_section(&items),
+        build_current_thread_section(&items, CURRENT_THREAD_SECTION_TOKEN_BUDGET),
         Some(
             r#"Most recent user/assistant turns from this exact thread. Use them for continuity when responding.
 
@@ -144,7 +144,8 @@ assistant turn 1"#
 #[test]
 fn current_thread_turn_truncation_preserves_start_and_end() {
     let items = vec![user_message(long_turn_text(/*index*/ 0))];
-    let section = build_current_thread_section(&items).expect("current thread section");
+    let section = build_current_thread_section(&items, CURRENT_THREAD_SECTION_TOKEN_BUDGET)
+        .expect("current thread section");
 
     assert_eq!(
         (
@@ -165,7 +166,8 @@ fn current_thread_section_keeps_latest_turns_when_history_exceeds_budget() {
         items.push(assistant_message(format!("assistant turn {index}")));
     }
 
-    let section = build_current_thread_section(&items).expect("current thread section");
+    let section = build_current_thread_section(&items, CURRENT_THREAD_SECTION_TOKEN_BUDGET)
+        .expect("current thread section");
 
     assert_eq!(
         (
@@ -176,6 +178,28 @@ fn current_thread_section_keeps_latest_turns_when_history_exceeds_budget() {
             section.contains("turn-1-end"),
         ),
         (true, true, true, false, false),
+    );
+}
+
+#[test]
+fn current_thread_section_keeps_more_backlog_with_larger_budget() {
+    let mut items = Vec::new();
+    for index in 1..=8 {
+        items.push(user_message(long_turn_text(index)));
+        items.push(assistant_message(format!("assistant turn {index}")));
+    }
+
+    let section = build_current_thread_section(&items, 4_800).expect("current thread section");
+
+    assert_eq!(
+        (
+            section.contains("turn-8-start"),
+            section.contains("turn-8-end"),
+            section.contains("turn-1-start"),
+            section.contains("turn-1-end"),
+            section.matches("### ").count(),
+        ),
+        (true, true, true, true, 8),
     );
 }
 
