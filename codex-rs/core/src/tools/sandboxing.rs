@@ -14,6 +14,7 @@ use crate::tools::network_approval::NetworkApprovalSpec;
 use codex_network_proxy::NetworkProxy;
 use codex_protocol::approvals::ExecPolicyAmendment;
 use codex_protocol::approvals::NetworkApprovalContext;
+use codex_protocol::config_types::SandboxMode;
 use codex_protocol::error::CodexErr;
 use codex_protocol::permissions::FileSystemSandboxKind;
 use codex_protocol::permissions::FileSystemSandboxPolicy;
@@ -198,6 +199,46 @@ impl ExecApprovalRequirement {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ApprovalModeForSandbox {
+    AskMe,
+    LlmApproved,
+    NeverAskDeny,
+    AutoApprove,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum SandboxApprovalDecision {
+    AskUser,
+    AskLlm,
+    Reject,
+    Approved,
+}
+
+pub(crate) fn approval_decision_for_sandbox_mode(
+    sandbox_mode: SandboxMode,
+    approval_mode: ApprovalModeForSandbox,
+) -> SandboxApprovalDecision {
+    match (sandbox_mode, approval_mode) {
+        (
+            SandboxMode::ReadOnly | SandboxMode::WorkspaceWrite | SandboxMode::DangerFullAccess,
+            ApprovalModeForSandbox::AskMe,
+        ) => SandboxApprovalDecision::AskUser,
+        (
+            SandboxMode::ReadOnly | SandboxMode::WorkspaceWrite | SandboxMode::DangerFullAccess,
+            ApprovalModeForSandbox::LlmApproved,
+        ) => SandboxApprovalDecision::AskLlm,
+        (
+            SandboxMode::ReadOnly | SandboxMode::WorkspaceWrite | SandboxMode::DangerFullAccess,
+            ApprovalModeForSandbox::NeverAskDeny,
+        ) => SandboxApprovalDecision::Reject,
+        (
+            SandboxMode::ReadOnly | SandboxMode::WorkspaceWrite | SandboxMode::DangerFullAccess,
+            ApprovalModeForSandbox::AutoApprove,
+        ) => SandboxApprovalDecision::Approved,
+    }
+}
+
 /// - Never: reject approval-required commands.
 /// - AutoApprove: run approval-required commands without asking.
 /// - OnFailure: do not ask before the first attempt.
@@ -209,44 +250,67 @@ pub(crate) fn default_exec_approval_requirement(
     policy: AskForApproval,
     file_system_sandbox_policy: &FileSystemSandboxPolicy,
 ) -> ExecApprovalRequirement {
-    let externally_sandboxed = matches!(
-        file_system_sandbox_policy.kind,
-        FileSystemSandboxKind::ExternalSandbox
-    );
-    let needs_approval = match policy {
-        AskForApproval::Never
-        | AskForApproval::AutoApprove
-        | AskForApproval::OnRequest
-        | AskForApproval::Granular(_) => !externally_sandboxed,
-        AskForApproval::OnFailure => false,
-        AskForApproval::UnlessTrusted => true,
+    let Some(sandbox_mode) = sandbox_mode_for_approval(file_system_sandbox_policy) else {
+        return skip_exec_approval(/*pre_approved*/ false);
     };
 
     match policy {
-        AskForApproval::Never if needs_approval => ExecApprovalRequirement::Forbidden {
-            reason: "approval policy is Never".to_string(),
-        },
-        AskForApproval::AutoApprove if needs_approval => ExecApprovalRequirement::Skip {
-            bypass_sandbox: false,
-            proposed_execpolicy_amendment: None,
-            pre_approved: true,
-        },
-        AskForApproval::Granular(granular_config)
-            if needs_approval && !granular_config.allows_sandbox_approval() =>
-        {
+        AskForApproval::OnFailure => skip_exec_approval(/*pre_approved*/ false),
+        AskForApproval::Never => approval_requirement_from_decision(
+            approval_decision_for_sandbox_mode(sandbox_mode, ApprovalModeForSandbox::NeverAskDeny),
+            "approval policy is Never",
+        ),
+        AskForApproval::AutoApprove => approval_requirement_from_decision(
+            approval_decision_for_sandbox_mode(sandbox_mode, ApprovalModeForSandbox::AutoApprove),
+            "approval policy is AutoApprove",
+        ),
+        AskForApproval::Granular(granular_config) if !granular_config.allows_sandbox_approval() => {
             ExecApprovalRequirement::Forbidden {
                 reason: "approval policy disallowed sandbox approval prompt".to_string(),
             }
         }
-        _ if needs_approval => ExecApprovalRequirement::NeedsApproval {
-            reason: None,
-            proposed_execpolicy_amendment: None,
+        AskForApproval::OnRequest | AskForApproval::Granular(_) | AskForApproval::UnlessTrusted => {
+            approval_requirement_from_decision(
+                approval_decision_for_sandbox_mode(sandbox_mode, ApprovalModeForSandbox::AskMe),
+                "approval required",
+            )
+        }
+    }
+}
+
+fn sandbox_mode_for_approval(
+    file_system_sandbox_policy: &FileSystemSandboxPolicy,
+) -> Option<SandboxMode> {
+    match file_system_sandbox_policy.kind {
+        FileSystemSandboxKind::Restricted => Some(SandboxMode::ReadOnly),
+        FileSystemSandboxKind::Unrestricted => Some(SandboxMode::DangerFullAccess),
+        FileSystemSandboxKind::ExternalSandbox => None,
+    }
+}
+
+fn approval_requirement_from_decision(
+    decision: SandboxApprovalDecision,
+    reject_reason: &str,
+) -> ExecApprovalRequirement {
+    match decision {
+        SandboxApprovalDecision::AskUser | SandboxApprovalDecision::AskLlm => {
+            ExecApprovalRequirement::NeedsApproval {
+                reason: None,
+                proposed_execpolicy_amendment: None,
+            }
+        }
+        SandboxApprovalDecision::Reject => ExecApprovalRequirement::Forbidden {
+            reason: reject_reason.to_string(),
         },
-        _ => ExecApprovalRequirement::Skip {
-            bypass_sandbox: false,
-            proposed_execpolicy_amendment: None,
-            pre_approved: false,
-        },
+        SandboxApprovalDecision::Approved => skip_exec_approval(/*pre_approved*/ true),
+    }
+}
+
+fn skip_exec_approval(pre_approved: bool) -> ExecApprovalRequirement {
+    ExecApprovalRequirement::Skip {
+        bypass_sandbox: false,
+        proposed_execpolicy_amendment: None,
+        pre_approved,
     }
 }
 

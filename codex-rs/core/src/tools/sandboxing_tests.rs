@@ -1,6 +1,7 @@
 use super::*;
 use crate::sandboxing::SandboxPermissions;
 use crate::tools::hook_names::HookToolName;
+use codex_protocol::config_types::SandboxMode;
 use codex_protocol::permissions::FileSystemAccessMode;
 use codex_protocol::permissions::FileSystemPath;
 use codex_protocol::permissions::FileSystemSandboxEntry;
@@ -72,55 +73,101 @@ fn restricted_sandbox_requires_exec_approval_on_request() {
 
 #[test]
 fn visible_approval_modes_follow_sandbox_matrix() {
-    let visible_modes = [
+    for (sandbox_mode, approval_mode, expected) in [
         (
-            "read-only",
-            FileSystemSandboxPolicy::from(&SandboxPolicy::new_read_only_policy()),
+            SandboxMode::ReadOnly,
+            ApprovalModeForSandbox::AskMe,
+            SandboxApprovalDecision::AskUser,
         ),
         (
-            "workspace-write",
-            FileSystemSandboxPolicy::from(&SandboxPolicy::new_workspace_write_policy()),
+            SandboxMode::ReadOnly,
+            ApprovalModeForSandbox::LlmApproved,
+            SandboxApprovalDecision::AskLlm,
         ),
         (
-            "full-access",
-            FileSystemSandboxPolicy::from(&SandboxPolicy::DangerFullAccess),
+            SandboxMode::ReadOnly,
+            ApprovalModeForSandbox::NeverAskDeny,
+            SandboxApprovalDecision::Reject,
         ),
-    ];
-
-    for (approval_label, approval_policy) in [
-        ("ask-me", AskForApproval::OnRequest),
-        ("llm-approved", AskForApproval::OnRequest),
+        (
+            SandboxMode::ReadOnly,
+            ApprovalModeForSandbox::AutoApprove,
+            SandboxApprovalDecision::Approved,
+        ),
+        (
+            SandboxMode::WorkspaceWrite,
+            ApprovalModeForSandbox::AskMe,
+            SandboxApprovalDecision::AskUser,
+        ),
+        (
+            SandboxMode::WorkspaceWrite,
+            ApprovalModeForSandbox::LlmApproved,
+            SandboxApprovalDecision::AskLlm,
+        ),
+        (
+            SandboxMode::WorkspaceWrite,
+            ApprovalModeForSandbox::NeverAskDeny,
+            SandboxApprovalDecision::Reject,
+        ),
+        (
+            SandboxMode::WorkspaceWrite,
+            ApprovalModeForSandbox::AutoApprove,
+            SandboxApprovalDecision::Approved,
+        ),
+        (
+            SandboxMode::DangerFullAccess,
+            ApprovalModeForSandbox::AskMe,
+            SandboxApprovalDecision::AskUser,
+        ),
+        (
+            SandboxMode::DangerFullAccess,
+            ApprovalModeForSandbox::LlmApproved,
+            SandboxApprovalDecision::AskLlm,
+        ),
+        (
+            SandboxMode::DangerFullAccess,
+            ApprovalModeForSandbox::NeverAskDeny,
+            SandboxApprovalDecision::Reject,
+        ),
+        (
+            SandboxMode::DangerFullAccess,
+            ApprovalModeForSandbox::AutoApprove,
+            SandboxApprovalDecision::Approved,
+        ),
     ] {
-        for (sandbox_label, sandbox_policy) in &visible_modes {
-            assert_eq!(
-                default_exec_approval_requirement(approval_policy, sandbox_policy),
-                ExecApprovalRequirement::NeedsApproval {
-                    reason: None,
-                    proposed_execpolicy_amendment: None,
-                },
-                "{approval_label} should ask in {sandbox_label}"
-            );
-        }
+        assert_eq!(
+            approval_decision_for_sandbox_mode(sandbox_mode, approval_mode),
+            expected,
+            "{sandbox_mode:?} x {approval_mode:?}"
+        );
     }
+}
 
-    for (sandbox_label, sandbox_policy) in &visible_modes {
-        assert_eq!(
-            default_exec_approval_requirement(AskForApproval::Never, sandbox_policy),
-            ExecApprovalRequirement::Forbidden {
-                reason: "approval policy is Never".to_string(),
-            },
-            "never should reject in {sandbox_label}"
-        );
-        assert_eq!(
-            default_exec_approval_requirement(AskForApproval::AutoApprove, sandbox_policy),
-            ExecApprovalRequirement::Skip {
-                bypass_sandbox: false,
-                proposed_execpolicy_amendment: None,
-                pre_approved: true,
-            },
-            "auto-approve should pre-approve in {sandbox_label}"
-        );
-    }
+#[test]
+fn default_exec_approval_requirement_uses_visible_sandbox_matrix() {
+    let sandbox_policy = FileSystemSandboxPolicy::from(&SandboxPolicy::DangerFullAccess);
+
+    assert_eq!(
+        default_exec_approval_requirement(AskForApproval::OnRequest, &sandbox_policy),
+        ExecApprovalRequirement::NeedsApproval {
+            reason: None,
+            proposed_execpolicy_amendment: None,
+        }
+    );
+    assert_eq!(
+        default_exec_approval_requirement(AskForApproval::Never, &sandbox_policy),
+        ExecApprovalRequirement::Forbidden {
+            reason: "approval policy is Never".to_string(),
+        }
+    );
+    assert_eq!(
+        default_exec_approval_requirement(AskForApproval::AutoApprove, &sandbox_policy),
+        ExecApprovalRequirement::Skip {
+            bypass_sandbox: false,
+            proposed_execpolicy_amendment: None,
+            pre_approved: true,
+        }
+    );
 }
 
 #[test]
