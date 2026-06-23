@@ -51,11 +51,11 @@ those requests, and how no-prompt modes behave. The core contract lives in
 For shell actions that need permissions beyond the active sandbox, Codex must
 take this decision:
 
-| `/sandbox` mode | `/approvals` Ask Me | `/approvals` LLM Approved | `/approvals` Never Ask/Deny | `/approvals` Auto Approve |
-| --- | --- | --- | --- | --- |
-| Read Only | Ask user. | Ask LLM reviewer. | Reject without prompting. | Run as approved. |
-| Default/Workspace Write | Ask user. | Ask LLM reviewer. | Reject without prompting. | Run as approved. |
-| Full Access | Run; no sandbox escalation is needed. | Run; no sandbox escalation is needed. | Run; no sandbox escalation is needed. | Run; no sandbox escalation is needed. |
+| `/sandbox` mode         | Ask Me    | LLM Approved    | Never Ask/Deny           | Auto Approve    |
+| ----------------------- | --------- | --------------- | ------------------------ | --------------- |
+| Read Only               | Ask user. | Ask LLM.        | Reject without prompt.   | Run as approved. |
+| Default/Workspace Write | Ask user. | Ask LLM.        | Reject without prompt.   | Run as approved. |
+| Full Access             | Run.      | Run.            | Run.                     | Run.            |
 
 - [x] Test the full matrix above in core sandbox approval tests.
 - [x] Test that the LLM Approved selector maps to the same core approval
