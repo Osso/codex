@@ -55,7 +55,7 @@ take this decision:
 | ----------------------- | --------- | --------------- | ------------------------ | --------------- |
 | Read Only               | Ask user. | Ask LLM.        | Reject without prompt.   | Run as approved. |
 | Default/Workspace Write | Ask user. | Ask LLM.        | Reject without prompt.   | Run as approved. |
-| Full Access             | Run.      | Run.            | Run.                     | Run.            |
+| Full Access             | Ask user. | Ask LLM.        | Reject without prompt.   | Run as approved. |
 
 - [x] Test the full matrix above in core sandbox approval tests.
 - [x] Test that the LLM Approved selector maps to the same core approval

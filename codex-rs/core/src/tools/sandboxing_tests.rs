@@ -72,7 +72,7 @@ fn restricted_sandbox_requires_exec_approval_on_request() {
 
 #[test]
 fn visible_approval_modes_follow_sandbox_matrix() {
-    let restricted_modes = [
+    let visible_modes = [
         (
             "read-only",
             FileSystemSandboxPolicy::from(&SandboxPolicy::new_read_only_policy()),
@@ -81,14 +81,17 @@ fn visible_approval_modes_follow_sandbox_matrix() {
             "workspace-write",
             FileSystemSandboxPolicy::from(&SandboxPolicy::new_workspace_write_policy()),
         ),
+        (
+            "full-access",
+            FileSystemSandboxPolicy::from(&SandboxPolicy::DangerFullAccess),
+        ),
     ];
-    let full_access = FileSystemSandboxPolicy::from(&SandboxPolicy::DangerFullAccess);
 
     for (approval_label, approval_policy) in [
         ("ask-me", AskForApproval::OnRequest),
         ("llm-approved", AskForApproval::OnRequest),
     ] {
-        for (sandbox_label, sandbox_policy) in &restricted_modes {
+        for (sandbox_label, sandbox_policy) in &visible_modes {
             assert_eq!(
                 default_exec_approval_requirement(approval_policy, sandbox_policy),
                 ExecApprovalRequirement::NeedsApproval {
@@ -98,18 +101,9 @@ fn visible_approval_modes_follow_sandbox_matrix() {
                 "{approval_label} should ask in {sandbox_label}"
             );
         }
-        assert_eq!(
-            default_exec_approval_requirement(approval_policy, &full_access),
-            ExecApprovalRequirement::Skip {
-                bypass_sandbox: false,
-                proposed_execpolicy_amendment: None,
-                pre_approved: false,
-            },
-            "{approval_label} should not ask in full-access"
-        );
     }
 
-    for (sandbox_label, sandbox_policy) in &restricted_modes {
+    for (sandbox_label, sandbox_policy) in &visible_modes {
         assert_eq!(
             default_exec_approval_requirement(AskForApproval::Never, sandbox_policy),
             ExecApprovalRequirement::Forbidden {
@@ -127,25 +121,6 @@ fn visible_approval_modes_follow_sandbox_matrix() {
             "auto-approve should pre-approve in {sandbox_label}"
         );
     }
-
-    assert_eq!(
-        default_exec_approval_requirement(AskForApproval::Never, &full_access),
-        ExecApprovalRequirement::Skip {
-            bypass_sandbox: false,
-            proposed_execpolicy_amendment: None,
-            pre_approved: false,
-        },
-        "never should run in full-access because no approval is required"
-    );
-    assert_eq!(
-        default_exec_approval_requirement(AskForApproval::AutoApprove, &full_access),
-        ExecApprovalRequirement::Skip {
-            bypass_sandbox: false,
-            proposed_execpolicy_amendment: None,
-            pre_approved: false,
-        },
-        "auto-approve should run in full-access because no approval is required"
-    );
 }
 
 #[test]

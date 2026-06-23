@@ -198,26 +198,27 @@ impl ExecApprovalRequirement {
     }
 }
 
-/// - Never: reject when filesystem access is restricted
-/// - AutoApprove, OnFailure: do not ask
-/// - OnRequest: ask when filesystem access is restricted
-/// - Granular: ask unless filesystem access is unrestricted, but auto-reject
-///   when granular sandbox approval is disabled.
+/// - Never: reject approval-required commands.
+/// - AutoApprove: run approval-required commands without asking.
+/// - OnFailure: do not ask before the first attempt.
+/// - OnRequest: ask for approval-required commands.
+/// - Granular: ask for approval-required commands, but auto-reject when granular
+///   sandbox approval is disabled.
 /// - UnlessTrusted: always ask
 pub(crate) fn default_exec_approval_requirement(
     policy: AskForApproval,
     file_system_sandbox_policy: &FileSystemSandboxPolicy,
 ) -> ExecApprovalRequirement {
-    let restricted_filesystem = matches!(
+    let externally_sandboxed = matches!(
         file_system_sandbox_policy.kind,
-        FileSystemSandboxKind::Restricted
+        FileSystemSandboxKind::ExternalSandbox
     );
     let needs_approval = match policy {
         AskForApproval::Never
         | AskForApproval::AutoApprove
-        | AskForApproval::OnFailure
         | AskForApproval::OnRequest
-        | AskForApproval::Granular(_) => restricted_filesystem,
+        | AskForApproval::Granular(_) => !externally_sandboxed,
+        AskForApproval::OnFailure => false,
         AskForApproval::UnlessTrusted => true,
     };
 
