@@ -131,7 +131,5 @@ impl FromArgMatches for TuiSharedCliOptions {
 }
 
 fn mark_tui_args(cmd: clap::Command) -> clap::Command {
-    cmd.mut_arg("dangerously_bypass_approvals_and_sandbox", |arg| {
-        arg.conflicts_with("approval_policy")
-    })
+    cmd
 }

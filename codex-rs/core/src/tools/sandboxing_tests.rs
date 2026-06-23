@@ -50,6 +50,7 @@ fn external_sandbox_skips_exec_approval_on_request() {
         ExecApprovalRequirement::Skip {
             bypass_sandbox: false,
             proposed_execpolicy_amendment: None,
+            pre_approved: false,
         }
     );
 }
@@ -66,6 +67,84 @@ fn restricted_sandbox_requires_exec_approval_on_request() {
             reason: None,
             proposed_execpolicy_amendment: None,
         }
+    );
+}
+
+#[test]
+fn visible_approval_modes_follow_sandbox_matrix() {
+    let restricted_modes = [
+        (
+            "read-only",
+            FileSystemSandboxPolicy::from(&SandboxPolicy::new_read_only_policy()),
+        ),
+        (
+            "workspace-write",
+            FileSystemSandboxPolicy::from(&SandboxPolicy::new_workspace_write_policy()),
+        ),
+    ];
+    let full_access = FileSystemSandboxPolicy::from(&SandboxPolicy::DangerFullAccess);
+
+    for (approval_label, approval_policy) in [
+        ("ask-me", AskForApproval::OnRequest),
+        ("llm-approved", AskForApproval::OnRequest),
+    ] {
+        for (sandbox_label, sandbox_policy) in &restricted_modes {
+            assert_eq!(
+                default_exec_approval_requirement(approval_policy, sandbox_policy),
+                ExecApprovalRequirement::NeedsApproval {
+                    reason: None,
+                    proposed_execpolicy_amendment: None,
+                },
+                "{approval_label} should ask in {sandbox_label}"
+            );
+        }
+        assert_eq!(
+            default_exec_approval_requirement(approval_policy, &full_access),
+            ExecApprovalRequirement::Skip {
+                bypass_sandbox: false,
+                proposed_execpolicy_amendment: None,
+                pre_approved: false,
+            },
+            "{approval_label} should not ask in full-access"
+        );
+    }
+
+    for (sandbox_label, sandbox_policy) in &restricted_modes {
+        assert_eq!(
+            default_exec_approval_requirement(AskForApproval::Never, sandbox_policy),
+            ExecApprovalRequirement::Forbidden {
+                reason: "approval policy is Never".to_string(),
+            },
+            "never should reject in {sandbox_label}"
+        );
+        assert_eq!(
+            default_exec_approval_requirement(AskForApproval::AutoApprove, sandbox_policy),
+            ExecApprovalRequirement::Skip {
+                bypass_sandbox: false,
+                proposed_execpolicy_amendment: None,
+                pre_approved: true,
+            },
+            "auto-approve should pre-approve in {sandbox_label}"
+        );
+    }
+
+    assert_eq!(
+        default_exec_approval_requirement(AskForApproval::Never, &full_access),
+        ExecApprovalRequirement::Skip {
+            bypass_sandbox: false,
+            proposed_execpolicy_amendment: None,
+            pre_approved: false,
+        },
+        "never should run in full-access because no approval is required"
+    );
+    assert_eq!(
+        default_exec_approval_requirement(AskForApproval::AutoApprove, &full_access),
+        ExecApprovalRequirement::Skip {
+            bypass_sandbox: false,
+            proposed_execpolicy_amendment: None,
+            pre_approved: false,
+        },
+        "auto-approve should run in full-access because no approval is required"
     );
 }
 
@@ -130,6 +209,7 @@ fn pre_tool_use_approval_skips_exec_approval_prompt() {
         ExecApprovalRequirement::Skip {
             bypass_sandbox: false,
             proposed_execpolicy_amendment: None,
+            pre_approved: true,
         }
     );
 }
@@ -156,6 +236,7 @@ fn pre_tool_use_ask_forces_exec_approval_prompt() {
     let requirement = ExecApprovalRequirement::Skip {
         bypass_sandbox: false,
         proposed_execpolicy_amendment: None,
+        pre_approved: false,
     };
 
     assert_eq!(
@@ -179,6 +260,7 @@ fn additional_permissions_allow_bypass_sandbox_first_attempt_when_execpolicy_ski
             &ExecApprovalRequirement::Skip {
                 bypass_sandbox: true,
                 proposed_execpolicy_amendment: None,
+                pre_approved: false,
             },
             &FileSystemSandboxPolicy::default(),
         ),
@@ -194,6 +276,7 @@ fn guardian_bypasses_sandbox_for_explicit_escalation_on_first_attempt() {
             &ExecApprovalRequirement::Skip {
                 bypass_sandbox: false,
                 proposed_execpolicy_amendment: None,
+                pre_approved: false,
             },
             &FileSystemSandboxPolicy::default(),
         ),
@@ -216,6 +299,7 @@ fn deny_read_blocks_explicit_escalation_but_preserves_policy_bypass() {
             &ExecApprovalRequirement::Skip {
                 bypass_sandbox: false,
                 proposed_execpolicy_amendment: None,
+                pre_approved: false,
             },
             &file_system_policy,
         ),
@@ -228,6 +312,7 @@ fn deny_read_blocks_explicit_escalation_but_preserves_policy_bypass() {
             &ExecApprovalRequirement::Skip {
                 bypass_sandbox: true,
                 proposed_execpolicy_amendment: None,
+                pre_approved: false,
             },
             &file_system_policy,
         ),

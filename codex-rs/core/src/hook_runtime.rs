@@ -19,7 +19,6 @@ use codex_protocol::protocol::EventMsg;
 use codex_protocol::protocol::HookCompletedEvent;
 #[cfg(test)]
 use codex_protocol::protocol::HookEventName;
-#[cfg(test)]
 use codex_protocol::protocol::HookRunStatus;
 use codex_protocol::protocol::HookRunSummary;
 #[cfg(test)]
@@ -172,11 +171,28 @@ pub(crate) async fn run_pre_tool_use_hooks(
         block_reason,
         additional_contexts,
         approval_granted,
-        approval_required,
+        mut approval_required,
         updated_input,
     } = hooks.run_pre_tool_use(request).await;
+    let passthrough_block_reason = match passthrough_approval_action(
+        tool_name,
+        turn_context.approval_policy.value(),
+        &hook_events,
+        approval_granted,
+        approval_required,
+    ) {
+        PassthroughApprovalAction::Reject { reason } => Some(reason),
+        PassthroughApprovalAction::RequireApproval => {
+            approval_required = true;
+            None
+        }
+        PassthroughApprovalAction::Ignore => None,
+    };
     emit_hook_completed_events(sess, turn_context, hook_events).await;
     record_additional_contexts(sess, turn_context, additional_contexts).await;
+    if let Some(reason) = passthrough_block_reason {
+        return PreToolUseHookResult::Blocked(reason);
+    }
 
     if !should_block {
         return PreToolUseHookResult::Continue {
@@ -584,6 +600,49 @@ fn hook_permission_mode(turn_context: &TurnContext) -> String {
     .to_string()
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum PassthroughApprovalAction {
+    Ignore,
+    RequireApproval,
+    Reject { reason: String },
+}
+
+fn passthrough_approval_action(
+    tool_name: &HookToolName,
+    approval_policy: AskForApproval,
+    hook_events: &[HookCompletedEvent],
+    approval_granted: bool,
+    approval_required: bool,
+) -> PassthroughApprovalAction {
+    if tool_name.name() != "Bash" || approval_granted || approval_required {
+        return PassthroughApprovalAction::Ignore;
+    }
+
+    let hook_passthrough = hook_events
+        .iter()
+        .any(|event| event.run.status == HookRunStatus::Completed);
+    if !hook_passthrough {
+        return PassthroughApprovalAction::Ignore;
+    }
+
+    match approval_policy {
+        AskForApproval::Never => PassthroughApprovalAction::Reject {
+            reason: "PreToolUse hook deferred to approval, but approval policy is Never"
+                .to_string(),
+        },
+        AskForApproval::Granular(granular_config) if !granular_config.allows_sandbox_approval() => {
+            PassthroughApprovalAction::Reject {
+                reason: "PreToolUse hook deferred to approval, but approval policy disallows sandbox approval prompts"
+                    .to_string(),
+            }
+        }
+        AskForApproval::OnRequest | AskForApproval::UnlessTrusted | AskForApproval::Granular(_) => {
+            PassthroughApprovalAction::RequireApproval
+        }
+        AskForApproval::AutoApprove | AskForApproval::OnFailure => PassthroughApprovalAction::Ignore,
+    }
+}
+
 fn compaction_trigger_label(value: CompactionTrigger) -> &'static str {
     match value {
         CompactionTrigger::Manual => "manual",
@@ -594,6 +653,7 @@ fn compaction_trigger_label(value: CompactionTrigger) -> &'static str {
 #[cfg(test)]
 mod tests {
     use codex_protocol::models::ContentItem;
+    use codex_protocol::protocol::AskForApproval;
     use codex_protocol::protocol::HookEventName;
     use codex_protocol::protocol::HookExecutionMode;
     use codex_protocol::protocol::HookHandlerType;
@@ -602,10 +662,13 @@ mod tests {
     use codex_protocol::protocol::HookSource;
     use pretty_assertions::assert_eq;
 
+    use super::PassthroughApprovalAction;
     use super::additional_context_messages;
     use super::hook_run_analytics_payload;
     use super::hook_run_metric_tags;
+    use super::passthrough_approval_action;
     use crate::session::tests::make_session_and_context;
+    use crate::tools::hook_names::HookToolName;
     use codex_protocol::protocol::HookCompletedEvent;
     use codex_protocol::protocol::HookRunSummary;
     use codex_utils_absolute_path::test_support::PathBufExt;
@@ -717,6 +780,77 @@ mod tests {
                 ("source", "legacy_managed_config_mdm"),
                 ("status", "completed"),
             ]
+        );
+    }
+
+    #[test]
+    fn bash_passthrough_hook_follows_approval_modes() {
+        let completed = vec![HookCompletedEvent {
+            turn_id: Some("turn-1".to_string()),
+            run: sample_hook_run(HookRunStatus::Completed, HookSource::User),
+        }];
+
+        assert_eq!(
+            passthrough_approval_action(
+                &HookToolName::bash(),
+                AskForApproval::OnRequest,
+                &completed,
+                /*approval_granted*/ false,
+                /*approval_required*/ false,
+            ),
+            PassthroughApprovalAction::RequireApproval
+        );
+        assert_eq!(
+            passthrough_approval_action(
+                &HookToolName::bash(),
+                AskForApproval::Never,
+                &completed,
+                /*approval_granted*/ false,
+                /*approval_required*/ false,
+            ),
+            PassthroughApprovalAction::Reject {
+                reason: "PreToolUse hook deferred to approval, but approval policy is Never"
+                    .to_string(),
+            }
+        );
+        assert_eq!(
+            passthrough_approval_action(
+                &HookToolName::bash(),
+                AskForApproval::AutoApprove,
+                &completed,
+                /*approval_granted*/ false,
+                /*approval_required*/ false,
+            ),
+            PassthroughApprovalAction::Ignore
+        );
+    }
+
+    #[test]
+    fn bash_passthrough_hook_preserves_explicit_hook_decisions() {
+        let completed = vec![HookCompletedEvent {
+            turn_id: Some("turn-1".to_string()),
+            run: sample_hook_run(HookRunStatus::Completed, HookSource::User),
+        }];
+
+        assert_eq!(
+            passthrough_approval_action(
+                &HookToolName::bash(),
+                AskForApproval::OnRequest,
+                &completed,
+                /*approval_granted*/ true,
+                /*approval_required*/ false,
+            ),
+            PassthroughApprovalAction::Ignore
+        );
+        assert_eq!(
+            passthrough_approval_action(
+                &HookToolName::bash(),
+                AskForApproval::OnRequest,
+                &completed,
+                /*approval_granted*/ false,
+                /*approval_required*/ true,
+            ),
+            PassthroughApprovalAction::Ignore
         );
     }
 

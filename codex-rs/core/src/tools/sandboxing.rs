@@ -198,8 +198,9 @@ impl ExecApprovalRequirement {
     }
 }
 
-/// - Never, AutoApprove, OnFailure: do not ask
-/// - OnRequest: ask unless filesystem access is unrestricted
+/// - Never: reject when filesystem access is restricted
+/// - AutoApprove, OnFailure: do not ask
+/// - OnRequest: ask when filesystem access is restricted
 /// - Granular: ask unless filesystem access is unrestricted, but auto-reject
 ///   when granular sandbox approval is disabled.
 /// - UnlessTrusted: always ask
@@ -207,38 +208,44 @@ pub(crate) fn default_exec_approval_requirement(
     policy: AskForApproval,
     file_system_sandbox_policy: &FileSystemSandboxPolicy,
 ) -> ExecApprovalRequirement {
+    let restricted_filesystem = matches!(
+        file_system_sandbox_policy.kind,
+        FileSystemSandboxKind::Restricted
+    );
     let needs_approval = match policy {
-        AskForApproval::Never | AskForApproval::AutoApprove | AskForApproval::OnFailure => false,
-        AskForApproval::OnRequest | AskForApproval::Granular(_) => {
-            matches!(
-                file_system_sandbox_policy.kind,
-                FileSystemSandboxKind::Restricted
-            )
-        }
+        AskForApproval::Never
+        | AskForApproval::AutoApprove
+        | AskForApproval::OnFailure
+        | AskForApproval::OnRequest
+        | AskForApproval::Granular(_) => restricted_filesystem,
         AskForApproval::UnlessTrusted => true,
     };
 
-    if needs_approval
-        && matches!(
-            policy,
-            AskForApproval::Granular(granular_config)
-                if !granular_config.allows_sandbox_approval()
-        )
-    {
-        ExecApprovalRequirement::Forbidden {
-            reason: "approval policy disallowed sandbox approval prompt".to_string(),
+    match policy {
+        AskForApproval::Never if needs_approval => ExecApprovalRequirement::Forbidden {
+            reason: "approval policy is Never".to_string(),
+        },
+        AskForApproval::AutoApprove if needs_approval => ExecApprovalRequirement::Skip {
+            bypass_sandbox: false,
+            proposed_execpolicy_amendment: None,
+            pre_approved: true,
+        },
+        AskForApproval::Granular(granular_config)
+            if needs_approval && !granular_config.allows_sandbox_approval() =>
+        {
+            ExecApprovalRequirement::Forbidden {
+                reason: "approval policy disallowed sandbox approval prompt".to_string(),
+            }
         }
-    } else if needs_approval {
-        ExecApprovalRequirement::NeedsApproval {
+        _ if needs_approval => ExecApprovalRequirement::NeedsApproval {
             reason: None,
             proposed_execpolicy_amendment: None,
-        }
-    } else {
-        ExecApprovalRequirement::Skip {
+        },
+        _ => ExecApprovalRequirement::Skip {
             bypass_sandbox: false,
             proposed_execpolicy_amendment: None,
             pre_approved: false,
-        }
+        },
     }
 }
 

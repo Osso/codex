@@ -752,6 +752,7 @@ async fn evaluates_heredoc_script_against_prefix_rules() {
         ExecApprovalRequirement::Skip {
             bypass_sandbox: true,
             proposed_execpolicy_amendment: None,
+            pre_approved: false,
         },
     )
     .await;
@@ -857,6 +858,7 @@ async fn heredoc_with_variable_assignment_is_not_reduced_to_allowed_prefix() {
                 "-lc".to_string(),
                 "PATH=/tmp/evil:$PATH cat <<'EOF'\nhello\nEOF".to_string(),
             ])),
+            pre_approved: false,
         },
     )
     .await;
@@ -891,6 +893,7 @@ hello world
 EOF"#
                     .to_string(),
             ])),
+            pre_approved: false,
         },
     )
     .await;
@@ -1005,6 +1008,7 @@ prefix_rule(pattern=["git"], decision="allow")
         ExecApprovalRequirement::Skip {
             bypass_sandbox: true,
             proposed_execpolicy_amendment: None,
+            pre_approved: false,
         },
     )
     .await;
@@ -1042,6 +1046,7 @@ prefix_rule(pattern=["git"], decision="prompt")
                 disallowed_git_path,
                 "status".to_string(),
             ])),
+            pre_approved: false,
         },
     )
     .await;
@@ -1768,6 +1773,7 @@ async fn proposed_execpolicy_amendment_is_present_when_heuristics_allow() {
         ExecApprovalRequirement::Skip {
             bypass_sandbox: false,
             proposed_execpolicy_amendment: Some(ExecPolicyAmendment::new(command)),
+            pre_approved: false,
         },
     )
     .await;
@@ -1792,6 +1798,7 @@ async fn proposed_execpolicy_amendment_is_suppressed_when_policy_matches_allow()
         ExecApprovalRequirement::Skip {
             bypass_sandbox: true,
             proposed_execpolicy_amendment: None,
+            pre_approved: false,
         },
     )
     .await;
@@ -1823,6 +1830,7 @@ prefix_rule(pattern=["cat"], decision="allow")
             ExecApprovalRequirement::Skip {
                 bypass_sandbox: false,
                 proposed_execpolicy_amendment: None,
+                pre_approved: false,
             },
         )
         .await;
@@ -1855,6 +1863,7 @@ prefix_rule(pattern=["bash"], decision="allow")
         ExecApprovalRequirement::Skip {
             bypass_sandbox: true,
             proposed_execpolicy_amendment: None,
+            pre_approved: false,
         },
     )
     .await;
@@ -2068,6 +2077,7 @@ async fn verify_approval_requirement_for_unsafe_powershell_command() {
             ExecApprovalRequirement::Skip {
                 bypass_sandbox: false,
                 proposed_execpolicy_amendment: expected_amendment.clone(),
+                pre_approved: false,
             },
         )
     };
@@ -2161,6 +2171,7 @@ async fn dangerous_command_allowed_when_sandbox_is_explicitly_disabled() {
             proposed_execpolicy_amendment: Some(ExecPolicyAmendment {
                 command: vec_str(&["rm", "-rf", "/tmp/nonexistent"]),
             }),
+            pre_approved: false,
         },
     )
     .await;

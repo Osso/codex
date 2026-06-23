@@ -654,17 +654,7 @@ pub async fn run_main(
         .cwd
         .clone()
         .filter(|_| matches!(app_server_target, AppServerTarget::Remote { .. }));
-    let (sandbox_mode, approval_policy) = if cli.dangerously_bypass_approvals_and_sandbox {
-        (
-            Some(SandboxMode::DangerFullAccess),
-            Some(AskForApproval::Never.to_core()),
-        )
-    } else {
-        (
-            cli.sandbox_mode.map(Into::<SandboxMode>::into),
-            cli.approval_policy.map(Into::into),
-        )
-    };
+    let (sandbox_mode, approval_policy) = resolve_cli_permission_overrides(&cli);
 
     // Map the legacy --search flag to the canonical web_search mode.
     if cli.web_search {
@@ -1559,6 +1549,22 @@ async fn load_config_or_exit(
     load_config_or_exit_with_fallback_cwd(cli_kv_overrides, overrides, /*fallback_cwd*/ None).await
 }
 
+fn resolve_cli_permission_overrides(
+    cli: &Cli,
+) -> (
+    Option<SandboxMode>,
+    Option<codex_protocol::protocol::AskForApproval>,
+) {
+    let sandbox_mode = if cli.dangerously_bypass_approvals_and_sandbox {
+        Some(SandboxMode::DangerFullAccess)
+    } else {
+        cli.sandbox_mode.map(Into::<SandboxMode>::into)
+    };
+    let approval_policy = cli.approval_policy.map(Into::into);
+
+    (sandbox_mode, approval_policy)
+}
+
 async fn load_config_or_exit_with_fallback_cwd(
     cli_kv_overrides: Vec<(String, toml::Value)>,
     overrides: ConfigOverrides,
@@ -1613,6 +1619,7 @@ mod tests {
     use crate::legacy_core::config::ConfigBuilder;
     use crate::legacy_core::config::ConfigOverrides;
     use crate::session_resume::read_session_cwd;
+    use clap::Parser;
     use codex_app_server_protocol::AskForApproval;
     use codex_app_server_protocol::ClientRequest;
     use codex_app_server_protocol::RequestId;
@@ -1631,6 +1638,25 @@ mod tests {
     use pretty_assertions::assert_eq;
     use serial_test::serial;
     use tempfile::TempDir;
+
+    #[test]
+    fn dangerous_bypass_only_overrides_sandbox_mode() {
+        let cli = Cli::try_parse_from([
+            "codex-tui",
+            "--dangerously-bypass-approvals-and-sandbox",
+            "--ask-for-approval",
+            "on-request",
+        ])
+        .expect("parse should succeed");
+
+        assert_eq!(
+            resolve_cli_permission_overrides(&cli),
+            (
+                Some(SandboxMode::DangerFullAccess),
+                Some(ProtocolAskForApproval::OnRequest),
+            )
+        );
+    }
 
     async fn build_config(temp_dir: &TempDir) -> std::io::Result<Config> {
         ConfigBuilder::default()

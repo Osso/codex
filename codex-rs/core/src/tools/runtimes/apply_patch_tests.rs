@@ -137,6 +137,7 @@ async fn approval_keys_include_environment_id() {
         exec_approval_requirement: ExecApprovalRequirement::Skip {
             bypass_sandbox: false,
             proposed_execpolicy_amendment: None,
+            pre_approved: false,
         },
         additional_permissions: None,
         permissions_preapproved: false,
@@ -169,6 +170,7 @@ async fn sandbox_cwd_uses_patch_action_cwd() {
         exec_approval_requirement: ExecApprovalRequirement::Skip {
             bypass_sandbox: false,
             proposed_execpolicy_amendment: None,
+            pre_approved: false,
         },
         additional_permissions: None,
         permissions_preapproved: false,
@@ -197,6 +199,7 @@ async fn file_system_sandbox_context_uses_active_attempt() {
         exec_approval_requirement: ExecApprovalRequirement::Skip {
             bypass_sandbox: false,
             proposed_execpolicy_amendment: None,
+            pre_approved: false,
         },
         additional_permissions: Some(additional_permissions.clone()),
         permissions_preapproved: false,
@@ -253,6 +256,7 @@ async fn no_sandbox_attempt_has_no_file_system_context() {
         exec_approval_requirement: ExecApprovalRequirement::Skip {
             bypass_sandbox: false,
             proposed_execpolicy_amendment: None,
+            pre_approved: false,
         },
         additional_permissions: None,
         permissions_preapproved: false,

@@ -1628,11 +1628,6 @@ async fn run_debug_prompt_input_command(
         ));
     }
 
-    let approval_policy = if shared.dangerously_bypass_approvals_and_sandbox {
-        Some(AskForApproval::AutoApprove)
-    } else {
-        interactive.approval_policy.map(Into::into)
-    };
     let sandbox_mode = if shared.dangerously_bypass_approvals_and_sandbox {
         Some(codex_protocol::config_types::SandboxMode::DangerFullAccess)
     } else {
@@ -1641,7 +1636,7 @@ async fn run_debug_prompt_input_command(
     let overrides = ConfigOverrides {
         model: shared.model,
         config_profile: shared.config_profile,
-        approval_policy,
+        approval_policy: interactive.approval_policy.map(Into::into),
         permission_prompt_tool,
         sandbox_mode,
         cwd: shared.cwd,
@@ -2254,16 +2249,20 @@ mod tests {
     }
 
     #[test]
-    fn dangerous_bypass_conflicts_with_approval_policy() {
-        let err = MultitoolCli::try_parse_from([
+    fn dangerous_bypass_preserves_explicit_approval_policy() {
+        let cli = MultitoolCli::try_parse_from([
             "codex",
             "--dangerously-bypass-approvals-and-sandbox",
             "--ask-for-approval",
             "on-request",
         ])
-        .expect_err("conflicting permission flags should be rejected");
+        .expect("parse should succeed");
 
-        assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
+        assert!(cli.interactive.dangerously_bypass_approvals_and_sandbox);
+        assert_matches!(
+            cli.interactive.approval_policy,
+            Some(codex_utils_cli::ApprovalModeCliArg::OnRequest)
+        );
     }
 
     #[test]

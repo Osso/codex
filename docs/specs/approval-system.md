@@ -19,8 +19,8 @@ those requests, and how no-prompt modes behave. The core contract lives in
   approval-required actions are treated as approved without user or LLM review.
 - [ ] Keep `never` and `auto-approve` distinct on the wire, in config, in CLI
   parsing, in app-server protocol types, and in TUI status/history surfaces.
-- [ ] Map `--dangerously-bypass-approvals-and-sandbox` to `auto-approve` plus
-  disabled sandbox/full access, not to `never`.
+- [ ] Map `--dangerously-bypass-approvals-and-sandbox` to disabled
+  sandbox/full access only; it must not change the configured approval mode.
 
 ### Approval reviewers
 
@@ -46,6 +46,23 @@ those requests, and how no-prompt modes behave. The core contract lives in
   Read Only where supported, Default/Workspace Write, and Full Access.
 - [x] Avoid labels that make `never` sound like approval by default.
 
+### Approval and sandbox matrix
+
+For shell actions that need permissions beyond the active sandbox, Codex must
+take this decision:
+
+| `/sandbox` mode | `/approvals` Ask Me | `/approvals` LLM Approved | `/approvals` Never Ask/Deny | `/approvals` Auto Approve |
+| --- | --- | --- | --- | --- |
+| Read Only | Ask user. | Ask LLM reviewer. | Reject without prompting. | Run as approved. |
+| Default/Workspace Write | Ask user. | Ask LLM reviewer. | Reject without prompting. | Run as approved. |
+| Full Access | Run; no sandbox escalation is needed. | Run; no sandbox escalation is needed. | Run; no sandbox escalation is needed. | Run; no sandbox escalation is needed. |
+
+- [x] Test the full matrix above in core sandbox approval tests.
+- [x] Test that the LLM Approved selector maps to the same core approval
+  requirement as Ask Me while setting the auto-reviewer.
+- [x] Test that `--dangerously-bypass-approvals-and-sandbox` only changes the
+  sandbox decision to Full Access and does not change `/approvals`.
+
 ### Hooks and external approval engines
 
 - [ ] Preserve `claude-bash-hook` as a rule/preclassification engine that can
@@ -56,6 +73,9 @@ those requests, and how no-prompt modes behave. The core contract lives in
   `bypassPermissions`.
 - [ ] Allow hook compatibility to map Codex `auto-approve` to
   `bypassPermissions`.
+- [x] Treat Bash hook passthrough as "defer to Codex approval": Ask Me and LLM
+  Approved require approval, Never Ask/Deny rejects, and Auto Approve runs
+  without prompting.
 
 ## How it works
 
@@ -78,12 +98,13 @@ those requests, and how no-prompt modes behave. The core contract lives in
   sandbox attempt, and retry flow.
 - `codex-rs/core/src/tools/sandboxing.rs` — approval requirement model and
   pre-tool hook approval application.
+- `codex-rs/core/src/hook_runtime.rs` and `codex-rs/core/src/session/turn.rs`
+  — hook permission-mode compatibility decisions, including Bash passthrough
+  handling.
 - `codex-rs/core/src/exec_policy.rs` — command policy decisions and prompt
   rejection semantics.
 - `codex-rs/core/src/tools/runtimes/shell/unix_escalation.rs` — shell
   escalation prompt handling.
-- `codex-rs/core/src/hook_runtime.rs` and `codex-rs/core/src/session/turn.rs`
-  — hook permission-mode compatibility payloads.
 - `codex-rs/tui/src/slash_command.rs` — `/approvals` and `/sandbox` command
   registration.
 - `codex-rs/tui/src/chatwidget/slash_dispatch.rs` — slash-command dispatch to
@@ -98,6 +119,7 @@ those requests, and how no-prompt modes behave. The core contract lives in
 ## Tests asserting this spec
 
 - `codex-rs/core/src/exec_policy_tests.rs`
+- `codex-rs/core/src/hook_runtime.rs`
 - `codex-rs/core/src/tools/sandboxing_tests.rs`
 - `codex-rs/core/src/tools/runtimes/shell/unix_escalation_tests.rs`
 - `codex-rs/tui/src/chatwidget/tests/permissions.rs`
@@ -106,7 +128,7 @@ those requests, and how no-prompt modes behave. The core contract lives in
 
 ## Known gaps (current cycle)
 
-- [ ] Add or update tests for `auto-approve` vs `never` core behavior.
+- [x] Add or update tests for `auto-approve` vs `never` core behavior.
 - [x] Add or update tests for `/approvals` and the explicit LLM Approved preset.
 - [ ] Add or update tests proving hook-approved actions skip LLM-approved review.
 - [ ] Regenerate config, app-server, hook, and TUI snapshot fixtures after the
@@ -114,7 +136,7 @@ those requests, and how no-prompt modes behave. The core contract lives in
 
 ## Rebase risk
 
-**HIGH.** The approval contract spans the core `AskForApproval` wire/config enum, the app-server v2 mirror, CLI approval-policy parsing, the shared approval presets, the orchestrator approval/reviewer/sandbox flow, and the `claude-bash-hook` compatibility layer — all surfaces upstream edits frequently. After a rebase, re-verify the `never` vs `auto-approve` split survives across protocol, config, CLI, app-server, and TUI; that `--dangerously-bypass-approvals-and-sandbox` still maps to `auto-approve` (not `never`); and that hook `allow` decisions still short-circuit both the human prompt and the LLM-approved reviewer. Related: `docs/specs/permission-prompt-tool.md` and `docs/specs/pre-tool-use-rewrites.md`.
+**HIGH.** The approval contract spans the core `AskForApproval` wire/config enum, the app-server v2 mirror, CLI approval-policy parsing, the shared approval presets, the orchestrator approval/reviewer/sandbox flow, and the `claude-bash-hook` compatibility layer — all surfaces upstream edits frequently. After a rebase, re-verify the `never` vs `auto-approve` split survives across protocol, config, CLI, app-server, and TUI; that `--dangerously-bypass-approvals-and-sandbox` only disables sandboxing and does not rewrite approval mode; and that hook `allow` decisions still short-circuit both the human prompt and the LLM-approved reviewer. Related: `docs/specs/permission-prompt-tool.md` and `docs/specs/pre-tool-use-rewrites.md`.
 
 ## Out of scope
 

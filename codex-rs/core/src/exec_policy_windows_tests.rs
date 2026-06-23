@@ -46,6 +46,7 @@ async fn evaluates_powershell_inner_commands_against_allow_rules() {
         ExecApprovalRequirement::Skip {
             bypass_sandbox: true,
             proposed_execpolicy_amendment: None,
+            pre_approved: false,
         },
     )
     .await;
