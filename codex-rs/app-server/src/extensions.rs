@@ -7,7 +7,6 @@ use codex_features::Feature;
 
 pub(crate) fn thread_extensions() -> Arc<ExtensionRegistry<Config>> {
     let mut builder = ExtensionRegistryBuilder::<Config>::new();
-    codex_git_attribution::install(&mut builder);
     codex_hostrun_adapter::install_feature_gated(&mut builder, |config| {
         config.features.enabled(Feature::Hostrun)
     });

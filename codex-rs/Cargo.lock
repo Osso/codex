@@ -1302,7 +1302,6 @@ dependencies = [
  "codex-feedback",
  "codex-file-search",
  "codex-file-watcher",
- "codex-git-attribution",
  "codex-git-utils",
  "codex-hooks",
  "codex-hostrun-adapter",
